@@ -22,7 +22,7 @@ export function getMcpServers(workspacePath) {
     },
     browser: {
       command: 'npx',
-      args: ['-y', '@playwright/mcp'],
+      args: ['-y', '@playwright/mcp', '--headless'],
     },
     github: {
       command: 'npx',

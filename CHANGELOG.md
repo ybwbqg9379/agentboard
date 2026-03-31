@@ -8,9 +8,12 @@
   - 后端 6 个测试文件（218 tests）: proxy 转换、isDangerous 安全检测、auth + Zod 验证、SQLite CRUD 集成、MCP 状态机、REST API 路由集成
   - 前端 4 个测试文件（155 tests）: flattenEvent 事件展平、Terminal 命令提取、文件变更聚合、useWebSocket hook 状态机
 - **测试 CI 门禁**: pre-commit hook 和 GitHub Actions 均加入测试步骤，测试不过不能 commit/merge
+- **Terminal 面板扩展**: 从仅显示 Bash 命令扩展为显示 WebSearch (`?`)、WebFetch (`>`)、Playwright 浏览器操作 (`>`) 等 6 种工具活动
 
 ### Fixed
 
+- **Playwright 弹出浏览器窗口**: MCP 配置缺少 `--headless` 参数，浏览器以 headed 模式运行
+- **Agent 无限运行**: 研究类任务无效率约束导致 agent 不断搜索不停止，system prompt 新增 `[EFFICIENCY]` 指令（2-3 来源收集、禁止重复搜索、30 次工具调用软上限）
 - **Express 5 req.query 只读**: `validateQuery` 中 `req.query = result.data` 在 Express 5 下抛异常，改用 `Object.defineProperty` 覆盖
 
 ### Changed
