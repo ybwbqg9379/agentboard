@@ -4,32 +4,32 @@ model_list:
     litellm_params:
       model: openai/MiniMax-M2.7-highspeed
       api_base: https://mydamoxing.cn/v1
-      api_key: os.environ/MINIMAX_API_KEY
+      api_key: os.environ/ANTHROPIC_API_KEY
 
   # Claude Code 可能请求的其他模型名，全部映射到 Minimax
   - model_name: claude-3-5-sonnet-20241022
     litellm_params:
       model: openai/MiniMax-M2.7-highspeed
       api_base: https://mydamoxing.cn/v1
-      api_key: os.environ/MINIMAX_API_KEY
+      api_key: os.environ/ANTHROPIC_API_KEY
 
   - model_name: claude-3-5-haiku-20241022
     litellm_params:
       model: openai/MiniMax-M2.7-highspeed
       api_base: https://mydamoxing.cn/v1
-      api_key: os.environ/MINIMAX_API_KEY
+      api_key: os.environ/ANTHROPIC_API_KEY
 
   - model_name: claude-haiku-4-5-20251001
     litellm_params:
       model: openai/MiniMax-M2.7-highspeed
       api_base: https://mydamoxing.cn/v1
-      api_key: os.environ/MINIMAX_API_KEY
+      api_key: os.environ/ANTHROPIC_API_KEY
 
   - model_name: claude-opus-4-6
     litellm_params:
       model: openai/MiniMax-M2.7-highspeed
       api_base: https://mydamoxing.cn/v1
-      api_key: os.environ/MINIMAX_API_KEY
+      api_key: os.environ/ANTHROPIC_API_KEY
 
 litellm_settings:
   drop_params: true

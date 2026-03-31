@@ -7,4 +7,5 @@ workspace/
 *.db
 *.db-wal
 *.db-shm
+.venv/
 .DS_Store
