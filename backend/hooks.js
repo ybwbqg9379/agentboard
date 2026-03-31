@@ -47,7 +47,7 @@ export function buildHooks(emitter, sessionId) {
                   hookSpecificOutput: {
                     hookEventName: 'PreToolUse',
                     permissionDecision: 'deny',
-                    reason,
+                    permissionDecisionReason: reason,
                   },
                 };
               }

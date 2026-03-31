@@ -111,7 +111,9 @@ function TimelineItem({ item, index }) {
       <div className={styles.eventContent}>
         <div className={styles.eventHeader}>
           <span className={styles.eventLabel}>{item.label}</span>
-          <span className={styles.eventTime}>{new Date(item.ts).toLocaleTimeString()}</span>
+          <span className={styles.eventTime}>
+            {item.ts ? new Date(item.ts).toLocaleTimeString() : '--:--:--'}
+          </span>
         </div>
         {item.body && <pre className={styles.eventBody}>{truncate(item.body)}</pre>}
       </div>

@@ -28,6 +28,7 @@ export function startAgent(prompt) {
     options: {
       cwd: WORKSPACE,
       permissionMode: 'bypassPermissions',
+      allowDangerouslySkipPermissions: true,
       maxTurns: 50,
       systemPrompt: {
         type: 'preset',
@@ -76,7 +77,7 @@ export function startAgent(prompt) {
     }
   }, config.agentTimeout);
 
-  activeAgents.set(sessionId, { stream, timeoutId });
+  activeAgents.set(sessionId, { stream, timeoutId, stopped: false });
 
   // 异步消费事件流
   (async () => {
@@ -94,8 +95,6 @@ export function startAgent(prompt) {
         insertEvent(sessionId, message.type, message);
         agentEvents.emit('event', wrapped);
       }
-
-      updateSessionStatus(sessionId, 'completed');
     } catch (err) {
       finalStatus = 'failed';
       const errEvent = {
@@ -106,11 +105,14 @@ export function startAgent(prompt) {
       };
       insertEvent(sessionId, 'stderr', { text: err.message });
       agentEvents.emit('event', errEvent);
-      updateSessionStatus(sessionId, 'failed');
     } finally {
       const entry = activeAgents.get(sessionId);
-      if (entry) clearTimeout(entry.timeoutId);
+      if (entry) {
+        clearTimeout(entry.timeoutId);
+        if (entry.stopped) finalStatus = 'stopped';
+      }
       activeAgents.delete(sessionId);
+      updateSessionStatus(sessionId, finalStatus);
       agentEvents.emit('event', {
         sessionId,
         type: 'done',
@@ -130,10 +132,9 @@ export function stopAgent(sessionId) {
   const entry = activeAgents.get(sessionId);
   if (!entry) return false;
 
+  entry.stopped = true;
   clearTimeout(entry.timeoutId);
   entry.stream.return();
-  updateSessionStatus(sessionId, 'stopped');
-  activeAgents.delete(sessionId);
   return true;
 }
 

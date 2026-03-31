@@ -11,7 +11,7 @@ import config from './config.js';
 const PROXY_PORT = parseInt(process.env.PROXY_PORT || '4000', 10);
 const TARGET_BASE = process.env.TARGET_BASE_URL || config.minimax.baseUrl;
 const TARGET_MODEL = process.env.TARGET_MODEL || config.minimax.model;
-const API_KEY = process.env.ANTHROPIC_API_KEY || '';
+const API_KEY = process.env.MINIMAX_API_KEY || process.env.ANTHROPIC_API_KEY || '';
 
 // --- Anthropic → OpenAI message 转换 ---
 
@@ -425,6 +425,23 @@ const server = createServer(async (req, res) => {
           if (transformed) res.write(transformed);
         } catch {
           // skip malformed chunks
+        }
+      }
+    }
+
+    // Process any remaining data in the SSE buffer
+    if (sseBuffer.trim()) {
+      const remaining = sseBuffer.trim();
+      if (remaining.startsWith('data: ')) {
+        const data = remaining.slice(6).trim();
+        if (data !== '[DONE]') {
+          try {
+            const chunk = JSON.parse(data);
+            const transformed = transformer.transform(chunk);
+            if (transformed) res.write(transformed);
+          } catch {
+            // skip malformed tail chunk
+          }
         }
       }
     }

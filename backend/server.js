@@ -26,6 +26,10 @@ app.get('/api/sessions/:id', (req, res) => {
 
 app.post('/api/sessions/:id/stop', (req, res) => {
   const stopped = stopAgent(req.params.id);
+  if (!stopped) {
+    res.status(404).json({ error: 'session not found or not active', stopped });
+    return;
+  }
   res.json({ stopped });
 });
 
@@ -36,10 +40,17 @@ app.get('/api/status', (_req, res) => {
   });
 });
 
+// --- Error Handler (Express 5 auto-forwards rejected promises) ---
+
+app.use((err, _req, res, _next) => {
+  console.error('[server] Unhandled route error:', err);
+  res.status(500).json({ error: err.message || 'internal server error' });
+});
+
 // --- WebSocket ---
 
 const server = createServer(app);
-const wss = new WebSocketServer({ server });
+const wss = new WebSocketServer({ server, path: '/ws' });
 
 // 跟踪每个 ws 连接订阅的 sessionId
 const subscriptions = new Map();
@@ -79,6 +90,12 @@ wss.on('connection', (ws) => {
       case 'stop': {
         const sid = msg.sessionId || subscriptions.get(ws);
         if (sid) stopAgent(sid);
+        break;
+      }
+
+      case 'unsubscribe': {
+        subscriptions.delete(ws);
+        ws.send(JSON.stringify({ type: 'unsubscribed' }));
         break;
       }
 

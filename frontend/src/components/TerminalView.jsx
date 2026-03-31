@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import styles from './TerminalView.module.css';
 
 function extractTerminalLines(events) {
@@ -62,7 +62,7 @@ function extractTerminalLines(events) {
 
 export default function TerminalView({ events }) {
   const bottomRef = useRef(null);
-  const lines = extractTerminalLines(events);
+  const lines = useMemo(() => extractTerminalLines(events), [events]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });

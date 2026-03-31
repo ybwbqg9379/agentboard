@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.3.2] - 2026-03-31
+
+### Fixed
+
+- **[Critical] SDK 启动失败**：`agentManager.js` 添加 `allowDangerouslySkipPermissions: true`，`bypassPermissions` 模式必须搭配此选项否则 SDK 拒绝启动
+- **[Critical] Hook 拒绝原因丢失**：`hooks.js` PreToolUse 返回字段从错误的 `reason` 修正为 SDK 要求的 `permissionDecisionReason`
+- **Agent 超时/停止重复事件**：重构 `stopAgent()` 和异步事件循环，用 `entry.stopped` 标志统一状态管理，`updateSessionStatus` 和 `done` 事件仅在 `finally` 中发送一次，杜绝重复 done 事件和状态不一致
+- **WebSocket 断线重连丢失订阅**：`useWebSocket.js` 引入 `sessionIdRef`/`statusRef` refs，`onopen` 时自动重新发送 `subscribe` 恢复事件流
+- **前端事件数组无限增长**：添加 `MAX_EVENTS = 5000` 上限，超限时截断旧事件，防止长时间运行导致内存和渲染性能退化
+- **clearSession 未通知后端**：清除会话时发送 `unsubscribe` action，后端同步清理 subscriptions Map
+- **stopAgent 引用过时 sessionId**：`useCallback` 改用 `sessionIdRef.current` 替代闭包捕获的 state 值
+- **WebSocket 无 unsubscribe 协议**：后端 `server.js` 新增 `unsubscribe` action 处理
+- **Proxy SSE 流尾部数据丢失**：`proxy.js` 在 `reader.read()` 循环结束后处理 `sseBuffer` 残留数据，防止最后一个不完整 chunk 被丢弃
+- **TerminalView 渲染性能**：`extractTerminalLines` 改用 `useMemo` 缓存，与 AgentTimeline 一致
+- **AgentTimeline Invalid Date**：`item.ts` 为 `undefined` 时显示 `--:--:--` 替代 `Invalid Date`
+- **WebSocket 生产环境兼容**：`WebSocketServer` 添加 `path: '/ws'` 过滤，反向代理场景下不再接受任意路径连接
+- **Express 5 异常泄露**：添加全局错误处理中间件，rejected promise 返回 JSON 错误响应而非默认 HTML 页面
+- **stopAgent API 状态码**：session 不存在时返回 404 而非 200，便于客户端区分操作结果
+- **环境变量命名误导**：`proxy.js` 优先读取 `MINIMAX_API_KEY`，回退到 `ANTHROPIC_API_KEY`；`.env.example` 更新注释说明
+
+---
+
 ## [0.3.1] - 2026-03-31
 
 ### Added

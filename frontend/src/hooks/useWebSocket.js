@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 
 const WS_URL = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`;
 const RECONNECT_INTERVAL = 3000;
+const MAX_EVENTS = 5000;
 
 export function useWebSocket() {
   const [connected, setConnected] = useState(false);
@@ -10,6 +11,8 @@ export function useWebSocket() {
   const [status, setStatus] = useState('idle'); // idle | running | completed | failed | stopped
   const wsRef = useRef(null);
   const reconnectTimer = useRef(null);
+  const sessionIdRef = useRef(null);
+  const statusRef = useRef('idle');
 
   const connect = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
@@ -20,6 +23,11 @@ export function useWebSocket() {
     ws.onopen = () => {
       setConnected(true);
       clearTimeout(reconnectTimer.current);
+      // Re-subscribe to the active session after reconnect
+      const sid = sessionIdRef.current;
+      if (sid && statusRef.current === 'running') {
+        ws.send(JSON.stringify({ action: 'subscribe', sessionId: sid }));
+      }
     };
 
     ws.onclose = () => {
@@ -40,6 +48,8 @@ export function useWebSocket() {
       }
 
       if (msg.type === 'session_started') {
+        sessionIdRef.current = msg.sessionId;
+        statusRef.current = 'running';
         setSessionId(msg.sessionId);
         setStatus('running');
         setEvents([]);
@@ -47,12 +57,19 @@ export function useWebSocket() {
       }
 
       if (msg.type === 'subscribed') {
+        sessionIdRef.current = msg.sessionId;
         setSessionId(msg.sessionId);
         return;
       }
 
+      if (msg.type === 'unsubscribed') {
+        return;
+      }
+
       if (msg.type === 'done') {
-        setStatus(msg.content?.status || 'completed');
+        const finalStatus = msg.content?.status || 'completed';
+        statusRef.current = finalStatus;
+        setStatus(finalStatus);
         return;
       }
 
@@ -60,7 +77,10 @@ export function useWebSocket() {
         return;
       }
 
-      setEvents((prev) => [...prev, msg]);
+      setEvents((prev) => {
+        const next = [...prev, msg];
+        return next.length > MAX_EVENTS ? next.slice(-MAX_EVENTS) : next;
+      });
     };
   }, []);
 
@@ -87,14 +107,17 @@ export function useWebSocket() {
   );
 
   const stopAgent = useCallback(() => {
-    send({ action: 'stop', sessionId });
-  }, [send, sessionId]);
+    send({ action: 'stop', sessionId: sessionIdRef.current });
+  }, [send]);
 
   const clearSession = useCallback(() => {
+    send({ action: 'unsubscribe' });
+    sessionIdRef.current = null;
+    statusRef.current = 'idle';
     setEvents([]);
     setSessionId(null);
     setStatus('idle');
-  }, []);
+  }, [send]);
 
   return {
     connected,
