@@ -220,7 +220,6 @@ function createStreamTransformer(requestModel) {
               );
               contentIndex++;
             }
-            currentToolId = tc.id;
             events.push(
               `event: content_block_start`,
               `data: ${JSON.stringify({
@@ -271,7 +270,6 @@ function createStreamTransformer(requestModel) {
       }
 
       if (openaiChunk.usage) {
-        inputTokens = openaiChunk.usage.prompt_tokens || 0;
         outputTokens = openaiChunk.usage.completion_tokens || 0;
       }
 
