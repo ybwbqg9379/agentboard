@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Pre-commit Hook**: husky pre-commit 门禁 -- 检查 CHANGELOG 已更新、Prettier 格式、ESLint 零警告、Build 通过
+- **GitHub Actions CI**: `.github/workflows/ci.yml` -- push/PR 到 main 自动运行 format + lint + build
+- **`npm run check`**: 一键运行全部检查（format:check + lint:strict + build）
+- **`npm run lint:strict`**: ESLint `--max-warnings 0` 严格模式
+
+---
+
 ## [0.7.0] - 2026-03-31
 
 ### Added

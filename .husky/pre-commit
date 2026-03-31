@@ -1,0 +1,19 @@
+#!/bin/sh
+
+echo "[pre-commit] Checking CHANGELOG.md..."
+if ! git diff --cached --name-only | grep -q "CHANGELOG.md"; then
+  echo "CHANGELOG.md is not staged. Update it before committing."
+  echo "  (skip with: git commit --no-verify)"
+  exit 1
+fi
+
+echo "[pre-commit] Running format check..."
+npx prettier --check . || exit 1
+
+echo "[pre-commit] Running lint (zero warnings)..."
+npx eslint --max-warnings 0 backend/ frontend/src/ || exit 1
+
+echo "[pre-commit] Running build..."
+npm run build || exit 1
+
+echo "[pre-commit] All checks passed."
