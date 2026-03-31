@@ -1,0 +1,8 @@
+{
+  "name": "agentboard-skills",
+  "description": "Curated open-source skills for AgentBoard agents: code review, TDD, debugging, architecture, and research",
+  "version": "1.0.0",
+  "author": {
+    "name": "AgentBoard"
+  }
+}

@@ -25,6 +25,9 @@ const config = {
   // Agent 工作目录（隔离）
   workspaceDir: resolve(process.env.WORKSPACE_DIR || resolve(__dirname, '..', 'workspace')),
 
+  // 插件目录
+  pluginsDir: resolve(process.env.PLUGINS_DIR || resolve(__dirname, '..', 'plugins')),
+
   // SQLite 数据库路径
   dbPath: resolve(process.env.DB_PATH || resolve(__dirname, '..', 'data', 'agentboard.db')),
 

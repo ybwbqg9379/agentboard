@@ -13,6 +13,7 @@ const activeAgents = new Map();
 export const agentEvents = new EventEmitter();
 
 const WORKSPACE = resolve(config.workspaceDir);
+const PLUGINS_DIR = resolve(config.pluginsDir);
 
 /**
  * 启动一个 Claude Code Agent (SDK 方式)
@@ -62,6 +63,9 @@ export function startAgent(prompt) {
 
       // File change tracking for rollback
       enableFileCheckpointing: true,
+
+      // Skills (via local plugin)
+      plugins: [{ type: 'local', path: resolve(PLUGINS_DIR, 'agentboard-skills') }],
     },
   });
 

@@ -22,6 +22,7 @@ export function getAgentDefs() {
         'Be concise -- prioritise actionable feedback over lengthy explanations.',
       ].join('\n'),
       tools: ['Read', 'Glob', 'Grep'],
+      skills: ['differential-review'],
     },
 
     'test-writer': {
@@ -34,6 +35,7 @@ export function getAgentDefs() {
         'Ensure every test is deterministic and self-contained.',
       ].join('\n'),
       tools: ['Read', 'Write', 'Bash', 'Glob'],
+      skills: ['test-driven-development', 'property-based-testing'],
     },
 
     researcher: {
@@ -45,6 +47,7 @@ export function getAgentDefs() {
         'Prefer official documentation over third-party blog posts.',
       ].join('\n'),
       tools: ['Read', 'Grep', 'mcp__browser__*'],
+      skills: ['audit-context-building'],
     },
 
     architect: {
@@ -57,6 +60,7 @@ export function getAgentDefs() {
         'Produce actionable plans that other agents or developers can execute directly.',
       ].join('\n'),
       tools: ['Read', 'Glob', 'Grep', 'mcp__sequential-thinking__*'],
+      skills: ['writing-plans', 'brainstorming'],
     },
   };
 }

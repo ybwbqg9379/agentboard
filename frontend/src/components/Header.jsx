@@ -5,7 +5,7 @@ export default function Header({ connected, sessionId, onClear }) {
     <header className={styles.header}>
       <div className={styles.left}>
         <span className={styles.logo}>AgentBoard</span>
-        <span className={styles.version}>v0.2.1</span>
+        <span className={styles.version}>v0.3.1</span>
       </div>
 
       <div className={styles.right}>

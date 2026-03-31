@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.3.1] - 2026-03-31
+
+### Added
+
+- **Skills Plugin**: 8 个开源 SKILL.md 集成为本地插件 (`plugins/agentboard-skills/`)
+  - `differential-review` (trailofbits) -- 安全差异审查 + 爆炸半径分析 -> code-reviewer
+  - `test-driven-development` (superpowers) -- 严格 red-green-refactor -> test-writer
+  - `property-based-testing` (trailofbits) -- 属性测试 -> test-writer
+  - `audit-context-building` (trailofbits) -- 系统化调研上下文 -> researcher
+  - `writing-plans` (superpowers) -- 细粒度实施计划 -> architect
+  - `brainstorming` (superpowers) -- 设计探索 -> architect
+  - `systematic-debugging` (superpowers) -- 根因分析 -> 主代理
+  - `verification-before-completion` (superpowers) -- 验证铁律 -> 主代理
+- **Subagent Skills**: 每个子代理通过 `skills` 字段加载对应领域技能
+- **Plugins Config**: `agentManager.js` 通过 `plugins` 选项加载本地插件目录
+
+---
+
 ## [0.3.0] - 2026-03-31
 
 ### Added
