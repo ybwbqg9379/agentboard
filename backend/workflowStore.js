@@ -18,6 +18,7 @@ db.pragma('foreign_keys = ON');
 db.exec(`
   CREATE TABLE IF NOT EXISTS workflows (
     id          TEXT PRIMARY KEY,
+    user_id     TEXT NOT NULL DEFAULT 'default',
     name        TEXT NOT NULL,
     description TEXT DEFAULT '',
     definition  TEXT NOT NULL,
@@ -27,6 +28,7 @@ db.exec(`
 
   CREATE TABLE IF NOT EXISTS workflow_runs (
     id           TEXT PRIMARY KEY,
+    user_id      TEXT NOT NULL DEFAULT 'default',
     workflow_id  TEXT NOT NULL REFERENCES workflows(id),
     status       TEXT NOT NULL DEFAULT 'pending',
     context      TEXT DEFAULT '{}',
@@ -39,20 +41,35 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_workflow_runs_workflow ON workflow_runs(workflow_id);
 `);
 
+try {
+  const tableInfoW = db.pragma('table_info(workflows)');
+  if (!tableInfoW.some((col) => col.name === 'user_id')) {
+    db.exec(`ALTER TABLE workflows ADD COLUMN user_id TEXT NOT NULL DEFAULT 'default'`);
+  }
+  const tableInfoR = db.pragma('table_info(workflow_runs)');
+  if (!tableInfoR.some((col) => col.name === 'user_id')) {
+    db.exec(`ALTER TABLE workflow_runs ADD COLUMN user_id TEXT NOT NULL DEFAULT 'default'`);
+  }
+} catch (e) {
+  console.error('[workflowStore] Migration failed:', e);
+}
+
 const stmts = {
   createWorkflow: db.prepare(
-    'INSERT INTO workflows (id, name, description, definition) VALUES (?, ?, ?, ?)',
+    'INSERT INTO workflows (id, user_id, name, description, definition) VALUES (?, ?, ?, ?, ?)',
   ),
   updateWorkflow: db.prepare(
-    "UPDATE workflows SET name = ?, description = ?, definition = ?, updated_at = datetime('now') WHERE id = ?",
+    "UPDATE workflows SET name = ?, description = ?, definition = ?, updated_at = datetime('now') WHERE id = ? AND user_id = ?",
   ),
-  getWorkflow: db.prepare('SELECT * FROM workflows WHERE id = ?'),
-  listWorkflows: db.prepare('SELECT * FROM workflows ORDER BY updated_at DESC LIMIT ? OFFSET ?'),
-  countWorkflows: db.prepare('SELECT count(*) as total FROM workflows'),
-  deleteWorkflow: db.prepare('DELETE FROM workflows WHERE id = ?'),
+  getWorkflow: db.prepare('SELECT * FROM workflows WHERE id = ? AND user_id = ?'),
+  listWorkflows: db.prepare(
+    'SELECT * FROM workflows WHERE user_id = ? ORDER BY updated_at DESC LIMIT ? OFFSET ?',
+  ),
+  countWorkflows: db.prepare('SELECT count(*) as total FROM workflows WHERE user_id = ?'),
+  deleteWorkflow: db.prepare('DELETE FROM workflows WHERE id = ? AND user_id = ?'),
 
   createRun: db.prepare(
-    'INSERT INTO workflow_runs (id, workflow_id, status, context) VALUES (?, ?, ?, ?)',
+    'INSERT INTO workflow_runs (id, user_id, workflow_id, status, context) VALUES (?, ?, ?, ?, ?)',
   ),
   updateRun: db.prepare(
     'UPDATE workflow_runs SET status = ?, context = ?, node_results = ?, error = ? WHERE id = ?',
@@ -60,50 +77,68 @@ const stmts = {
   completeRun: db.prepare(
     "UPDATE workflow_runs SET status = ?, node_results = ?, completed_at = datetime('now'), error = ? WHERE id = ?",
   ),
-  getRun: db.prepare('SELECT * FROM workflow_runs WHERE id = ?'),
+  getRun: db.prepare('SELECT * FROM workflow_runs WHERE id = ? AND user_id = ?'),
   listRuns: db.prepare(
-    'SELECT * FROM workflow_runs WHERE workflow_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?',
+    'SELECT * FROM workflow_runs WHERE workflow_id = ? AND user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?',
   ),
 };
 
 // --- Workflow CRUD ---
 
-export function createWorkflow(name, description, definition) {
+export function createWorkflow(userId, name, description, definition) {
   const id = randomUUID();
-  stmts.createWorkflow.run(id, name, description || '', JSON.stringify(definition));
+  stmts.createWorkflow.run(
+    id,
+    userId || 'default',
+    name,
+    description || '',
+    JSON.stringify(definition),
+  );
   return id;
 }
 
-export function updateWorkflow(id, name, description, definition) {
-  const result = stmts.updateWorkflow.run(name, description || '', JSON.stringify(definition), id);
+export function updateWorkflow(userId, id, name, description, definition) {
+  const result = stmts.updateWorkflow.run(
+    name,
+    description || '',
+    JSON.stringify(definition),
+    id,
+    userId || 'default',
+  );
   return result.changes > 0;
 }
 
-export function getWorkflow(id) {
-  const row = stmts.getWorkflow.get(id);
+export function getWorkflow(userId, id) {
+  const row = stmts.getWorkflow.get(id, userId || 'default');
   if (!row) return null;
   return { ...row, definition: JSON.parse(row.definition) };
 }
 
-export function listWorkflows(limit = 20, offset = 0) {
-  const rows = stmts.listWorkflows.all(limit, offset);
+export function listWorkflows(userId, limit = 20, offset = 0) {
+  const rows = stmts.listWorkflows.all(userId || 'default', limit, offset);
   return rows.map((r) => ({ ...r, definition: JSON.parse(r.definition) }));
 }
 
-export function countWorkflows() {
-  return stmts.countWorkflows.get()?.total || 0;
+export function countWorkflows(userId) {
+  return stmts.countWorkflows.get(userId || 'default')?.total || 0;
 }
 
-export function deleteWorkflow(id) {
-  const result = stmts.deleteWorkflow.run(id);
+export function deleteWorkflow(userId, id) {
+  const result = stmts.deleteWorkflow.run(id, userId || 'default');
   return result.changes > 0;
 }
 
 // --- Workflow Run CRUD ---
 
-export function createWorkflowRun(workflowId, initialContext = {}, runId = randomUUID()) {
+export function createWorkflowRun(userId, workflowId, initialContext = {}, runId = randomUUID()) {
   const id = runId;
-  stmts.createRun.run(id, workflowId, 'pending', JSON.stringify(initialContext));
+  stmts.createRun.run(
+    id,
+    userId || 'default',
+    workflowId,
+    'pending',
+    JSON.stringify(initialContext),
+  );
   return id;
 }
 
@@ -121,8 +156,8 @@ export function completeWorkflowRun(id, { status, nodeResults, error }) {
   stmts.completeRun.run(status, JSON.stringify(nodeResults || {}), error || null, id);
 }
 
-export function getWorkflowRun(id) {
-  const row = stmts.getRun.get(id);
+export function getWorkflowRun(userId, id) {
+  const row = stmts.getRun.get(id, userId || 'default');
   if (!row) return null;
   return {
     ...row,
@@ -131,8 +166,8 @@ export function getWorkflowRun(id) {
   };
 }
 
-export function listWorkflowRuns(workflowId, limit = 20, offset = 0) {
-  const rows = stmts.listRuns.all(workflowId, limit, offset);
+export function listWorkflowRuns(userId, workflowId, limit = 20, offset = 0) {
+  const rows = stmts.listRuns.all(workflowId, userId || 'default', limit, offset);
   return rows.map((r) => ({
     ...r,
     context: JSON.parse(r.context || '{}'),

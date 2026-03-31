@@ -173,7 +173,7 @@ function applyTemplate(template, context) {
 /**
  * Execute a single node and return its result.
  */
-async function executeNode(node, context, runId, workflowId) {
+async function executeNode(node, context, runId, workflowId, userId) {
   const nodeId = node.id;
 
   workflowEvents.emit('node_start', { runId, workflowId, nodeId, type: node.type });
@@ -206,7 +206,7 @@ async function executeNode(node, context, runId, workflowId) {
 
     case 'agent': {
       const prompt = applyTemplate(node.config.prompt, context);
-      const result = await runAgentNode(prompt, node.config, runId, workflowId, nodeId);
+      const result = await runAgentNode(prompt, node.config, runId, workflowId, nodeId, userId);
       workflowEvents.emit('node_complete', { runId, workflowId, nodeId, result });
       return result;
     }
@@ -232,9 +232,10 @@ async function executeNode(node, context, runId, workflowId) {
  * Run an agent node: start a session and wait for completion.
  * Registers the running agent with activeRuns so abort can cancel it.
  */
-function runAgentNode(prompt, nodeConfig, runId, workflowId, nodeId) {
+function runAgentNode(prompt, nodeConfig, runId, workflowId, nodeId, userId) {
   return new Promise((resolve, reject) => {
     const sessionId = startAgent(prompt, {
+      userId,
       permissionMode: nodeConfig.permissionMode || 'bypassPermissions',
       maxTurns: nodeConfig.maxTurns || 30,
     });
@@ -287,10 +288,17 @@ function runAgentNode(prompt, nodeConfig, runId, workflowId, nodeId) {
  * @param {object} definition - { nodes, edges }
  * @param {object} [inputContext={}] - Initial context values
  * @param {string} [preCreatedRunId] - Optional pre-created run ID (from API layer)
+ * @param {string} [userId] - User ID for SaaS tracking and tenancy
  * @returns {Promise<{ runId, status, nodeResults, context }>}
  */
-export async function executeWorkflow(workflowId, definition, inputContext = {}, preCreatedRunId) {
-  const runId = preCreatedRunId || createWorkflowRun(workflowId, inputContext);
+export async function executeWorkflow(
+  workflowId,
+  definition,
+  inputContext = {},
+  preCreatedRunId,
+  userId = 'default',
+) {
+  const runId = preCreatedRunId || createWorkflowRun(userId, workflowId, inputContext);
   const { nodes, edges } = definition;
 
   activeRuns.set(runId, { aborted: false });
@@ -345,7 +353,7 @@ export async function executeWorkflow(workflowId, definition, inputContext = {},
       }
 
       // Execute the node
-      const result = await executeNode(node, context, runId, workflowId);
+      const result = await executeNode(node, context, runId, workflowId, userId);
       nodeResults[nodeId] = result;
       executed.add(nodeId);
 

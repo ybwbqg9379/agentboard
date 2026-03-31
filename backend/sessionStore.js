@@ -13,6 +13,7 @@ db.pragma('foreign_keys = ON');
 db.exec(`
   CREATE TABLE IF NOT EXISTS sessions (
     id        TEXT PRIMARY KEY,
+    user_id   TEXT NOT NULL DEFAULT 'default',
     prompt    TEXT NOT NULL,
     status    TEXT NOT NULL DEFAULT 'pending',
     stats     TEXT,
@@ -30,14 +31,30 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_events_session ON events(session_id);
 `);
 
+try {
+  // Migration for user_id
+  const tableInfo = db.pragma('table_info(sessions)');
+  if (!tableInfo.some((col) => col.name === 'user_id')) {
+    db.exec(`ALTER TABLE sessions ADD COLUMN user_id TEXT NOT NULL DEFAULT 'default'`);
+  }
+} catch (e) {
+  console.error('[sessionStore] Migration failed:', e);
+}
+
 const stmts = {
-  createSession: db.prepare('INSERT INTO sessions (id, prompt, status) VALUES (?, ?, ?)'),
+  createSession: db.prepare(
+    'INSERT INTO sessions (id, user_id, prompt, status) VALUES (?, ?, ?, ?)',
+  ),
   updateStatus: db.prepare('UPDATE sessions SET status = ? WHERE id = ?'),
   updateStats: db.prepare('UPDATE sessions SET stats = ? WHERE id = ?'),
-  getSession: db.prepare('SELECT * FROM sessions WHERE id = ?'),
-  listSessions: db.prepare('SELECT * FROM sessions ORDER BY created_at DESC LIMIT ?'),
-  listSessionsPaged: db.prepare('SELECT * FROM sessions ORDER BY created_at DESC LIMIT ? OFFSET ?'),
-  countSessions: db.prepare('SELECT count(*) as total FROM sessions'),
+  getSession: db.prepare('SELECT * FROM sessions WHERE id = ? AND user_id = ?'),
+  listSessions: db.prepare(
+    'SELECT * FROM sessions WHERE user_id = ? ORDER BY created_at DESC LIMIT ?',
+  ),
+  listSessionsPaged: db.prepare(
+    'SELECT * FROM sessions WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?',
+  ),
+  countSessions: db.prepare('SELECT count(*) as total FROM sessions WHERE user_id = ?'),
   recoverStale: db.prepare("UPDATE sessions SET status = 'interrupted' WHERE status = 'running'"),
   insertEvent: db.prepare(
     'INSERT INTO events (session_id, type, content, timestamp) VALUES (?, ?, ?, ?)',
@@ -46,10 +63,10 @@ const stmts = {
   countEvents: db.prepare('SELECT count(*) as total FROM events WHERE session_id = ?'),
 };
 
-export function createSession(prompt) {
+export function createSession(userId, prompt) {
   const id = randomUUID();
   try {
-    stmts.createSession.run(id, prompt, 'running');
+    stmts.createSession.run(id, userId || 'default', prompt, 'running');
   } catch (err) {
     console.error(`[sessionStore] createSession failed: ${err.message}`);
     throw err;
@@ -73,18 +90,18 @@ export function updateSessionStats(id, stats) {
   }
 }
 
-export function getSession(id) {
+export function getSession(userId, id) {
   try {
-    return stmts.getSession.get(id);
+    return stmts.getSession.get(id, userId || 'default');
   } catch (err) {
     console.error(`[sessionStore] getSession failed: ${err.message}`);
     return null;
   }
 }
 
-export function listSessions(limit = 50) {
+export function listSessions(userId, limit = 50) {
   try {
-    return stmts.listSessions.all(limit);
+    return stmts.listSessions.all(userId || 'default', limit);
   } catch (err) {
     console.error(`[sessionStore] listSessions failed: ${err.message}`);
     return [];
@@ -125,18 +142,18 @@ export function recoverStaleSessions() {
   }
 }
 
-export function listSessionsPaged(limit = 20, offset = 0) {
+export function listSessionsPaged(userId, limit = 20, offset = 0) {
   try {
-    return stmts.listSessionsPaged.all(limit, offset);
+    return stmts.listSessionsPaged.all(userId || 'default', limit, offset);
   } catch (err) {
     console.error(`[sessionStore] listSessionsPaged failed: ${err.message}`);
     return [];
   }
 }
 
-export function countSessions() {
+export function countSessions(userId) {
   try {
-    return stmts.countSessions.get()?.total || 0;
+    return stmts.countSessions.get(userId || 'default')?.total || 0;
   } catch (err) {
     console.error(`[sessionStore] countSessions failed: ${err.message}`);
     return 0;

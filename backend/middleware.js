@@ -42,6 +42,9 @@ export function isAllowedWebSocketOrigin(origin) {
  * Skipped when AGENTBOARD_API_KEY is not set (development mode).
  */
 export function authMiddleware(req, res, next) {
+  // Always initialize req.user
+  req.user = { id: req.headers['x-user-id'] || 'default' };
+
   if (!API_KEY) return next(); // no key configured = open access
 
   const header = req.headers.authorization || '';
@@ -60,6 +63,8 @@ export function authMiddleware(req, res, next) {
 export function wsAuth(req) {
   const origin = req.headers.origin;
   if (!isAllowedWebSocketOrigin(origin)) return false;
+
+  req.userId = req.headers['x-user-id'] || 'default';
 
   if (!API_KEY) return true;
   const url = new URL(req.url, `http://${req.headers.host}`);

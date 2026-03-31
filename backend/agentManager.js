@@ -1,6 +1,7 @@
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { EventEmitter } from 'node:events';
-import { resolve } from 'node:path';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import config from './config.js';
 import {
   createSession,
@@ -18,66 +19,85 @@ const activeAgents = new Map();
 
 export const agentEvents = new EventEmitter();
 
-const WORKSPACE = resolve(config.workspaceDir);
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
 const PLUGINS_DIR = resolve(config.pluginsDir);
+
+function getUserWorkspace(userId) {
+  // If SaaS mode is strictly enforcing isolation, we append userId.
+  // For backwards compat locally without a token, we might just append 'default' or use root.
+  // Using a subfolder per tenant is safest.
+  if (!userId || userId === 'default') return resolve(config.workspaceDir);
+  return resolve(config.workspaceDir, userId);
+}
 
 // Valid permission modes exposed to the frontend
 export const PERMISSION_MODES = ['bypassPermissions', 'default', 'acceptEdits', 'plan'];
 
 // Shared system prompt appended to all agent sessions
-const SYSTEM_PROMPT_APPEND = [
-  `[SECURITY] You are sandboxed to: ${WORKSPACE}`,
-  `All file operations MUST stay within this directory.`,
-  `NEVER use absolute paths outside ${WORKSPACE}.`,
-  `NEVER access parent directories beyond ${WORKSPACE}.`,
-  ``,
-  `[WEB ACCESS] You have three web access methods. Use them wisely:`,
-  `  1. WebSearch: can be used for quick queries, but results may be limited.`,
-  `  2. WebFetch: works for many sites, but some will block with 403.`,
-  `  3. Playwright MCP (mcp__browser__*): the most reliable method, works on any site.`,
-  `     - browser_navigate → browser_snapshot to read content`,
-  `     - browser_evaluate to extract data via JS`,
-  `     - browser_click / browser_type / browser_fill_form to interact`,
-  `Rules:`,
-  `  - If WebFetch returns 403 or "unable to fetch", do NOT retry the same URL. Switch to Playwright immediately.`,
-  `  - For sites known to block bots (wsj.com, bloomberg.com, ft.com), use Playwright directly.`,
-  `  - For web search, you can use WebSearch or navigate to google.com via Playwright.`,
-  ``,
-  `[EFFICIENCY] Be focused and concise:`,
-  `  - For research/information tasks: gather key data from 2-3 authoritative sources, then synthesize and present your findings. Do NOT exhaustively search every source.`,
-  `  - If you have enough information to answer the user's question, write your response immediately. Do not keep searching "just in case."`,
-  `  - Avoid redundant searches: do not look up the same information with different tools or rephrased queries.`,
-  `  - Most tasks should complete within 20 tool calls. If you have used 30+ tools without a clear result, summarize what you have and deliver it.`,
-  `  - When presenting results, be structured and direct. Use tables or bullet points for data-heavy answers.`,
-].join('\n');
+const getSystemPromptAppend = (userWorkspace) =>
+  [
+    `[SECURITY] You are sandboxed to: ${userWorkspace}`,
+    `All file operations MUST stay within this directory.`,
+    `NEVER use absolute paths outside ${userWorkspace}.`,
+    `NEVER access parent directories beyond ${userWorkspace}.`,
+    ``,
+    `[WEB ACCESS] You have three web access methods. Use them wisely:`,
+    `  1. WebSearch: can be used for quick queries, but results may be limited.`,
+    `  2. WebFetch: works for many sites, but some will block with 403.`,
+    `  3. Playwright MCP (mcp__browser__*): the most reliable method, works on any site.`,
+    `     - browser_navigate → browser_snapshot to read content`,
+    `     - browser_evaluate to extract data via JS`,
+    `     - browser_click / browser_type / browser_fill_form to interact`,
+    `Rules:`,
+    `  - If WebFetch returns 403 or "unable to fetch", do NOT retry the same URL. Switch to Playwright immediately.`,
+    `  - For sites known to block bots (wsj.com, bloomberg.com, ft.com), use Playwright directly.`,
+    `  - For web search, you can use WebSearch or navigate to google.com via Playwright.`,
+    ``,
+    `[EFFICIENCY] Be focused and concise:`,
+    `  - For research/information tasks: gather key data from 2-3 authoritative sources, then synthesize and present your findings. Do NOT exhaustively search every source.`,
+    `  - If you have enough information to answer the user's question, write your response immediately. Do not keep searching "just in case."`,
+    `  - Avoid redundant searches: do not look up the same information with different tools or rephrased queries.`,
+    `  - Most tasks should complete within 20 tool calls. If you have used 30+ tools without a clear result, summarize what you have and deliver it.`,
+    `  - When presenting results, be structured and direct. Use tables or bullet points for data-heavy answers.`,
+  ].join('\n');
 
 /**
  * Build the base options shared between startAgent and continueAgent.
  */
-function buildBaseOptions(sessionId, permMode, prompt) {
+function buildBaseOptions(sessionId, permMode, prompt, userId) {
   const needsSkip = permMode === 'bypassPermissions';
+  const userWorkspace = getUserWorkspace(userId);
 
   // Conditionally route tools and MCPs based on user intent
   const { uniqueAllowedTools, selectedMcpServers } = routeTools(
     prompt,
-    WORKSPACE,
+    userWorkspace,
     resolve(PLUGINS_DIR, 'agentboard-skills'),
   );
 
+  // Dynamically inject the Native MCP Server to host our proprietary JS tools (Phase 2)
+  selectedMcpServers.agentboard_native = {
+    command: 'node',
+    args: [resolve(__dirname, 'tools/nativeMcpServer.js'), userId || 'default', sessionId],
+  };
+  uniqueAllowedTools.push('mcp__agentboard_native__*');
+
   return {
-    cwd: WORKSPACE,
+    cwd: userWorkspace,
     permissionMode: permMode,
     allowDangerouslySkipPermissions: needsSkip,
     systemPrompt: {
       type: 'preset',
       preset: 'claude_code',
-      append: SYSTEM_PROMPT_APPEND,
+      append: getSystemPromptAppend(userWorkspace),
     },
     settingSources: [],
     env: {
       PATH: '/usr/local/bin:/usr/bin:/bin',
-      HOME: WORKSPACE,
-      TMPDIR: resolve(WORKSPACE, '.tmp'),
+      HOME: userWorkspace,
+      TMPDIR: resolve(userWorkspace, '.tmp'),
       ANTHROPIC_BASE_URL: config.proxy.url,
       ANTHROPIC_API_KEY: config.llm.apiKey || 'placeholder',
       CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING: '1',
@@ -85,7 +105,7 @@ function buildBaseOptions(sessionId, permMode, prompt) {
     mcpServers: selectedMcpServers,
     allowedTools: uniqueAllowedTools,
     agents: getAgentDefs(),
-    hooks: buildHooks(agentEvents, sessionId, WORKSPACE),
+    hooks: buildHooks(agentEvents, sessionId, userWorkspace),
     includePartialMessages: true,
     enableFileCheckpointing: true,
     plugins: [{ type: 'local', path: resolve(PLUGINS_DIR, 'agentboard-skills') }],
@@ -174,12 +194,12 @@ function consumeStream(sessionId, stream) {
  * @returns {string} sessionId
  */
 export function startAgent(prompt, opts = {}) {
-  const sessionId = createSession(prompt);
+  const sessionId = createSession(opts.userId, prompt);
   const permMode = PERMISSION_MODES.includes(opts.permissionMode)
     ? opts.permissionMode
     : 'bypassPermissions';
 
-  const baseOpts = buildBaseOptions(sessionId, permMode, prompt);
+  const baseOpts = buildBaseOptions(sessionId, permMode, prompt, opts.userId);
   const stream = query({
     prompt,
     options: {
@@ -215,7 +235,7 @@ export function continueAgent(sessionId, prompt, opts = {}) {
   updateSessionStatus(sessionId, 'running');
   insertEvent(sessionId, 'user', { type: 'user', text: prompt, timestamp: Date.now() });
 
-  const baseOpts = buildBaseOptions(sessionId, permMode, prompt);
+  const baseOpts = buildBaseOptions(sessionId, permMode, prompt, opts.userId);
   const stream = query({
     prompt,
     options: {

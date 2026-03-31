@@ -63,14 +63,14 @@ const mockEvent = {
 };
 
 vi.mock('./sessionStore.js', () => ({
-  listSessionsPaged: vi.fn((limit, offset) => {
+  listSessionsPaged: vi.fn((_userId, limit, offset) => {
     if (limit && offset >= 0) return [mockSession];
     return [];
   }),
-  countSessions: vi.fn(() => 1),
-  getSession: vi.fn((id) => (id === 'valid-id' ? { ...mockSession } : undefined)),
-  getEvents: vi.fn((id) => (id === 'valid-id' ? [{ ...mockEvent }] : [])),
-  countEvents: vi.fn((id) => (id === 'valid-id' ? 1 : 0)),
+  countSessions: vi.fn((_userId) => 1),
+  getSession: vi.fn((_userId, id) => (id === 'valid-id' ? { ...mockSession } : undefined)),
+  getEvents: vi.fn((sessionId) => (sessionId === 'valid-id' ? [{ ...mockEvent }] : [])),
+  countEvents: vi.fn((sessionId) => (sessionId === 'valid-id' ? 1 : 0)),
   recoverStaleSessions: vi.fn(() => 0),
   close: vi.fn(),
 }));

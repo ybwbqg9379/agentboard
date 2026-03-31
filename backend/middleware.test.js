@@ -40,7 +40,7 @@ describe('authMiddleware - no key configured', () => {
   it('calls next() when AGENTBOARD_API_KEY is unset', async () => {
     const { authMiddleware } = await import('./middleware.js');
     const next = vi.fn();
-    authMiddleware({}, mockRes(), next);
+    authMiddleware({ headers: {} }, mockRes(), next);
     expect(next).toHaveBeenCalledOnce();
   });
 
@@ -49,7 +49,7 @@ describe('authMiddleware - no key configured', () => {
     vi.resetModules();
     const { authMiddleware } = await import('./middleware.js');
     const next = vi.fn();
-    authMiddleware({}, mockRes(), next);
+    authMiddleware({ headers: {} }, mockRes(), next);
     expect(next).toHaveBeenCalledOnce();
   });
 });

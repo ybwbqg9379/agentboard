@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+### 企业级核心重构 & 零信任架构 (Enterprise Core & Zero-Trust Architecture)
+
+- **多租户 SaaS 隔离架构**: 实现了底层数据库结构的彻底隔离。`sessionStore.js` 和 `workflowStore.js` 现已将 `user_id` 作为硬分区主键，强制实施在 `sessions`, `events`, `workflows` 和 `workflow_runs` 表上。
+- **AgentBoard 原生 MCP 服务器**: 引入了一个作为子进程运行的 `@modelcontextprotocol/sdk` 代理中介 (`nativeMcpServer.js`)，该服务器负责向模型注入高阶原生 JavaScript 工具，彻底绕过官方 Claude Agent SDK 封闭环境的整合限制。
+- **零信任 Docker 沙盒 (`REPLTool.js`)**: 现已将所有的实时 Node.js 与 Python 脚本评估和执行强迁至极度受限的临时容器内执行。容器具备零网络模式 (`NetworkMode: none`)、极其严格的 256MB 内存上限、限制 50 个 PID 防止叉形炸弹 (Fork-Bomb)，以及排他性的单一租户目录挂载（`binds` 严格绑定到当前的 `user_id` 工作区）。
+- **原生衍生子代理系统 (`TaskCreateTool.js`)**: 主代理现可自主分派、在后台完全隔离的 SQL 会话中并发拉起独立的 Agent SDK 计算包，以便在不污染母体上下文视窗的前提下处理重度泛读或复杂分析计算逻辑。
+- **批处理与循环调度引擎 (`BatchTool.js` & `LoopTool.js`)**: 原生中继能力组件。允许作为主控节点的大模型通过映射一批件或一组意图指令，从而并发拉起最多 10 个子代理集群异步或顺序处理流水线作业。
+- **记忆化长期持久层库 (`memoryStore.js`)**: 自研定制化的、按用户分区围栏的 SQLite 知识图谱数据库系统（通过 `RememberTool` 和 `RecallTool`），彻底抛弃并替换掉存在跨租户数据泄露致命缺陷的官方系统内置 MCP 记忆节点。
+- **动态用户工作域初始化**: 废除并清除了 `agentManager.js` 内涉及全局单例模式的死锁 `const WORKSPACE` 常量，将 LLM 的操作视图动态挂载于用户独有的隔离云盘层上。
+
+### 安全更新 (Security Fixes)
+
+- **[Critical] 杜绝跨租户记忆泄漏污染**: 移除了含有重大越权和泄漏隐患的官方 `server-memory` 系统级 MCP 节点。替之以更安全的由 `user_id` 强隔离的 `memoryStore.js`。
+- **[Critical] Host-RCE 主机提权防御缓解**: 删除了易受突破的宿主机原生的 Bash/脚本评估解释能力插件，强制转交具备路径围墙与断网策略的隔离沙箱容器代行解析，以此抵御任何绕开围栏发起对母机环境渗透的 RCE（远程代码执行）攻击。
+
 ### Docs
 
 - **全面消除文档漂移 (Zero Documentation Drift)**: 发起“文档全景治理”行动，校准了四大核心文件以匹配当前的实际项目状态：

@@ -39,14 +39,14 @@ describe('Workflow CRUD', () => {
   let wfId;
 
   it('creates a workflow and returns a UUID', () => {
-    wfId = createWorkflow('Test WF', 'A test workflow', definition);
+    wfId = createWorkflow('test-user', 'Test WF', 'A test workflow', definition);
     expect(wfId).toBeDefined();
     expect(typeof wfId).toBe('string');
     expect(wfId.length).toBe(36);
   });
 
   it('retrieves a workflow by ID with parsed definition', () => {
-    const wf = getWorkflow(wfId);
+    const wf = getWorkflow('test-user', wfId);
     expect(wf).not.toBeNull();
     expect(wf.name).toBe('Test WF');
     expect(wf.description).toBe('A test workflow');
@@ -54,18 +54,18 @@ describe('Workflow CRUD', () => {
   });
 
   it('returns null for non-existent workflow', () => {
-    expect(getWorkflow('00000000-0000-0000-0000-000000000000')).toBeNull();
+    expect(getWorkflow('test-user', '00000000-0000-0000-0000-000000000000')).toBeNull();
   });
 
   it('lists workflows with pagination', () => {
-    const list = listWorkflows(10, 0);
+    const list = listWorkflows('test-user', 10, 0);
     expect(Array.isArray(list)).toBe(true);
     expect(list.length).toBeGreaterThanOrEqual(1);
     expect(list[0].definition).toBeDefined();
   });
 
   it('counts workflows', () => {
-    const count = countWorkflows();
+    const count = countWorkflows('test-user');
     expect(count).toBeGreaterThanOrEqual(1);
   });
 
@@ -74,26 +74,32 @@ describe('Workflow CRUD', () => {
       ...definition,
       nodes: [...definition.nodes, { id: 'mid', type: 'agent', config: { prompt: 'hello' } }],
     };
-    const updated = updateWorkflow(wfId, 'Updated WF', 'Updated desc', newDef);
+    const updated = updateWorkflow('test-user', wfId, 'Updated WF', 'Updated desc', newDef);
     expect(updated).toBe(true);
-    const wf = getWorkflow(wfId);
+    const wf = getWorkflow('test-user', wfId);
     expect(wf.name).toBe('Updated WF');
     expect(wf.definition.nodes).toHaveLength(3);
   });
 
   it('returns false when updating non-existent workflow', () => {
-    const result = updateWorkflow('00000000-0000-0000-0000-000000000000', 'x', '', definition);
+    const result = updateWorkflow(
+      'test-user',
+      '00000000-0000-0000-0000-000000000000',
+      'x',
+      '',
+      definition,
+    );
     expect(result).toBe(false);
   });
 
   it('deletes a workflow', () => {
-    const id2 = createWorkflow('Delete Me', '', definition);
-    expect(deleteWorkflow(id2)).toBe(true);
-    expect(getWorkflow(id2)).toBeNull();
+    const id2 = createWorkflow('test-user', 'Delete Me', '', definition);
+    expect(deleteWorkflow('test-user', id2)).toBe(true);
+    expect(getWorkflow('test-user', id2)).toBeNull();
   });
 
   it('returns false when deleting non-existent workflow', () => {
-    expect(deleteWorkflow('00000000-0000-0000-0000-000000000000')).toBe(false);
+    expect(deleteWorkflow('test-user', '00000000-0000-0000-0000-000000000000')).toBe(false);
   });
 });
 
@@ -106,27 +112,27 @@ describe('Workflow Runs', () => {
   let runId;
 
   it('creates a run for a workflow', () => {
-    wfId = createWorkflow('Run Test', '', {
+    wfId = createWorkflow('test-user', 'Run Test', '', {
       nodes: [
         { id: 'in', type: 'input' },
         { id: 'out', type: 'output' },
       ],
       edges: [{ from: 'in', to: 'out' }],
     });
-    runId = createWorkflowRun(wfId, { input: 'hello' });
+    runId = createWorkflowRun('test-user', wfId, { input: 'hello' });
     expect(runId).toBeDefined();
     expect(typeof runId).toBe('string');
   });
 
   it('supports creating a run with a caller-provided runId', () => {
     const customRunId = randomUUID();
-    const createdRunId = createWorkflowRun(wfId, { input: 'custom' }, customRunId);
+    const createdRunId = createWorkflowRun('test-user', wfId, { input: 'custom' }, customRunId);
     expect(createdRunId).toBe(customRunId);
-    expect(getWorkflowRun(customRunId)?.workflow_id).toBe(wfId);
+    expect(getWorkflowRun('test-user', customRunId)?.workflow_id).toBe(wfId);
   });
 
   it('retrieves a run with parsed JSON fields', () => {
-    const run = getWorkflowRun(runId);
+    const run = getWorkflowRun('test-user', runId);
     expect(run).not.toBeNull();
     expect(run.workflow_id).toBe(wfId);
     expect(run.status).toBe('pending');
@@ -140,7 +146,7 @@ describe('Workflow Runs', () => {
       context: { input: 'hello', step: 1 },
       nodeResults: { in: { done: true } },
     });
-    const run = getWorkflowRun(runId);
+    const run = getWorkflowRun('test-user', runId);
     expect(run.status).toBe('running');
     expect(run.context.step).toBe(1);
     expect(run.node_results.in).toEqual({ done: true });
@@ -151,19 +157,19 @@ describe('Workflow Runs', () => {
       status: 'completed',
       nodeResults: { in: { done: true }, out: { done: true } },
     });
-    const run = getWorkflowRun(runId);
+    const run = getWorkflowRun('test-user', runId);
     expect(run.status).toBe('completed');
     expect(run.completed_at).not.toBeNull();
   });
 
   it('lists runs for a workflow', () => {
-    const runs = listWorkflowRuns(wfId, 10, 0);
+    const runs = listWorkflowRuns('test-user', wfId, 10, 0);
     expect(Array.isArray(runs)).toBe(true);
     expect(runs.length).toBeGreaterThanOrEqual(1);
     expect(runs[0].context).toBeDefined();
   });
 
   it('returns null for non-existent run', () => {
-    expect(getWorkflowRun('00000000-0000-0000-0000-000000000000')).toBeNull();
+    expect(getWorkflowRun('test-user', '00000000-0000-0000-0000-000000000000')).toBeNull();
   });
 });

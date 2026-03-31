@@ -70,15 +70,15 @@ app.use(authMiddleware);
 
 app.get('/api/sessions', validateQuery(sessionsQuerySchema), (req, res) => {
   const { limit, offset } = req.query;
-  const sessions = listSessionsPaged(limit, offset);
-  const total = countSessions();
+  const sessions = listSessionsPaged(req.user.id, limit, offset);
+  const total = countSessions(req.user.id);
   res.json({ sessions, total, limit, offset });
 });
 
 app.get('/api/sessions/:id', (req, res) => {
-  const session = getSession(req.params.id);
+  const session = getSession(req.user.id, req.params.id);
   if (!session) return res.status(404).json({ error: 'session not found' });
-  const events = getEvents(req.params.id);
+  const events = getEvents(req.params.id); // Events don't need user_id strictly if session checked
   const eventCount = countEvents(req.params.id);
   res.json({ ...session, events, eventCount });
 });
@@ -156,13 +156,13 @@ app.post('/api/sessions/:id/control', validate(controlActionSchema), async (req,
 app.get('/api/workflows', (req, res) => {
   const limit = Math.min(Math.max(parseInt(req.query.limit) || 20, 1), 100);
   const offset = Math.max(parseInt(req.query.offset) || 0, 0);
-  const workflows = listWorkflows(limit, offset);
-  const total = countWorkflows();
+  const workflows = listWorkflows(req.user.id, limit, offset);
+  const total = countWorkflows(req.user.id);
   res.json({ workflows, total, limit, offset });
 });
 
 app.get('/api/workflows/:id', (req, res) => {
-  const workflow = getWorkflow(req.params.id);
+  const workflow = getWorkflow(req.user.id, req.params.id);
   if (!workflow) return res.status(404).json({ error: 'workflow not found' });
   res.json(workflow);
 });
@@ -173,7 +173,7 @@ app.post('/api/workflows', validate(workflowSchema), (req, res) => {
   if (!validation.valid) {
     return res.status(400).json({ error: 'invalid workflow', details: validation.errors });
   }
-  const id = createWorkflow(name, description, definition);
+  const id = createWorkflow(req.user.id, name, description, definition);
   res.status(201).json({ id });
 });
 
@@ -183,27 +183,29 @@ app.put('/api/workflows/:id', validate(workflowSchema), (req, res) => {
   if (!validation.valid) {
     return res.status(400).json({ error: 'invalid workflow', details: validation.errors });
   }
-  const updated = updateWorkflow(req.params.id, name, description, definition);
+  const updated = updateWorkflow(req.user.id, req.params.id, name, description, definition);
   if (!updated) return res.status(404).json({ error: 'workflow not found' });
   res.json({ updated: true });
 });
 
 app.delete('/api/workflows/:id', (req, res) => {
-  const deleted = deleteWorkflow(req.params.id);
+  const deleted = deleteWorkflow(req.user.id, req.params.id);
   if (!deleted) return res.status(404).json({ error: 'workflow not found' });
   res.json({ deleted: true });
 });
 
 app.post('/api/workflows/:id/run', async (req, res) => {
-  const workflow = getWorkflow(req.params.id);
+  const workflow = getWorkflow(req.user.id, req.params.id);
   if (!workflow) return res.status(404).json({ error: 'workflow not found' });
   const inputContext = req.body?.context || {};
   const requestedRunId = req.body?.runId;
-  const runId = createWorkflowRun(req.params.id, inputContext, requestedRunId);
+  const runId = createWorkflowRun(req.user.id, req.params.id, inputContext, requestedRunId);
   res.status(202).json({ message: 'workflow started', workflowId: req.params.id, runId });
-  executeWorkflow(req.params.id, workflow.definition, inputContext, runId).catch((err) => {
-    console.error(`[workflow] execution error: ${err.message}`);
-  });
+  executeWorkflow(req.params.id, workflow.definition, inputContext, runId, req.user.id).catch(
+    (err) => {
+      console.error(`[workflow] execution error: ${err.message}`);
+    },
+  );
 });
 
 app.post('/api/workflow-runs/:id/abort', (req, res) => {
@@ -215,12 +217,12 @@ app.post('/api/workflow-runs/:id/abort', (req, res) => {
 app.get('/api/workflows/:id/runs', (req, res) => {
   const limit = Math.min(Math.max(parseInt(req.query.limit) || 20, 1), 100);
   const offset = Math.max(parseInt(req.query.offset) || 0, 0);
-  const runs = listWorkflowRuns(req.params.id, limit, offset);
+  const runs = listWorkflowRuns(req.user.id, req.params.id, limit, offset);
   res.json({ runs });
 });
 
 app.get('/api/workflow-runs/:id', (req, res) => {
-  const run = getWorkflowRun(req.params.id);
+  const run = getWorkflowRun(req.user.id, req.params.id);
   if (!run) return res.status(404).json({ error: 'run not found' });
   res.json(run);
 });
@@ -251,6 +253,8 @@ wss.on('connection', (ws, req) => {
     return;
   }
 
+  ws.userId = req.userId;
+
   ws.on('message', (raw) => {
     let msg;
     try {
@@ -274,6 +278,7 @@ wss.on('connection', (ws, req) => {
           return;
         }
         const sessionId = startAgent(msg.prompt, {
+          userId: ws.userId,
           permissionMode: msg.permissionMode,
           maxTurns: msg.maxTurns,
         });
@@ -303,6 +308,7 @@ wss.on('connection', (ws, req) => {
           return;
         }
         const resumed = continueAgent(targetSid, msg.prompt, {
+          userId: ws.userId,
           permissionMode: msg.permissionMode,
           maxTurns: msg.maxTurns,
         });
