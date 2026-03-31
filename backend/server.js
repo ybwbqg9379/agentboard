@@ -21,16 +21,25 @@ import {
   PERMISSION_MODES,
 } from './agentManager.js';
 import { getMcpHealth } from './mcpHealth.js';
+import {
+  authMiddleware,
+  wsAuth,
+  wsMessageSchema,
+  controlActionSchema,
+  sessionsQuerySchema,
+  validate,
+  validateQuery,
+} from './middleware.js';
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use(authMiddleware);
 
 // --- REST API ---
 
-app.get('/api/sessions', (req, res) => {
-  const limit = Math.min(parseInt(req.query.limit || '20', 10), 100);
-  const offset = Math.max(parseInt(req.query.offset || '0', 10), 0);
+app.get('/api/sessions', validateQuery(sessionsQuerySchema), (req, res) => {
+  const { limit, offset } = req.query;
   const sessions = listSessionsPaged(limit, offset);
   const total = countSessions();
   res.json({ sessions, total, limit, offset });
@@ -69,7 +78,7 @@ app.get('/api/config/permissions', (_req, res) => {
 });
 
 // Stream control -- dispatch actions to a running agent's stream
-app.post('/api/sessions/:id/control', async (req, res) => {
+app.post('/api/sessions/:id/control', validate(controlActionSchema), async (req, res) => {
   const { action } = req.body;
   const stream = getAgentStream(req.params.id);
   if (!stream) {
@@ -127,7 +136,12 @@ const wss = new WebSocketServer({ server, path: '/ws' });
 // 跟踪每个 ws 连接订阅的 sessionId
 const subscriptions = new Map();
 
-wss.on('connection', (ws) => {
+wss.on('connection', (ws, req) => {
+  if (!wsAuth(req)) {
+    ws.close(4001, 'unauthorized');
+    return;
+  }
+
   ws.on('message', (raw) => {
     let msg;
     try {
@@ -136,6 +150,13 @@ wss.on('connection', (ws) => {
       ws.send(JSON.stringify({ error: 'invalid JSON' }));
       return;
     }
+
+    const parsed = wsMessageSchema.safeParse(msg);
+    if (!parsed.success) {
+      ws.send(JSON.stringify({ error: 'validation failed', details: parsed.error.issues }));
+      return;
+    }
+    msg = parsed.data;
 
     switch (msg.action) {
       case 'start': {

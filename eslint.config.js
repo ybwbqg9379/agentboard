@@ -21,6 +21,7 @@ export default [
         TextDecoder: 'readonly',
         window: 'readonly',
         document: 'readonly',
+        __APP_VERSION__: 'readonly',
       },
     },
     rules: {

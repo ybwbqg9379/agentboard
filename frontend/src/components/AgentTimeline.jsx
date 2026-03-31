@@ -2,145 +2,163 @@ import { useEffect, useMemo, useRef } from 'react';
 import MarkdownBody from './MarkdownBody.jsx';
 import styles from './AgentTimeline.module.css';
 
-/**
- * 将 Claude Code stream-json 事件解析为展示用的扁平事件列表。
- * stream-json 的顶层事件有 assistant / user / system / result 等类型，
- * 其中 assistant 和 user 的 content 是 content block 数组，
- * 需要拆开展示。
- */
+// --- System subtype dispatch map ---
+const SYSTEM_HANDLERS = {
+  init: (c, ts) => {
+    const parts = [
+      `Model: ${c?.model || 'unknown'}`,
+      `Tools: ${c?.tools?.length || 0}`,
+      `MCP: ${c?.mcp_servers?.length || 0}`,
+    ];
+    if (c?.skills?.length) parts.push(`Skills: ${c.skills.length}`);
+    return [{ label: 'Session Init', dot: 'done', body: parts.join(' | '), ts }];
+  },
+  api_retry: (c, ts) => [
+    {
+      label: 'API Retry',
+      dot: 'error',
+      body: `Retry ${c?.attempt || '?'}/${c?.max_retries || '?'} (${c?.retry_delay_ms || 0}ms)`,
+      ts,
+    },
+  ],
+  status: (c, ts) =>
+    c?.status === 'compacting'
+      ? [{ label: 'Compacting', dot: 'thinking', body: 'Context compacting...', ts }]
+      : [],
+  compact_boundary: (_c, ts) => [
+    { label: 'Compacted', dot: 'done', body: 'Context window compacted', ts },
+  ],
+  task_started: (c, ts) => [{ label: 'Subtask', dot: 'running', body: c?.description || '', ts }],
+  task_notification: (c, ts) => {
+    const st = c?.status || 'completed';
+    return [
+      {
+        label: `Subtask ${st}`,
+        dot: st === 'failed' ? 'error' : 'done',
+        body: c?.summary || '',
+        ts,
+      },
+    ];
+  },
+  subagent_stop: (c, ts) => [{ label: 'Subagent Done', dot: 'done', body: c?.message || '', ts }],
+  permission_denied: (c, ts) => [
+    {
+      label: 'Permission Denied',
+      dot: 'error',
+      body: c?.message || `${c?.tool}: ${c?.reason}`,
+      ts,
+    },
+  ],
+  tool_failed: (c, ts) => [
+    { label: 'Tool Failed', dot: 'error', body: c?.message || `${c?.tool}: ${c?.error}`, ts },
+  ],
+  pre_compact: (_c, ts) => [
+    { label: 'Compacting', dot: 'thinking', body: 'Context compaction starting...', ts },
+  ],
+  post_compact: (_c, ts) => [
+    { label: 'Compacted', dot: 'done', body: 'Context compaction completed', ts },
+  ],
+  session_start: (_c, ts) => [{ label: 'Session', dot: 'done', body: 'Session initialized', ts }],
+  session_end: (_c, ts) => [{ label: 'Session End', dot: 'done', body: 'Session ended', ts }],
+  // Silent subtypes
+  task_progress: () => [],
+  hook_started: () => [],
+  hook_progress: () => [],
+  hook_response: () => [],
+  prompt_submitted: () => [],
+};
+
+// --- Top-level type dispatch map ---
+const TYPE_HANDLERS = {
+  tool_progress: (c, ts) => {
+    const tool = c?.tool_name || 'unknown';
+    return [
+      { label: `${tool}`, dot: 'running', body: `${c?.elapsed_time_seconds || 0}s elapsed`, ts },
+    ];
+  },
+  rate_limit_event: (c, ts) => [
+    { label: 'Rate Limit', dot: 'error', body: c?.rate_limit_info?.status || 'Rate limited', ts },
+  ],
+  stream_event: () => [],
+  stderr: (c, ts) => [{ label: 'Stderr', dot: 'error', body: c?.text || '', ts }],
+  raw: (c, ts) => [{ label: 'Output', dot: 'done', body: c?.text || '', ts }],
+  result: (c, ts) => {
+    const {
+      total_cost_usd: cost,
+      usage: tokens,
+      duration_ms: duration,
+      num_turns: turns,
+    } = c || {};
+    if (cost == null && !tokens && !duration && !turns) return [];
+    const parts = [];
+    if (turns) parts.push(`${turns} turns`);
+    if (duration) parts.push(`${(duration / 1000).toFixed(1)}s`);
+    if (tokens) parts.push(`${(tokens.input_tokens || 0) + (tokens.output_tokens || 0)} tokens`);
+    if (cost) parts.push(`$${cost.toFixed(4)}`);
+    return [{ label: 'Stats', dot: 'done', body: parts.join(' | '), ts }];
+  },
+};
+
+// --- Content block dispatch map ---
+const BLOCK_HANDLERS = {
+  thinking: (b, ts) => ({
+    label: 'Thinking',
+    dot: 'thinking',
+    body: b.thinking || b.text || '',
+    ts,
+  }),
+  text: (b, ts) => (b.text ? { label: 'Assistant', dot: 'done', body: b.text, ts } : null),
+  tool_use: (b, ts) => ({
+    label: `Tool: ${b.name || 'unknown'}`,
+    dot: 'tool',
+    body: typeof b.input === 'string' ? b.input : JSON.stringify(b.input, null, 2),
+    ts,
+  }),
+  tool_result: (b, ts) => ({
+    label: b.is_error ? 'Tool Error' : 'Tool Result',
+    dot: b.is_error ? 'error' : 'done',
+    body:
+      typeof b.content === 'string'
+        ? b.content
+        : b.output || JSON.stringify(b.content, null, 2) || '',
+    ts,
+  }),
+};
+
+function parseBlock(block, ts) {
+  if (!block) return null;
+  const handler = BLOCK_HANDLERS[block.type];
+  if (handler) return handler(block, ts);
+  return { label: block.type || 'Block', dot: 'done', body: JSON.stringify(block, null, 2), ts };
+}
+
 function flattenEvent(event) {
   const { type, content } = event;
   const ts = event.timestamp;
   const subtype = event.subtype || content?.subtype;
 
-  // --- system messages (23 subtypes) ---
+  // System messages -- dispatch by subtype
   if (type === 'system') {
-    if (subtype === 'init') {
-      const model = content?.model || 'unknown';
-      const toolCount = content?.tools?.length || 0;
-      const mcpCount = content?.mcp_servers?.length || 0;
-      const skillCount = content?.skills?.length || 0;
-      const parts = [`Model: ${model}`, `Tools: ${toolCount}`, `MCP: ${mcpCount}`];
-      if (skillCount > 0) parts.push(`Skills: ${skillCount}`);
-      return [{ label: 'Session Init', dot: 'done', body: parts.join(' | '), ts }];
-    }
-    if (subtype === 'api_retry') {
-      const attempt = content?.attempt || '?';
-      const max = content?.max_retries || '?';
-      const delay = content?.retry_delay_ms || 0;
-      return [
-        { label: 'API Retry', dot: 'error', body: `Retry ${attempt}/${max} (${delay}ms)`, ts },
-      ];
-    }
-    if (subtype === 'status') {
-      if (content?.status === 'compacting')
-        return [{ label: 'Compacting', dot: 'thinking', body: 'Context compacting...', ts }];
-      return [];
-    }
-    if (subtype === 'compact_boundary')
-      return [{ label: 'Compacted', dot: 'done', body: 'Context window compacted', ts }];
-    if (subtype === 'task_started')
-      return [{ label: 'Subtask', dot: 'running', body: content?.description || '', ts }];
-    if (subtype === 'task_notification') {
-      const st = content?.status || 'completed';
-      return [
-        {
-          label: `Subtask ${st}`,
-          dot: st === 'failed' ? 'error' : 'done',
-          body: content?.summary || '',
-          ts,
-        },
-      ];
-    }
-    if (subtype === 'task_progress') return []; // skip noisy progress
-    if (subtype === 'hook_started' || subtype === 'hook_progress' || subtype === 'hook_response')
-      return [];
-    if (subtype === 'subagent_stop')
-      return [{ label: 'Subagent Done', dot: 'done', body: content?.message || '', ts }];
-    if (subtype === 'permission_denied')
-      return [
-        {
-          label: 'Permission Denied',
-          dot: 'error',
-          body: content?.message || `${content?.tool}: ${content?.reason}`,
-          ts,
-        },
-      ];
-    if (subtype === 'prompt_submitted') return []; // audit only
-    if (subtype === 'pre_compact')
-      return [{ label: 'Compacting', dot: 'thinking', body: 'Context compaction starting...', ts }];
-    if (subtype === 'post_compact')
-      return [{ label: 'Compacted', dot: 'done', body: 'Context compaction completed', ts }];
-    if (subtype === 'session_start')
-      return [{ label: 'Session', dot: 'done', body: 'Session initialized', ts }];
-    if (subtype === 'session_end')
-      return [{ label: 'Session End', dot: 'done', body: 'Session ended', ts }];
-    if (subtype === 'tool_failed')
-      return [
-        {
-          label: 'Tool Failed',
-          dot: 'error',
-          body: content?.message || `${content?.tool}: ${content?.error}`,
-          ts,
-        },
-      ];
+    const handler = SYSTEM_HANDLERS[subtype];
+    if (handler) return handler(content, ts);
     const body = content?.message || content?.text || subtype || '';
     return body ? [{ label: 'System', dot: 'done', body, ts }] : [];
   }
 
-  // --- tool progress ---
-  if (type === 'tool_progress') {
-    const tool = content?.tool_name || 'unknown';
-    const elapsed = content?.elapsed_time_seconds || 0;
-    return [{ label: `${tool}`, dot: 'running', body: `${elapsed}s elapsed`, ts }];
-  }
+  // Known top-level types
+  const typeHandler = TYPE_HANDLERS[type];
+  if (typeHandler) return typeHandler(content, ts);
 
-  // --- rate limit ---
-  if (type === 'rate_limit_event') {
-    const info = content?.rate_limit_info;
-    return [{ label: 'Rate Limit', dot: 'error', body: info?.status || 'Rate limited', ts }];
-  }
-
-  // --- stream events (partial messages) ---
-  if (type === 'stream_event') return []; // rendered separately if needed
-
-  if (type === 'stderr') {
-    return [{ label: 'Stderr', dot: 'error', body: content?.text || '', ts }];
-  }
-  if (type === 'raw') {
-    return [{ label: 'Output', dot: 'done', body: content?.text || '', ts }];
-  }
-
-  // --- result with stats (skip result text to avoid duplicating assistant message) ---
-  if (type === 'result') {
-    const items = [];
-    const cost = content?.total_cost_usd;
-    const tokens = content?.usage;
-    const duration = content?.duration_ms;
-    const turns = content?.num_turns;
-    if (cost != null || tokens || duration || turns) {
-      const parts = [];
-      if (turns) parts.push(`${turns} turns`);
-      if (duration) parts.push(`${(duration / 1000).toFixed(1)}s`);
-      if (tokens) parts.push(`${(tokens.input_tokens || 0) + (tokens.output_tokens || 0)} tokens`);
-      if (cost) parts.push(`$${cost.toFixed(4)}`);
-      items.push({ label: 'Stats', dot: 'done', body: parts.join(' | '), ts });
-    }
-    return items;
-  }
-
-  // assistant / user -- 拆开 content blocks
+  // Content blocks (assistant/user messages)
   const blocks = content?.content || content?.message?.content;
-  if (Array.isArray(blocks)) {
-    return blocks.map((block) => parseBlock(block, ts)).filter(Boolean);
-  }
+  if (Array.isArray(blocks)) return blocks.map((b) => parseBlock(b, ts)).filter(Boolean);
 
-  // assistant 直接有 text
+  // Assistant with direct text
   if (type === 'assistant' && typeof content?.text === 'string') {
     return content.text ? [{ label: 'Assistant', dot: 'done', body: content.text, ts }] : [];
   }
 
-  // tool_result 顶层（旧格式兼容）
+  // Legacy tool_result
   if (content?.tool_result) {
     return [
       {
@@ -152,50 +170,9 @@ function flattenEvent(event) {
     ];
   }
 
-  // fallback -- 展示原始 JSON
+  // Fallback
   const raw = JSON.stringify(content, null, 2);
   return raw && raw !== '{}' ? [{ label: type || 'Event', dot: 'done', body: raw, ts }] : [];
-}
-
-function parseBlock(block, ts) {
-  if (!block) return null;
-
-  switch (block.type) {
-    case 'thinking':
-      return { label: 'Thinking', dot: 'thinking', body: block.thinking || block.text || '', ts };
-
-    case 'text':
-      return block.text ? { label: 'Assistant', dot: 'done', body: block.text, ts } : null;
-
-    case 'tool_use':
-      return {
-        label: `Tool: ${block.name || 'unknown'}`,
-        dot: 'tool',
-        body: typeof block.input === 'string' ? block.input : JSON.stringify(block.input, null, 2),
-        ts,
-      };
-
-    case 'tool_result': {
-      const body =
-        typeof block.content === 'string'
-          ? block.content
-          : block.output || JSON.stringify(block.content, null, 2) || '';
-      return {
-        label: block.is_error ? 'Tool Error' : 'Tool Result',
-        dot: block.is_error ? 'error' : 'done',
-        body,
-        ts,
-      };
-    }
-
-    default:
-      return {
-        label: block.type || 'Block',
-        dot: 'done',
-        body: JSON.stringify(block, null, 2),
-        ts,
-      };
-  }
 }
 
 function truncate(text, max = 2000) {

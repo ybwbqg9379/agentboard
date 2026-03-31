@@ -21,6 +21,22 @@
 
 ---
 
+## [0.10.0] - 2026-03-31
+
+### Added
+
+- **zod 输入校验**: REST API 和 WebSocket 消息均通过 zod schema 校验，拒绝畸形输入并返回结构化错误详情
+- **API Key 认证**: 设置 `AGENTBOARD_API_KEY` 环境变量即启用 Bearer token 认证（REST）和 query param 认证（WebSocket）；未设置时保持开放访问
+- **构建时版本注入**: Vite `define` 注入 `__APP_VERSION__` 从 `package.json` 读取，Header 不再硬编码版本号
+
+### Changed
+
+- **flattenEvent 重构**: 从 150+ 行 if/return 链重构为三层 dispatch map (`SYSTEM_HANDLERS`、`TYPE_HANDLERS`、`BLOCK_HANDLERS`)，可维护性大幅提升
+- **WebSocket 消息校验**: 使用 `z.discriminatedUnion('action', ...)` 按 action 字段分别校验
+- REST 路由增加 `validate()` 和 `validateQuery()` 中间件
+
+---
+
 ## [0.9.0] - 2026-03-31
 
 ### Added

@@ -15,7 +15,7 @@ export default function Header({ connected, sessionId, onClear, onOpenHistory, m
     <header className={styles.header}>
       <div className={styles.left}>
         <span className={styles.logo}>AgentBoard</span>
-        <span className={styles.version}>v0.9.0</span>
+        <span className={styles.version}>v{__APP_VERSION__}</span>
       </div>
 
       <div className={styles.right}>
