@@ -1,22 +1,33 @@
 import { useEffect, useMemo, useRef } from 'react';
 import styles from './TerminalView.module.css';
 
+function isBashTool(name) {
+  return name === 'Bash' || name === 'bash';
+}
+
 function extractTerminalLines(events) {
   const lines = [];
   let lineIdx = 0;
+  // Track Bash tool_use IDs so we only show their corresponding tool_results
+  const bashToolIds = new Set();
 
   for (const event of events) {
     const { type, content } = event;
 
-    // 提取嵌套在 content blocks 中的 Bash 命令和结果
     const blocks = content?.content || content?.message?.content;
     if (Array.isArray(blocks)) {
       for (const block of blocks) {
-        if (block.type === 'tool_use' && (block.name === 'Bash' || block.name === 'bash')) {
+        if (block.type === 'tool_use' && isBashTool(block.name)) {
+          if (block.id) bashToolIds.add(block.id);
           const cmd = block.input?.command || (typeof block.input === 'string' ? block.input : '');
           if (cmd) lines.push({ type: 'command', text: cmd, key: `cmd-${lineIdx++}` });
         }
-        if (block.type === 'tool_result') {
+        // Only show tool_result for Bash tools
+        if (
+          block.type === 'tool_result' &&
+          block.tool_use_id &&
+          bashToolIds.has(block.tool_use_id)
+        ) {
           const output = typeof block.content === 'string' ? block.content : block.output || '';
           if (output)
             lines.push({
@@ -28,8 +39,9 @@ function extractTerminalLines(events) {
       }
     }
 
-    // 顶层 tool_use（旧格式兼容）
-    if (type === 'tool_use' && (content?.name === 'Bash' || content?.name === 'bash')) {
+    // 顶层 tool_use
+    if (type === 'tool_use' && isBashTool(content?.name)) {
+      if (content?.id) bashToolIds.add(content.id);
       const cmd = content?.input?.command || content?.input;
       if (cmd)
         lines.push({
@@ -39,8 +51,8 @@ function extractTerminalLines(events) {
         });
     }
 
-    // 顶层 tool_result
-    if (type === 'tool_result') {
+    // 顶层 tool_result -- only for Bash
+    if (type === 'tool_result' && content?.tool_use_id && bashToolIds.has(content.tool_use_id)) {
       const output =
         content?.output || (typeof content?.content === 'string' ? content.content : '');
       if (output)

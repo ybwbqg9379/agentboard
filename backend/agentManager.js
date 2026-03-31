@@ -103,9 +103,10 @@ export function startAgent(prompt) {
         insertEvent(sessionId, message.type, message);
         agentEvents.emit('event', wrapped);
 
-        // Initialize MCP health from init message
-        if (message.type === 'system' && message.subtype === 'init' && message.mcp_servers) {
-          initMcpHealth(message.mcp_servers);
+        // Override model name with actual target model for init events
+        if (message.type === 'system' && message.subtype === 'init') {
+          wrapped.content = { ...message, model: config.minimax.model };
+          if (message.mcp_servers) initMcpHealth(message.mcp_servers);
         }
 
         // Extract session stats from result messages
@@ -118,10 +119,7 @@ export function startAgent(prompt) {
             num_turns: message.num_turns || 0,
             model: null,
           };
-          if (message.modelUsage) {
-            const models = Object.keys(message.modelUsage);
-            if (models.length > 0) stats.model = models[0];
-          }
+          stats.model = config.minimax.model;
           updateSessionStats(sessionId, stats);
         }
       }

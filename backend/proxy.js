@@ -157,6 +157,7 @@ function convertResponse(openaiResp, requestModel) {
 
 function createStreamTransformer(requestModel) {
   let messageId = `msg_${Date.now()}`;
+  let inputTokens = 0;
   let outputTokens = 0;
   let contentIndex = 0;
   let sentStart = false;
@@ -265,7 +266,7 @@ function createStreamTransformer(requestModel) {
 
         events.push(
           `event: message_delta`,
-          `data: ${JSON.stringify({ type: 'message_delta', delta: { stop_reason: stopReason, stop_sequence: null }, usage: { output_tokens: outputTokens } })}`,
+          `data: ${JSON.stringify({ type: 'message_delta', delta: { stop_reason: stopReason, stop_sequence: null }, usage: { input_tokens: inputTokens, output_tokens: outputTokens } })}`,
           '',
           `event: message_stop`,
           `data: ${JSON.stringify({ type: 'message_stop' })}`,
@@ -274,6 +275,7 @@ function createStreamTransformer(requestModel) {
       }
 
       if (openaiChunk.usage) {
+        inputTokens = openaiChunk.usage.prompt_tokens || 0;
         outputTokens = openaiChunk.usage.completion_tokens || 0;
       }
 

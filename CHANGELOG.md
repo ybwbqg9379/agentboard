@@ -8,10 +8,16 @@
 - **GitHub Actions CI**: `.github/workflows/ci.yml` -- push/PR 到 main 自动运行 format + lint + build
 - **`npm run check`**: 一键运行全部检查（format:check + lint:strict + build）
 - **`npm run lint:strict`**: ESLint `--max-warnings 0` 严格模式
+- **Markdown 渲染**: Timeline 的 Assistant/Result/Tool Result 事件支持 Markdown 渲染（react-markdown + remark-gfm），告别原始 `**` `##` 语法
+- **Markdown 样式**: 全局 `.markdown-body` 样式，覆盖标题、列表、代码块、表格、引用等暗色主题适配
 
 ### Fixed
 
 - **[Critical] SQLite 启动崩溃**: `sessionStore.js` 的 `CREATE TABLE sessions` DDL 缺少 `stats TEXT` 列，导致 `updateStats` prepared statement 在服务启动时抛出 `SqliteError: no such column: stats`，进程立即退出；已将 `stats TEXT` 补入表定义
+- **Token 计数为 0**: proxy.js 流式路径未追踪 `input_tokens`，`message_delta` 只发送 `output_tokens`；现在同时捕获并转发 `prompt_tokens` 和 `completion_tokens`
+- **Terminal 显示非 Bash 工具结果**: `extractTerminalLines` 展示了所有 tool_result（含 WebFetch/WebSearch），改为追踪 Bash tool_use ID 仅显示对应结果
+- **Timeline 重复 Assistant/Result**: result 事件同时显示文本和统计，与 assistant 事件重复；result 事件现在只保留 Stats 行
+- **模型名显示为 Sonnet**: SDK init 事件报告 Anthropic 模型名，实际通过 proxy 调用 MiniMax；agentManager 在 init 和 result 事件中覆盖为 `config.minimax.model`
 
 ---
 

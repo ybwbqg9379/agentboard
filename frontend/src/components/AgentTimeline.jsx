@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react';
+import MarkdownBody from './MarkdownBody.jsx';
 import styles from './AgentTimeline.module.css';
 
 /**
@@ -102,16 +103,14 @@ function flattenEvent(event) {
     return [{ label: 'Output', dot: 'done', body: content?.text || '', ts }];
   }
 
-  // --- result with stats ---
+  // --- result with stats (skip result text to avoid duplicating assistant message) ---
   if (type === 'result') {
     const items = [];
-    const resultText = content?.result || content?.text || '';
-    if (resultText) items.push({ label: 'Result', dot: 'done', body: resultText, ts });
     const cost = content?.total_cost_usd;
     const tokens = content?.usage;
     const duration = content?.duration_ms;
     const turns = content?.num_turns;
-    if (cost != null || tokens || duration) {
+    if (cost != null || tokens || duration || turns) {
       const parts = [];
       if (turns) parts.push(`${turns} turns`);
       if (duration) parts.push(`${(duration / 1000).toFixed(1)}s`);
@@ -119,7 +118,7 @@ function flattenEvent(event) {
       if (cost) parts.push(`$${cost.toFixed(4)}`);
       items.push({ label: 'Stats', dot: 'done', body: parts.join(' | '), ts });
     }
-    return items.length ? items : [];
+    return items;
   }
 
   // assistant / user -- 拆开 content blocks
@@ -196,7 +195,12 @@ function truncate(text, max = 2000) {
   return text.length > max ? text.slice(0, max) + '...' : text;
 }
 
+// Labels whose body should be rendered as markdown instead of raw pre
+const MARKDOWN_LABELS = new Set(['Assistant', 'Result', 'Tool Result']);
+
 function TimelineItem({ item, index }) {
+  const useMarkdown = MARKDOWN_LABELS.has(item.label);
+
   return (
     <div className={`${styles.event} animate-in`} style={{ animationDelay: `${index * 30}ms` }}>
       <div className={styles.eventGutter}>
@@ -210,7 +214,12 @@ function TimelineItem({ item, index }) {
             {item.ts ? new Date(item.ts).toLocaleTimeString() : '--:--:--'}
           </span>
         </div>
-        {item.body && <pre className={styles.eventBody}>{truncate(item.body)}</pre>}
+        {item.body &&
+          (useMarkdown ? (
+            <MarkdownBody>{truncate(item.body)}</MarkdownBody>
+          ) : (
+            <pre className={styles.eventBody}>{truncate(item.body)}</pre>
+          ))}
       </div>
     </div>
   );
