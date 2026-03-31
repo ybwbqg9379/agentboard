@@ -61,8 +61,8 @@ export function startAgent(prompt, opts = {}) {
         PATH: process.env.PATH,
         HOME: process.env.HOME,
         TMPDIR: resolve(WORKSPACE, '.tmp'),
-        ANTHROPIC_BASE_URL: config.litellm.url,
-        ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY || 'placeholder',
+        ANTHROPIC_BASE_URL: config.proxy.url,
+        ANTHROPIC_API_KEY: config.llm.apiKey || 'placeholder',
         CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING: '1',
       },
 
@@ -115,7 +115,7 @@ export function startAgent(prompt, opts = {}) {
 
         // Override model name with actual target model for init events
         if (message.type === 'system' && message.subtype === 'init') {
-          wrapped.content = { ...message, model: config.minimax.model };
+          wrapped.content = { ...message, model: config.llm.model };
           if (message.mcp_servers) initMcpHealth(message.mcp_servers);
         }
 
@@ -129,7 +129,7 @@ export function startAgent(prompt, opts = {}) {
             num_turns: message.num_turns || 0,
             model: null,
           };
-          stats.model = config.minimax.model;
+          stats.model = config.llm.model;
           updateSessionStats(sessionId, stats);
         }
       }

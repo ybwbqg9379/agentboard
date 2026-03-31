@@ -8,8 +8,8 @@
 - **GitHub Actions CI**: `.github/workflows/ci.yml` -- push/PR 到 main 自动运行 format + lint + build
 - **`npm run check`**: 一键运行全部检查（format:check + lint:strict + build）
 - **`npm run lint:strict`**: ESLint `--max-warnings 0` 严格模式
-- **Markdown 渲染**: Timeline 的 Assistant/Result/Tool Result 事件支持 Markdown 渲染（react-markdown + remark-gfm），告别原始 `**` `##` 语法
-- **Markdown 样式**: 全局 `.markdown-body` 样式，覆盖标题、列表、代码块、表格、引用等暗色主题适配
+- **Markdown 渲染**: Timeline 的 Assistant/Result/Tool Result 事件支持 Markdown 渲染（react-markdown + remark-gfm）
+- **Markdown 样式**: 全局 `.markdown-body` 暗色主题适配
 
 ### Fixed
 
@@ -17,7 +17,14 @@
 - **Token 计数为 0**: proxy.js 流式路径未追踪 `input_tokens`，现在同时捕获并转发
 - **Terminal 显示非 Bash 工具结果**: 改为追踪 Bash tool_use ID 仅显示对应结果
 - **Timeline 重复 Assistant/Result**: result 事件现在只保留 Stats 行
-- **模型名显示为 Sonnet**: agentManager 在 init/result 事件中覆盖为 `config.minimax.model`
+- **模型名显示为 Sonnet**: agentManager 在 init/result 事件中覆盖为实际 LLM 模型名
+
+### Changed
+
+- **LLM 配置泛化**: 从 MiniMax 专用配置改为通用 OpenAI Compatible 配置 (`LLM_BASE_URL` / `LLM_API_KEY` / `LLM_MODEL`)
+- `.env.example` 重写，列出常见 OpenAI 兼容服务商示例（OpenAI、DeepSeek、Moonshot、Together、Groq、Ollama、vLLM、LM Studio）
+- `config.js` 中 `minimax` 改为 `llm`，`litellm` 改为 `proxy`，全部从环境变量读取
+- `proxy.js` 不再直接读 `MINIMAX_API_KEY`，统一使用 `config.llm.*`
 
 ---
 

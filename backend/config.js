@@ -6,9 +6,9 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const config = {
   port: parseInt(process.env.PORT || '3001', 10),
 
-  // Anthropic-to-OpenAI proxy -- Claude Code SDK 通过它将 Anthropic 格式转为 OpenAI 格式调用 Minimax
-  litellm: {
-    url: process.env.LITELLM_URL || 'http://localhost:4000',
+  // Anthropic-to-OpenAI proxy -- Claude Code SDK 通过它将 Anthropic 格式转为 OpenAI 格式
+  proxy: {
+    url: process.env.PROXY_URL || 'http://localhost:4000',
   },
 
   // GitHub 集成（可选，无 token 时仅支持公开仓库）
@@ -16,10 +16,11 @@ const config = {
     token: process.env.GITHUB_TOKEN || '',
   },
 
-  // Minimax 模型配置
-  minimax: {
-    baseUrl: 'https://mydamoxing.cn/v1',
-    model: 'MiniMax-M2.7-highspeed',
+  // OpenAI Compatible LLM 配置 -- 支持任何兼容 OpenAI Chat Completions API 的服务
+  llm: {
+    baseUrl: process.env.LLM_BASE_URL || 'https://api.openai.com/v1',
+    model: process.env.LLM_MODEL || 'gpt-4o-mini',
+    apiKey: process.env.LLM_API_KEY || '',
   },
 
   // Agent 工作目录（隔离）

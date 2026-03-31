@@ -1,17 +1,22 @@
 /**
  * Anthropic Messages API → OpenAI Chat Completions API 翻译代理
  *
- * Claude Code CLI 发送 Anthropic 格式请求，本代理翻译为 OpenAI 格式
- * 转发到 Minimax (OpenAI Compatible)，再将响应翻译回 Anthropic 格式。
+ * Claude Code SDK 发送 Anthropic 格式请求，本代理翻译为 OpenAI 格式
+ * 转发到任何 OpenAI Compatible API，再将响应翻译回 Anthropic 格式。
+ *
+ * 配置方式（.env.local）：
+ *   LLM_BASE_URL=https://api.openai.com/v1   # 任何 OpenAI 兼容端点
+ *   LLM_API_KEY=sk-xxx                        # API 密钥
+ *   LLM_MODEL=gpt-4o-mini                     # 模型名
  */
 
 import { createServer } from 'node:http';
 import config from './config.js';
 
 const PROXY_PORT = parseInt(process.env.PROXY_PORT || '4000', 10);
-const TARGET_BASE = process.env.TARGET_BASE_URL || config.minimax.baseUrl;
-const TARGET_MODEL = process.env.TARGET_MODEL || config.minimax.model;
-const API_KEY = process.env.MINIMAX_API_KEY || process.env.ANTHROPIC_API_KEY || '';
+const TARGET_BASE = config.llm.baseUrl;
+const TARGET_MODEL = config.llm.model;
+const API_KEY = config.llm.apiKey;
 
 // --- Anthropic → OpenAI message 转换 ---
 
