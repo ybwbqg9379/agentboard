@@ -10,6 +10,13 @@
   - `ONBOARDING.md` (全新): 新人五分钟中文速通指南，解析环境配置、依赖安装及双模式的初步操作流程。
   - `CONTRIBUTING.md` (全新): 树立提交质量护城河，确立以 `npm run check` 拦截链（Prettier + ESLint + Build）与 `Vitest` 自动化断言规则为主的工程化迭代原则。
 
+### Added
+
+- **完全态动态意图路由 (Dynamic Orchestrator)**: 从硬编码装载器全面重构为基于上下文环境感知的动态能力挂载中间件：
+  - **Dynamic Registry (`registry.js`)**: 平台级服务自动扫描解析插件目录下的 `SKILL.md` (解析 YAML Frontmatter 中的 `whenToUse`、`allowed-tools` 等语义元数据)。
+  - **Context Router (`router.js`)**: 在 Agent SDK 启动前自动截获 Prompt 意图，利用正则匹配、关键字与工作区活跃路径过滤无关 MCP/Skills，将 Agent 所能接触到的能力池收束到最简集合，彻底消除“大乱炖”导致的 Token 浪费及弱模型幻觉问题。
+  - **Remote MCP Support**: Config 架构大幅度解耦，允许随时通过注入环境变量（如 `MCP_BROWSER_ENDPOINT`）拉起基于 SSE/WS 协议连接远程分布式的服务器集群。
+
 ### Fixed
 
 - **环境变量断连陷阱**: 修复 `backend/config.js` 未正确提取 `.env.local` 中 `PROXY_PORT` 导致的代理服务隔离问题；修复 `frontend/vite.config.js` 硬编码 `3001` 的问题，通过 `loadEnv` 动态跨目录侦测 `PORT` 变量，实现全盘端口号参数的自动化对齐

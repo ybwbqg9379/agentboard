@@ -8,7 +8,7 @@ import {
   updateSessionStats,
   insertEvent,
 } from './sessionStore.js';
-import { getMcpServers, getAllowedTools } from './mcpConfig.js';
+import { routeTools } from './router.js';
 import { getAgentDefs } from './agentDefs.js';
 import { buildHooks } from './hooks.js';
 import { initMcpHealth } from './mcpHealth.js';
@@ -54,8 +54,16 @@ const SYSTEM_PROMPT_APPEND = [
 /**
  * Build the base options shared between startAgent and continueAgent.
  */
-function buildBaseOptions(sessionId, permMode) {
+function buildBaseOptions(sessionId, permMode, prompt) {
   const needsSkip = permMode === 'bypassPermissions';
+
+  // Conditionally route tools and MCPs based on user intent
+  const { uniqueAllowedTools, selectedMcpServers } = routeTools(
+    prompt,
+    WORKSPACE,
+    resolve(PLUGINS_DIR, 'agentboard-skills'),
+  );
+
   return {
     cwd: WORKSPACE,
     permissionMode: permMode,
@@ -74,8 +82,8 @@ function buildBaseOptions(sessionId, permMode) {
       ANTHROPIC_API_KEY: config.llm.apiKey || 'placeholder',
       CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING: '1',
     },
-    mcpServers: getMcpServers(WORKSPACE),
-    allowedTools: getAllowedTools(),
+    mcpServers: selectedMcpServers,
+    allowedTools: uniqueAllowedTools,
     agents: getAgentDefs(),
     hooks: buildHooks(agentEvents, sessionId, WORKSPACE),
     includePartialMessages: true,
@@ -171,7 +179,7 @@ export function startAgent(prompt, opts = {}) {
     ? opts.permissionMode
     : 'bypassPermissions';
 
-  const baseOpts = buildBaseOptions(sessionId, permMode);
+  const baseOpts = buildBaseOptions(sessionId, permMode, prompt);
   const stream = query({
     prompt,
     options: {
@@ -207,7 +215,7 @@ export function continueAgent(sessionId, prompt, opts = {}) {
   updateSessionStatus(sessionId, 'running');
   insertEvent(sessionId, 'user', { type: 'user', text: prompt, timestamp: Date.now() });
 
-  const baseOpts = buildBaseOptions(sessionId, permMode);
+  const baseOpts = buildBaseOptions(sessionId, permMode, prompt);
   const stream = query({
     prompt,
     options: {

@@ -1,15 +1,8 @@
 /**
  * MCP (Model Context Protocol) server configuration for AgentBoard agents.
- *
- * Each server uses stdio transport via npx, so no global install is required.
+ * Supports stdio transport via npx, and remote transport endpoints via ENV vars.
  */
 
-/**
- * Returns the MCP server configuration object.
- *
- * @param {string} workspacePath - Absolute path the filesystem server may access.
- * @returns {Record<string, object>} Server name -> config map.
- */
 export function getMcpServers(workspacePath) {
   const servers = {
     filesystem: {
@@ -34,8 +27,20 @@ export function getMcpServers(workspacePath) {
     },
   };
 
+  // Example of supporting distributed/remote endpoints via Environment Variable fallback:
+  // If the user has a remote browser cluster running, use SSE instead of stdio.
+  if (process.env.MCP_BROWSER_ENDPOINT) {
+    servers.browser = {
+      type: 'sse', // Dynamic Transport Type
+      url: process.env.MCP_BROWSER_ENDPOINT,
+      headers: {
+        Authorization: `Bearer ${process.env.MCP_BROWSER_TOKEN || ''}`,
+      },
+    };
+  }
+
   // Forward the GitHub token if available in the host environment.
-  if (process.env.GITHUB_TOKEN) {
+  if (process.env.GITHUB_TOKEN && !servers.github.env) {
     servers.github.env = {
       GITHUB_PERSONAL_ACCESS_TOKEN: process.env.GITHUB_TOKEN,
     };
@@ -45,9 +50,8 @@ export function getMcpServers(workspacePath) {
 }
 
 /**
- * Returns the list of allowed MCP tool wildcard patterns.
- *
- * @returns {string[]}
+ * Returns the baseline list of allowed MCP tool wildcard patterns.
+ * (This is primarily preserved for backward compatibility if router is skipped)
  */
 export function getAllowedTools() {
   return [
