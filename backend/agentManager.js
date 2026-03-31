@@ -164,7 +164,11 @@ export function stopAgent(sessionId) {
 
   entry.stopped = true;
   clearTimeout(entry.timeoutId);
-  entry.stream.return();
+  try {
+    entry.stream.return();
+  } catch (err) {
+    console.warn(`[agentManager] stream.return() error: ${err.message}`);
+  }
   return true;
 }
 
