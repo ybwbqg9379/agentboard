@@ -8,14 +8,14 @@
 
 import { recordToolCall } from './mcpHealth.js';
 
-const BLOCKED_PATTERNS = [
+export const BLOCKED_PATTERNS = [
   /rm\s+(-\w*\s+)*-rf\s+[/~]/,
   /\|\s*(sh|bash|zsh)\b/,
   /\bsudo\b/,
   /\b(>\s*|tee\s+)(\/etc|\/usr|\/System|\/bin|\/sbin)\//,
 ];
 
-function isDangerous(command) {
+export function isDangerous(command) {
   return BLOCKED_PATTERNS.some((p) => p.test(command));
 }
 

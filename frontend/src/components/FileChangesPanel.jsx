@@ -4,7 +4,7 @@ import styles from './FileChangesPanel.module.css';
 /**
  * Extract file operations from events (Read, Write, Edit tool calls).
  */
-function extractFileChanges(events) {
+export function extractFileChanges(events) {
   const files = new Map(); // path -> { reads, writes, edits }
 
   for (const event of events) {

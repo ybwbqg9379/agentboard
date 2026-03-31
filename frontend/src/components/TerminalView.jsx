@@ -5,7 +5,7 @@ function isBashTool(name) {
   return name === 'Bash' || name === 'bash';
 }
 
-function extractTerminalLines(events) {
+export function extractTerminalLines(events) {
   const lines = [];
   let lineIdx = 0;
   // Track Bash tool_use IDs so we only show their corresponding tool_results

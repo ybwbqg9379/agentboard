@@ -13,6 +13,9 @@
     "format:check": "npx prettier --check .",
     "lint": "npx eslint backend/ frontend/src/",
     "lint:strict": "npx eslint --max-warnings 0 backend/ frontend/src/",
+    "test": "npm run test:backend && npm run test:frontend",
+    "test:backend": "cd backend && npx vitest run",
+    "test:frontend": "cd frontend && npx vitest run",
     "check": "npm run format:check && npm run lint:strict && npm run build",
     "prepare": "husky"
   },
@@ -21,6 +24,7 @@
     "concurrently": "^9.1.2",
     "eslint": "^10.1.0",
     "husky": "^9.1.7",
-    "prettier": "^3.8.1"
+    "prettier": "^3.8.1",
+    "vitest": "^4.1.2"
   }
 }

@@ -20,7 +20,7 @@ const API_KEY = config.llm.apiKey;
 
 // --- Anthropic → OpenAI message 转换 ---
 
-function convertMessages(anthropicMessages) {
+export function convertMessages(anthropicMessages) {
   const openaiMessages = [];
 
   for (const msg of anthropicMessages) {
@@ -77,7 +77,7 @@ function convertMessages(anthropicMessages) {
 
 // --- Anthropic tools → OpenAI tools ---
 
-function convertTools(anthropicTools) {
+export function convertTools(anthropicTools) {
   if (!anthropicTools?.length) return undefined;
 
   return anthropicTools.map((tool) => ({
@@ -92,7 +92,7 @@ function convertTools(anthropicTools) {
 
 // --- OpenAI response → Anthropic response ---
 
-function convertResponse(openaiResp, requestModel) {
+export function convertResponse(openaiResp, requestModel) {
   const choice = openaiResp.choices?.[0];
   if (!choice) {
     return {
@@ -160,7 +160,7 @@ function convertResponse(openaiResp, requestModel) {
 
 // --- Streaming: OpenAI SSE → Anthropic SSE ---
 
-function createStreamTransformer(requestModel) {
+export function createStreamTransformer(requestModel) {
   let messageId = `msg_${Date.now()}`;
   let inputTokens = 0;
   let outputTokens = 0;

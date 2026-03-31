@@ -3,7 +3,7 @@ import MarkdownBody from './MarkdownBody.jsx';
 import styles from './AgentTimeline.module.css';
 
 // --- System subtype dispatch map ---
-const SYSTEM_HANDLERS = {
+export const SYSTEM_HANDLERS = {
   init: (c, ts) => {
     const parts = [
       `Model: ${c?.model || 'unknown'}`,
@@ -69,7 +69,7 @@ const SYSTEM_HANDLERS = {
 };
 
 // --- Top-level type dispatch map ---
-const TYPE_HANDLERS = {
+export const TYPE_HANDLERS = {
   tool_progress: (c, ts) => {
     const tool = c?.tool_name || 'unknown';
     return [
@@ -100,7 +100,7 @@ const TYPE_HANDLERS = {
 };
 
 // --- Content block dispatch map ---
-const BLOCK_HANDLERS = {
+export const BLOCK_HANDLERS = {
   thinking: (b, ts) => ({
     label: 'Thinking',
     dot: 'thinking',
@@ -125,14 +125,14 @@ const BLOCK_HANDLERS = {
   }),
 };
 
-function parseBlock(block, ts) {
+export function parseBlock(block, ts) {
   if (!block) return null;
   const handler = BLOCK_HANDLERS[block.type];
   if (handler) return handler(block, ts);
   return { label: block.type || 'Block', dot: 'done', body: JSON.stringify(block, null, 2), ts };
 }
 
-function flattenEvent(event) {
+export function flattenEvent(event) {
   const { type, content } = event;
   const ts = event.timestamp;
   const subtype = event.subtype || content?.subtype;

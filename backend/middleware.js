@@ -95,7 +95,8 @@ export function validateQuery(schema) {
         details: result.error.issues.map((i) => ({ path: i.path.join('.'), message: i.message })),
       });
     }
-    req.query = result.data;
+    // Express 5 makes req.query a read-only getter; override with defineProperty
+    Object.defineProperty(req, 'query', { value: result.data, writable: true, configurable: true });
     next();
   };
 }

@@ -33,5 +33,11 @@ jobs:
       - name: Lint (zero warnings)
         run: npx eslint --max-warnings 0 backend/ frontend/src/
 
+      - name: Test backend
+        run: npm run test:backend
+
+      - name: Test frontend
+        run: npm run test:frontend
+
       - name: Build
         run: npm run build

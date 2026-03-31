@@ -4,6 +4,22 @@
 
 ### Added
 
+- **完整测试套件**: Vitest 框架，373 个测试用例覆盖前后端关键逻辑
+  - 后端 6 个测试文件（218 tests）: proxy 转换、isDangerous 安全检测、auth + Zod 验证、SQLite CRUD 集成、MCP 状态机、REST API 路由集成
+  - 前端 4 个测试文件（155 tests）: flattenEvent 事件展平、Terminal 命令提取、文件变更聚合、useWebSocket hook 状态机
+- **测试 CI 门禁**: pre-commit hook 和 GitHub Actions 均加入测试步骤，测试不过不能 commit/merge
+
+### Fixed
+
+- **Express 5 req.query 只读**: `validateQuery` 中 `req.query = result.data` 在 Express 5 下抛异常，改用 `Object.defineProperty` 覆盖
+
+### Changed
+
+- 关键纯函数添加 `export` 以支持单元测试（proxy 转换函数、isDangerous、flattenEvent、extractTerminalLines、extractFileChanges）
+- `server.js` 导出 `app` 和 `server` 供 supertest 集成测试使用
+
+---
+
 - **Pre-commit Hook**: husky pre-commit 门禁 -- 检查 CHANGELOG 已更新、Prettier 格式、ESLint 零警告、Build 通过
 - **GitHub Actions CI**: `.github/workflows/ci.yml` -- push/PR 到 main 自动运行 format + lint + build
 - **`npm run check`**: 一键运行全部检查（format:check + lint:strict + build）

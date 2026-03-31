@@ -1,0 +1,488 @@
+/**
+ * Tests for auth middleware and Zod validation schemas.
+ */
+
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+// ---------------------------------------------------------------------------
+// Zod schemas and validation middleware (no module-load-time env dependency)
+// ---------------------------------------------------------------------------
+
+import {
+  wsMessageSchema,
+  controlActionSchema,
+  sessionsQuerySchema,
+  validate,
+  validateQuery,
+} from './middleware.js';
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function mockRes() {
+  const res = { status: vi.fn(), json: vi.fn() };
+  res.status.mockReturnValue(res);
+  return res;
+}
+
+// ---------------------------------------------------------------------------
+// authMiddleware -- API_KEY captured at module load; must reset modules
+// ---------------------------------------------------------------------------
+
+describe('authMiddleware - no key configured', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    delete process.env.AGENTBOARD_API_KEY;
+  });
+
+  it('calls next() when AGENTBOARD_API_KEY is unset', async () => {
+    const { authMiddleware } = await import('./middleware.js');
+    const next = vi.fn();
+    authMiddleware({}, mockRes(), next);
+    expect(next).toHaveBeenCalledOnce();
+  });
+
+  it('calls next() when AGENTBOARD_API_KEY is empty string', async () => {
+    process.env.AGENTBOARD_API_KEY = '';
+    vi.resetModules();
+    const { authMiddleware } = await import('./middleware.js');
+    const next = vi.fn();
+    authMiddleware({}, mockRes(), next);
+    expect(next).toHaveBeenCalledOnce();
+  });
+});
+
+describe('authMiddleware - with key configured', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    process.env.AGENTBOARD_API_KEY = 'test-secret';
+  });
+
+  it('calls next() with correct bearer token', async () => {
+    const { authMiddleware } = await import('./middleware.js');
+    const next = vi.fn();
+    const req = { headers: { authorization: 'Bearer test-secret' } };
+    authMiddleware(req, mockRes(), next);
+    expect(next).toHaveBeenCalledOnce();
+  });
+
+  it('returns 401 with wrong bearer token', async () => {
+    const { authMiddleware } = await import('./middleware.js');
+    const next = vi.fn();
+    const res = mockRes();
+    const req = { headers: { authorization: 'Bearer wrong-token' } };
+    authMiddleware(req, res, next);
+    expect(next).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.json).toHaveBeenCalledWith({ error: 'unauthorized' });
+  });
+
+  it('returns 401 when authorization header is missing', async () => {
+    const { authMiddleware } = await import('./middleware.js');
+    const next = vi.fn();
+    const res = mockRes();
+    authMiddleware({ headers: {} }, res, next);
+    expect(next).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(401);
+  });
+
+  it('returns 401 when header does not start with "Bearer "', async () => {
+    const { authMiddleware } = await import('./middleware.js');
+    const next = vi.fn();
+    const res = mockRes();
+    const req = { headers: { authorization: 'Basic test-secret' } };
+    authMiddleware(req, res, next);
+    expect(next).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(401);
+  });
+
+  it('returns 401 when token is empty after "Bearer "', async () => {
+    const { authMiddleware } = await import('./middleware.js');
+    const next = vi.fn();
+    const res = mockRes();
+    const req = { headers: { authorization: 'Bearer ' } };
+    authMiddleware(req, res, next);
+    expect(next).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(401);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// wsAuth
+// ---------------------------------------------------------------------------
+
+describe('wsAuth - no key configured', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    delete process.env.AGENTBOARD_API_KEY;
+  });
+
+  it('returns true when no API key is set', async () => {
+    const { wsAuth } = await import('./middleware.js');
+    const req = { url: '/ws', headers: { host: 'localhost:3001' } };
+    expect(wsAuth(req)).toBe(true);
+  });
+});
+
+describe('wsAuth - with key configured', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    process.env.AGENTBOARD_API_KEY = 'ws-secret';
+  });
+
+  it('returns true with correct token in query param', async () => {
+    const { wsAuth } = await import('./middleware.js');
+    const req = { url: '/ws?token=ws-secret', headers: { host: 'localhost:3001' } };
+    expect(wsAuth(req)).toBe(true);
+  });
+
+  it('returns false with wrong token', async () => {
+    const { wsAuth } = await import('./middleware.js');
+    const req = { url: '/ws?token=bad', headers: { host: 'localhost:3001' } };
+    expect(wsAuth(req)).toBe(false);
+  });
+
+  it('returns false when token param is missing', async () => {
+    const { wsAuth } = await import('./middleware.js');
+    const req = { url: '/ws', headers: { host: 'localhost:3001' } };
+    expect(wsAuth(req)).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// wsMessageSchema
+// ---------------------------------------------------------------------------
+
+describe('wsMessageSchema', () => {
+  describe('start action', () => {
+    it('accepts valid start with prompt', () => {
+      const result = wsMessageSchema.safeParse({ action: 'start', prompt: 'hello' });
+      expect(result.success).toBe(true);
+      expect(result.data).toEqual({ action: 'start', prompt: 'hello' });
+    });
+
+    it('accepts start with optional permissionMode and maxTurns', () => {
+      const msg = { action: 'start', prompt: 'do it', permissionMode: 'plan', maxTurns: 10 };
+      const result = wsMessageSchema.safeParse(msg);
+      expect(result.success).toBe(true);
+      expect(result.data.permissionMode).toBe('plan');
+      expect(result.data.maxTurns).toBe(10);
+    });
+
+    it('rejects start without prompt', () => {
+      const result = wsMessageSchema.safeParse({ action: 'start' });
+      expect(result.success).toBe(false);
+    });
+
+    it('rejects start with empty prompt', () => {
+      const result = wsMessageSchema.safeParse({ action: 'start', prompt: '' });
+      expect(result.success).toBe(false);
+    });
+
+    it('rejects start with prompt exceeding 50000 chars', () => {
+      const result = wsMessageSchema.safeParse({ action: 'start', prompt: 'x'.repeat(50001) });
+      expect(result.success).toBe(false);
+    });
+
+    it('accepts prompt at exactly 50000 chars', () => {
+      const result = wsMessageSchema.safeParse({ action: 'start', prompt: 'x'.repeat(50000) });
+      expect(result.success).toBe(true);
+    });
+  });
+
+  describe('maxTurns bounds', () => {
+    it('rejects maxTurns = 0', () => {
+      const result = wsMessageSchema.safeParse({ action: 'start', prompt: 'hi', maxTurns: 0 });
+      expect(result.success).toBe(false);
+    });
+
+    it('rejects maxTurns = 201', () => {
+      const result = wsMessageSchema.safeParse({ action: 'start', prompt: 'hi', maxTurns: 201 });
+      expect(result.success).toBe(false);
+    });
+
+    it('accepts maxTurns = 1', () => {
+      const result = wsMessageSchema.safeParse({ action: 'start', prompt: 'hi', maxTurns: 1 });
+      expect(result.success).toBe(true);
+      expect(result.data.maxTurns).toBe(1);
+    });
+
+    it('accepts maxTurns = 200', () => {
+      const result = wsMessageSchema.safeParse({ action: 'start', prompt: 'hi', maxTurns: 200 });
+      expect(result.success).toBe(true);
+      expect(result.data.maxTurns).toBe(200);
+    });
+
+    it('rejects non-integer maxTurns', () => {
+      const result = wsMessageSchema.safeParse({ action: 'start', prompt: 'hi', maxTurns: 5.5 });
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe('subscribe action', () => {
+    it('accepts valid subscribe with UUID sessionId', () => {
+      const id = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
+      const result = wsMessageSchema.safeParse({ action: 'subscribe', sessionId: id });
+      expect(result.success).toBe(true);
+      expect(result.data.sessionId).toBe(id);
+    });
+
+    it('rejects subscribe without sessionId', () => {
+      const result = wsMessageSchema.safeParse({ action: 'subscribe' });
+      expect(result.success).toBe(false);
+    });
+
+    it('rejects subscribe with non-UUID sessionId', () => {
+      const result = wsMessageSchema.safeParse({ action: 'subscribe', sessionId: 'not-a-uuid' });
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe('stop action', () => {
+    it('accepts stop without sessionId', () => {
+      const result = wsMessageSchema.safeParse({ action: 'stop' });
+      expect(result.success).toBe(true);
+    });
+
+    it('accepts stop with valid UUID sessionId', () => {
+      const id = '550e8400-e29b-41d4-a716-446655440000';
+      const result = wsMessageSchema.safeParse({ action: 'stop', sessionId: id });
+      expect(result.success).toBe(true);
+      expect(result.data.sessionId).toBe(id);
+    });
+
+    it('rejects stop with invalid sessionId format', () => {
+      const result = wsMessageSchema.safeParse({ action: 'stop', sessionId: 'bad' });
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe('unsubscribe action', () => {
+    it('accepts valid unsubscribe', () => {
+      const result = wsMessageSchema.safeParse({ action: 'unsubscribe' });
+      expect(result.success).toBe(true);
+      expect(result.data.action).toBe('unsubscribe');
+    });
+  });
+
+  describe('unknown action', () => {
+    it('rejects unknown action type', () => {
+      const result = wsMessageSchema.safeParse({ action: 'restart' });
+      expect(result.success).toBe(false);
+    });
+
+    it('rejects missing action field', () => {
+      const result = wsMessageSchema.safeParse({ prompt: 'hello' });
+      expect(result.success).toBe(false);
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// controlActionSchema
+// ---------------------------------------------------------------------------
+
+describe('controlActionSchema', () => {
+  const validActions = ['get_context_usage', 'set_model', 'rewind_files', 'mcp_status'];
+
+  it.each(validActions)('accepts valid action: %s', (action) => {
+    const result = controlActionSchema.safeParse({ action });
+    expect(result.success).toBe(true);
+    expect(result.data.action).toBe(action);
+  });
+
+  it('rejects invalid action', () => {
+    const result = controlActionSchema.safeParse({ action: 'shutdown' });
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts optional model field', () => {
+    const result = controlActionSchema.safeParse({ action: 'set_model', model: 'gpt-4o' });
+    expect(result.success).toBe(true);
+    expect(result.data.model).toBe('gpt-4o');
+  });
+
+  it('accepts optional messageId field', () => {
+    const result = controlActionSchema.safeParse({
+      action: 'rewind_files',
+      messageId: 'msg-123',
+    });
+    expect(result.success).toBe(true);
+    expect(result.data.messageId).toBe('msg-123');
+  });
+
+  it('rejects missing action field', () => {
+    const result = controlActionSchema.safeParse({});
+    expect(result.success).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// sessionsQuerySchema
+// ---------------------------------------------------------------------------
+
+describe('sessionsQuerySchema', () => {
+  it('applies defaults when no params provided', () => {
+    const result = sessionsQuerySchema.safeParse({});
+    expect(result.success).toBe(true);
+    expect(result.data).toEqual({ limit: 20, offset: 0 });
+  });
+
+  it('coerces string numbers from query params', () => {
+    const result = sessionsQuerySchema.safeParse({ limit: '10', offset: '5' });
+    expect(result.success).toBe(true);
+    expect(result.data).toEqual({ limit: 10, offset: 5 });
+  });
+
+  it('rejects limit < 1', () => {
+    const result = sessionsQuerySchema.safeParse({ limit: 0 });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects limit > 100', () => {
+    const result = sessionsQuerySchema.safeParse({ limit: 101 });
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts limit = 1 (minimum)', () => {
+    const result = sessionsQuerySchema.safeParse({ limit: 1 });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts limit = 100 (maximum)', () => {
+    const result = sessionsQuerySchema.safeParse({ limit: 100 });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects negative offset', () => {
+    const result = sessionsQuerySchema.safeParse({ offset: -1 });
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts offset = 0', () => {
+    const result = sessionsQuerySchema.safeParse({ offset: 0 });
+    expect(result.success).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// validate (body validation middleware)
+// ---------------------------------------------------------------------------
+
+describe('validate middleware', () => {
+  it('sets req.body to parsed data and calls next on valid input', () => {
+    const middleware = validate(controlActionSchema);
+    const req = { body: { action: 'set_model', model: 'claude-3' } };
+    const res = mockRes();
+    const next = vi.fn();
+
+    middleware(req, res, next);
+
+    expect(next).toHaveBeenCalledOnce();
+    expect(req.body.action).toBe('set_model');
+    expect(req.body.model).toBe('claude-3');
+  });
+
+  it('strips unknown fields from parsed body', () => {
+    const middleware = validate(controlActionSchema);
+    const req = { body: { action: 'mcp_status', extra: 'junk' } };
+    const res = mockRes();
+    const next = vi.fn();
+
+    middleware(req, res, next);
+
+    expect(next).toHaveBeenCalledOnce();
+    expect(req.body).not.toHaveProperty('extra');
+  });
+
+  it('returns 400 with error details on invalid body', () => {
+    const middleware = validate(controlActionSchema);
+    const req = { body: { action: 'invalid_action' } };
+    const res = mockRes();
+    const next = vi.fn();
+
+    middleware(req, res, next);
+
+    expect(next).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: 'validation failed',
+        details: expect.any(Array),
+      }),
+    );
+  });
+
+  it('returns 400 when body is empty', () => {
+    const middleware = validate(controlActionSchema);
+    const req = { body: {} };
+    const res = mockRes();
+    const next = vi.fn();
+
+    middleware(req, res, next);
+
+    expect(next).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(400);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// validateQuery (query validation middleware)
+// ---------------------------------------------------------------------------
+
+describe('validateQuery middleware', () => {
+  it('sets req.query to parsed data and calls next on valid input', () => {
+    const middleware = validateQuery(sessionsQuerySchema);
+    const req = { query: { limit: '15', offset: '3' } };
+    const res = mockRes();
+    const next = vi.fn();
+
+    middleware(req, res, next);
+
+    expect(next).toHaveBeenCalledOnce();
+    expect(req.query).toEqual({ limit: 15, offset: 3 });
+  });
+
+  it('applies schema defaults when query is empty', () => {
+    const middleware = validateQuery(sessionsQuerySchema);
+    const req = { query: {} };
+    const res = mockRes();
+    const next = vi.fn();
+
+    middleware(req, res, next);
+
+    expect(next).toHaveBeenCalledOnce();
+    expect(req.query).toEqual({ limit: 20, offset: 0 });
+  });
+
+  it('returns 400 with error details on invalid query', () => {
+    const middleware = validateQuery(sessionsQuerySchema);
+    const req = { query: { limit: 'abc' } };
+    const res = mockRes();
+    const next = vi.fn();
+
+    middleware(req, res, next);
+
+    expect(next).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: 'validation failed',
+        details: expect.any(Array),
+      }),
+    );
+  });
+
+  it('returns 400 when limit exceeds maximum', () => {
+    const middleware = validateQuery(sessionsQuerySchema);
+    const req = { query: { limit: '999' } };
+    const res = mockRes();
+    const next = vi.fn();
+
+    middleware(req, res, next);
+
+    expect(next).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(400);
+  });
+});
