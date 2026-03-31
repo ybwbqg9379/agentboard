@@ -9,6 +9,10 @@
 - **`npm run check`**: 一键运行全部检查（format:check + lint:strict + build）
 - **`npm run lint:strict`**: ESLint `--max-warnings 0` 严格模式
 
+### Fixed
+
+- **[Critical] SQLite 启动崩溃**: `sessionStore.js` 的 `CREATE TABLE sessions` DDL 缺少 `stats TEXT` 列，导致 `updateStats` prepared statement 在服务启动时抛出 `SqliteError: no such column: stats`，进程立即退出；已将 `stats TEXT` 补入表定义
+
 ---
 
 ## [0.7.0] - 2026-03-31

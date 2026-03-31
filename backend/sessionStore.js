@@ -15,6 +15,7 @@ db.exec(`
     id        TEXT PRIMARY KEY,
     prompt    TEXT NOT NULL,
     status    TEXT NOT NULL DEFAULT 'pending',
+    stats     TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
