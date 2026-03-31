@@ -73,14 +73,26 @@ function TimelineEvent({ event, index }) {
   );
 }
 
+// 过滤无内容的 system 事件（Claude Code 初始化噪音）
+function filterEvents(events) {
+  return events.filter((event) => {
+    if (event.type === 'system') {
+      const body = event.content?.message || event.content?.text || '';
+      return body.length > 0;
+    }
+    return true;
+  });
+}
+
 export default function AgentTimeline({ events, status }) {
   const bottomRef = useRef(null);
+  const displayEvents = filterEvents(events);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [events.length]);
+  }, [displayEvents.length]);
 
-  if (events.length === 0 && status === 'idle') {
+  if (displayEvents.length === 0 && status === 'idle') {
     return (
       <div className="panel">
         <div className="panel-header">
@@ -101,11 +113,11 @@ export default function AgentTimeline({ events, status }) {
         <span className={`dot ${status === 'running' ? 'dot-running' : 'dot-done'}`} />
         Timeline
         <span style={{ marginLeft: 'auto', fontVariantNumeric: 'tabular-nums' }}>
-          {events.length} events
+          {displayEvents.length} events
         </span>
       </div>
       <div className={`panel-body ${styles.timeline}`}>
-        {events.map((event, i) => (
+        {displayEvents.map((event, i) => (
           <TimelineEvent key={i} event={event} index={i} />
         ))}
         {status === 'running' && (

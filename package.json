@@ -5,9 +5,9 @@
   "scripts": {
     "dev:backend": "cd backend && node --env-file=../.env.local --watch server.js",
     "dev:frontend": "cd frontend && npx vite",
-    "dev": "npx concurrently -n back,front -c blue,green \"npm run dev:backend\" \"npm run dev:frontend\"",
-    "build": "cd frontend && npx vite build",
-    "litellm": "export $(grep -v '^#' .env.local | grep -v '^$' | xargs) && .venv/bin/litellm --config litellm/config.yaml --port 4000"
+    "dev:proxy": "cd backend && node --env-file=../.env.local proxy.js",
+    "dev": "npx concurrently -n proxy,back,front -c yellow,blue,green \"npm run dev:proxy\" \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "build": "cd frontend && npx vite build"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"
