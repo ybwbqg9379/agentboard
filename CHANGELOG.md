@@ -10,14 +10,15 @@
 - **`npm run lint:strict`**: ESLint `--max-warnings 0` 严格模式
 - **Markdown 渲染**: Timeline 的 Assistant/Result/Tool Result 事件支持 Markdown 渲染（react-markdown + remark-gfm）
 - **Markdown 样式**: 全局 `.markdown-body` 暗色主题适配
+- **Web 访问引导**: System prompt 指示 Agent 使用 Playwright MCP (`mcp__browser__*`) 替代不可用的 WebFetch/WebSearch
 
 ### Fixed
 
 - **[严重] SQLite 启动崩溃**: `sessionStore.js` 的 `CREATE TABLE sessions` DDL 缺少 `stats TEXT` 列
-- **Token 计数为 0**: proxy.js 流式路径未追踪 `input_tokens`，现在同时捕获并转发
+- **Token 计数为 0**: proxy.js 流式 usage 数据因时序问题被丢弃，改为延迟发送 finish 事件确保 usage 正确传递
 - **Terminal 显示非 Bash 工具结果**: 改为追踪 Bash tool_use ID 仅显示对应结果
 - **Timeline 重复 Assistant/Result**: result 事件现在只保留 Stats 行
-- **模型名显示为 Sonnet**: agentManager 在 init/result 事件中覆盖为实际 LLM 模型名
+- **模型名显示为 Sonnet**: agentManager 中 model 覆盖移到事件构建之前，确保 insertEvent 和 emit 都携带正确模型名
 
 ### Changed
 

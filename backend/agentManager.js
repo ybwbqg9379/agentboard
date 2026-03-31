@@ -54,6 +54,14 @@ export function startAgent(prompt, opts = {}) {
           `All file operations MUST stay within this directory.`,
           `NEVER use absolute paths outside ${WORKSPACE}.`,
           `NEVER access parent directories beyond ${WORKSPACE}.`,
+          ``,
+          `[WEB ACCESS] Do NOT use WebFetch or WebSearch tools -- they are unavailable in this environment.`,
+          `Instead, use the Playwright browser MCP for ALL web access:`,
+          `  - mcp__browser__browser_navigate: open a URL`,
+          `  - mcp__browser__browser_snapshot: read page content as structured text`,
+          `  - mcp__browser__browser_evaluate: run JS to extract data from the page`,
+          `  - mcp__browser__browser_click / browser_type / browser_fill_form: interact with the page`,
+          `When you need to search the web, navigate to a search engine (e.g. google.com), type the query, and read the results.`,
         ].join('\n'),
       },
       settingSources: [],
@@ -102,31 +110,32 @@ export function startAgent(prompt, opts = {}) {
     let finalStatus = 'completed';
     try {
       for await (const message of stream) {
+        // Override model name with actual target model for init events
+        let msg = message;
+        if (msg.type === 'system' && msg.subtype === 'init') {
+          msg = { ...msg, model: config.llm.model };
+          if (msg.mcp_servers) initMcpHealth(msg.mcp_servers);
+        }
+
         const wrapped = {
           sessionId,
-          type: message.type,
-          subtype: message.subtype || null,
-          content: message,
+          type: msg.type,
+          subtype: msg.subtype || null,
+          content: msg,
           timestamp: Date.now(),
         };
 
-        insertEvent(sessionId, message.type, message);
+        insertEvent(sessionId, msg.type, msg);
         agentEvents.emit('event', wrapped);
 
-        // Override model name with actual target model for init events
-        if (message.type === 'system' && message.subtype === 'init') {
-          wrapped.content = { ...message, model: config.llm.model };
-          if (message.mcp_servers) initMcpHealth(message.mcp_servers);
-        }
-
         // Extract session stats from result messages
-        if (message.type === 'result') {
+        if (msg.type === 'result') {
           const stats = {
-            cost_usd: message.total_cost_usd || 0,
-            input_tokens: message.usage?.input_tokens || 0,
-            output_tokens: message.usage?.output_tokens || 0,
-            duration_ms: message.duration_ms || 0,
-            num_turns: message.num_turns || 0,
+            cost_usd: msg.total_cost_usd || 0,
+            input_tokens: msg.usage?.input_tokens || 0,
+            output_tokens: msg.usage?.output_tokens || 0,
+            duration_ms: msg.duration_ms || 0,
+            num_turns: msg.num_turns || 0,
             model: null,
           };
           stats.model = config.llm.model;

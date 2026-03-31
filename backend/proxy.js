@@ -166,6 +166,7 @@ function createStreamTransformer(requestModel) {
   let outputTokens = 0;
   let contentIndex = 0;
   let sentStart = false;
+  let pendingStopReason = null;
 
   return {
     header() {
@@ -190,6 +191,13 @@ function createStreamTransformer(requestModel) {
 
     transform(openaiChunk) {
       const events = [];
+
+      // 优先提取 usage -- OpenAI 可能在独立 chunk 中发送 (choices: [])
+      if (openaiChunk.usage) {
+        inputTokens = openaiChunk.usage.prompt_tokens || 0;
+        outputTokens = openaiChunk.usage.completion_tokens || 0;
+      }
+
       const delta = openaiChunk.choices?.[0]?.delta;
       const finishReason = openaiChunk.choices?.[0]?.finish_reason;
 
@@ -255,7 +263,7 @@ function createStreamTransformer(requestModel) {
         }
       }
 
-      // 结束
+      // 结束 -- 关闭 content block 但延迟发送 message_delta/stop（等 usage 到达）
       if (finishReason) {
         if (sentStart) {
           events.push(
@@ -269,22 +277,25 @@ function createStreamTransformer(requestModel) {
         if (finishReason === 'tool_calls') stopReason = 'tool_use';
         if (finishReason === 'length') stopReason = 'max_tokens';
 
-        events.push(
-          `event: message_delta`,
-          `data: ${JSON.stringify({ type: 'message_delta', delta: { stop_reason: stopReason, stop_sequence: null }, usage: { input_tokens: inputTokens, output_tokens: outputTokens } })}`,
-          '',
-          `event: message_stop`,
-          `data: ${JSON.stringify({ type: 'message_stop' })}`,
-          '',
-        );
-      }
-
-      if (openaiChunk.usage) {
-        inputTokens = openaiChunk.usage.prompt_tokens || 0;
-        outputTokens = openaiChunk.usage.completion_tokens || 0;
+        pendingStopReason = stopReason;
       }
 
       return events.length ? events.join('\n') + '\n' : '';
+    },
+
+    /** 流结束后调用 -- 发送延迟的 message_delta（含 usage）和 message_stop */
+    flush() {
+      if (!pendingStopReason) return '';
+      const events = [
+        `event: message_delta`,
+        `data: ${JSON.stringify({ type: 'message_delta', delta: { stop_reason: pendingStopReason, stop_sequence: null }, usage: { input_tokens: inputTokens, output_tokens: outputTokens } })}`,
+        '',
+        `event: message_stop`,
+        `data: ${JSON.stringify({ type: 'message_stop' })}`,
+        '',
+      ];
+      pendingStopReason = null;
+      return events.join('\n') + '\n';
     },
   };
 }
@@ -452,6 +463,10 @@ const server = createServer(async (req, res) => {
         }
       }
     }
+
+    // 流结束 -- flush 延迟的 message_delta/stop（含最终 usage）
+    const flushed = transformer.flush();
+    if (flushed) res.write(flushed);
 
     res.end();
   } catch (err) {
