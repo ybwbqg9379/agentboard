@@ -69,13 +69,13 @@
 
 ### Backend
 
-| 模块          | 文件              | 职责                                                  |
-| ------------- | ----------------- | ----------------------------------------------------- |
-| Config        | `config.js`       | 集中配置管理（端口、路径、超时、Minimax 端点）        |
-| Session Store | `sessionStore.js` | SQLite CRUD，sessions + events 两表                   |
-| Agent Manager | `agentManager.js` | SDK query() 调用、事件消费、生命周期管理              |
-| Server        | `server.js`       | HTTP REST API + WebSocket 服务，事件广播              |
-| Proxy         | `proxy.js`        | Anthropic Messages API → OpenAI Chat Completions 翻译 |
+| 模块          | 文件              | 职责                                                         |
+| ------------- | ----------------- | ------------------------------------------------------------ |
+| Config        | `config.js`       | 集中配置管理（端口、路径、超时、Minimax 端点）               |
+| Session Store | `sessionStore.js` | SQLite CRUD（带错误处理），sessions + events 两表            |
+| Agent Manager | `agentManager.js` | SDK query() 调用、事件消费、生命周期管理（含超时定时器清理） |
+| Server        | `server.js`       | HTTP REST API + WebSocket 服务，事件广播，graceful shutdown  |
+| Proxy         | `proxy.js`        | Anthropic Messages API → OpenAI Chat Completions 翻译        |
 
 ### Agent Manager (SDK 方式)
 
@@ -112,7 +112,7 @@ for await (const message of stream) {
 
 | 模块           | 文件                | 职责                                                             |
 | -------------- | ------------------- | ---------------------------------------------------------------- |
-| WebSocket Hook | `useWebSocket.js`   | 连接管理、重连、消息解析、状态维护                               |
+| WebSocket Hook | `useWebSocket.js`   | 连接管理（相对路径 /ws）、重连、消息解析、状态维护               |
 | Header         | `Header.jsx`        | Logo、版本、连接状态、New Session                                |
 | ChatInput      | `ChatInput.jsx`     | 任务输入、Run/Stop 操作                                          |
 | AgentTimeline  | `AgentTimeline.jsx` | flattenEvent() 拆解嵌套 blocks，按类型渲染（thinking/tool/text） |
@@ -161,14 +161,14 @@ events (
 
 ## 安全隔离
 
-| 机制                                  | 说明                                                |
-| ------------------------------------- | --------------------------------------------------- |
-| `cwd: WORKSPACE`                      | Agent 工作目录限定                                  |
-| `systemPrompt`                        | 每次任务注入目录约束指令                            |
-| `workspace/CLAUDE.md`                 | Agent 行为规则文件                                  |
-| `settingSources: []`                  | 不加载用户级 Claude Code 配置（MCP/hooks/settings） |
-| `env: { HOME: WORKSPACE }`            | HOME 指向 workspace，阻止访问用户目录               |
-| `permissionMode: 'bypassPermissions'` | 受控环境下自动批准工具调用                          |
+| 机制                                  | 说明                                                      |
+| ------------------------------------- | --------------------------------------------------------- |
+| `cwd: WORKSPACE`                      | Agent 工作目录限定                                        |
+| `systemPrompt`                        | 每次任务注入目录约束指令                                  |
+| `workspace/CLAUDE.md`                 | Agent 行为规则文件                                        |
+| `settingSources: []`                  | 不加载用户级 Claude Code 配置（MCP/hooks/settings）       |
+| `env: { HOME: process.env.HOME }`     | HOME 指向真实用户目录（SDK 初始化需要），cwd 限定工作目录 |
+| `permissionMode: 'bypassPermissions'` | 受控环境下自动批准工具调用                                |
 
 ## 设计决策
 

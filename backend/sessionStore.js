@@ -42,31 +42,63 @@ const stmts = {
 
 export function createSession(prompt) {
   const id = randomUUID();
-  stmts.createSession.run(id, prompt, 'running');
+  try {
+    stmts.createSession.run(id, prompt, 'running');
+  } catch (err) {
+    console.error(`[sessionStore] createSession failed: ${err.message}`);
+    throw err;
+  }
   return id;
 }
 
 export function updateSessionStatus(id, status) {
-  stmts.updateStatus.run(status, id);
+  try {
+    stmts.updateStatus.run(status, id);
+  } catch (err) {
+    console.error(`[sessionStore] updateSessionStatus failed: ${err.message}`);
+  }
 }
 
 export function getSession(id) {
-  return stmts.getSession.get(id);
+  try {
+    return stmts.getSession.get(id);
+  } catch (err) {
+    console.error(`[sessionStore] getSession failed: ${err.message}`);
+    return null;
+  }
 }
 
 export function listSessions(limit = 50) {
-  return stmts.listSessions.all(limit);
+  try {
+    return stmts.listSessions.all(limit);
+  } catch (err) {
+    console.error(`[sessionStore] listSessions failed: ${err.message}`);
+    return [];
+  }
 }
 
 export function insertEvent(sessionId, type, content) {
-  stmts.insertEvent.run(sessionId, type, JSON.stringify(content), Date.now());
+  try {
+    stmts.insertEvent.run(sessionId, type, JSON.stringify(content), Date.now());
+  } catch (err) {
+    console.error(`[sessionStore] insertEvent failed: ${err.message}`);
+  }
 }
 
 export function getEvents(sessionId) {
-  const rows = stmts.getEvents.all(sessionId);
-  return rows.map((r) => ({ ...r, content: JSON.parse(r.content) }));
+  try {
+    const rows = stmts.getEvents.all(sessionId);
+    return rows.map((r) => ({ ...r, content: JSON.parse(r.content) }));
+  } catch (err) {
+    console.error(`[sessionStore] getEvents failed: ${err.message}`);
+    return [];
+  }
 }
 
 export function close() {
-  db.close();
+  try {
+    db.close();
+  } catch (err) {
+    console.error(`[sessionStore] close failed: ${err.message}`);
+  }
 }

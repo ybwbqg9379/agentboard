@@ -3,6 +3,7 @@ import styles from './TerminalView.module.css';
 
 function extractTerminalLines(events) {
   const lines = [];
+  let lineIdx = 0;
 
   for (const event of events) {
     const { type, content } = event;
@@ -13,11 +14,16 @@ function extractTerminalLines(events) {
       for (const block of blocks) {
         if (block.type === 'tool_use' && (block.name === 'Bash' || block.name === 'bash')) {
           const cmd = block.input?.command || (typeof block.input === 'string' ? block.input : '');
-          if (cmd) lines.push({ type: 'command', text: cmd });
+          if (cmd) lines.push({ type: 'command', text: cmd, key: `cmd-${lineIdx++}` });
         }
         if (block.type === 'tool_result') {
           const output = typeof block.content === 'string' ? block.content : block.output || '';
-          if (output) lines.push({ type: block.is_error ? 'error' : 'output', text: output });
+          if (output)
+            lines.push({
+              type: block.is_error ? 'error' : 'output',
+              text: output,
+              key: `out-${lineIdx++}`,
+            });
         }
       }
     }
@@ -26,19 +32,28 @@ function extractTerminalLines(events) {
     if (type === 'tool_use' && (content?.name === 'Bash' || content?.name === 'bash')) {
       const cmd = content?.input?.command || content?.input;
       if (cmd)
-        lines.push({ type: 'command', text: typeof cmd === 'string' ? cmd : JSON.stringify(cmd) });
+        lines.push({
+          type: 'command',
+          text: typeof cmd === 'string' ? cmd : JSON.stringify(cmd),
+          key: `cmd-${lineIdx++}`,
+        });
     }
 
     // 顶层 tool_result
     if (type === 'tool_result') {
       const output =
         content?.output || (typeof content?.content === 'string' ? content.content : '');
-      if (output) lines.push({ type: content?.is_error ? 'error' : 'output', text: output });
+      if (output)
+        lines.push({
+          type: content?.is_error ? 'error' : 'output',
+          text: output,
+          key: `out-${lineIdx++}`,
+        });
     }
 
     // stderr
     if (type === 'stderr') {
-      lines.push({ type: 'error', text: content?.text || '' });
+      lines.push({ type: 'error', text: content?.text || '', key: `err-${lineIdx++}` });
     }
   }
 
@@ -66,8 +81,8 @@ export default function TerminalView({ events }) {
         </div>
       ) : (
         <div className={`panel-body ${styles.terminal}`}>
-          {lines.map((line, i) => (
-            <div key={i} className={`${styles.line} ${styles[line.type]}`}>
+          {lines.map((line) => (
+            <div key={line.key} className={`${styles.line} ${styles[line.type]}`}>
               {line.type === 'command' && <span className={styles.prompt}>$</span>}
               <pre className={styles.text}>{line.text}</pre>
             </div>

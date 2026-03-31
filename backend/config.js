@@ -6,12 +6,12 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const config = {
   port: parseInt(process.env.PORT || '3001', 10),
 
-  // LiteLLM proxy -- Claude Code 通过它将 Anthropic 格式转为 OpenAI 格式调用 Minimax
+  // Anthropic-to-OpenAI proxy -- Claude Code SDK 通过它将 Anthropic 格式转为 OpenAI 格式调用 Minimax
   litellm: {
     url: process.env.LITELLM_URL || 'http://localhost:4000',
   },
 
-  // Minimax 模型配置（供 LiteLLM config 引用）
+  // Minimax 模型配置
   minimax: {
     baseUrl: 'https://mydamoxing.cn/v1',
     model: 'MiniMax-M2.7-highspeed',

@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.2.1] - 2026-03-31
+
+### Fixed
+
+- **WebSocket URL 硬编码端口**：`useWebSocket.js` 不再硬编码 `:3001`，改为使用相对路径 `/ws`，通过 Vite proxy 转发，支持反向代理和 HTTPS 部署
+- **done 事件状态错误**：`agentManager.js` 的 `finally` 块现在正确传递实际状态（`completed` / `failed`），而非始终报 `completed`
+- **超时定时器未清除**：Agent 正常完成或手动停止时，`setTimeout` 超时保护定时器现在会被正确清除
+- **SQLite 操作无错误处理**：`sessionStore.js` 所有数据库操作添加 try/catch，防止数据库异常导致进程崩溃
+- **无优雅退出**：`server.js` 添加 `SIGTERM`/`SIGINT` 处理器，退出时依次停止活跃 Agent、关闭 WebSocket 连接、关闭 HTTP 服务器、关闭 SQLite 连接
+- **AgentTimeline 渲染性能**：`buildDisplayItems` 使用 `useMemo` 缓存，避免每次渲染重新计算
+- **React key 使用 index**：`AgentTimeline` 和 `TerminalView` 改为使用稳定的组合 key（`eventIndex-blockIndex`）
+- **Header 版本号过时**：从 `v0.1` 更新为 `v0.2.1`，与 `package.json` 保持一致
+- **config.js 注释过时**：将 "LiteLLM" 引用更新为 "Anthropic-to-OpenAI proxy"
+
+---
+
 ## [0.2.0] - 2026-03-31
 
 ### Changed

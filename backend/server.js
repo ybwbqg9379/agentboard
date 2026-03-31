@@ -3,7 +3,7 @@ import cors from 'cors';
 import { createServer } from 'node:http';
 import { WebSocketServer } from 'ws';
 import config from './config.js';
-import { listSessions, getSession, getEvents } from './sessionStore.js';
+import { listSessions, getSession, getEvents, close as closeDb } from './sessionStore.js';
 import { startAgent, stopAgent, getActiveAgents, agentEvents } from './agentManager.js';
 
 const app = express();
@@ -108,3 +108,35 @@ server.listen(config.port, () => {
   console.log(`WebSocket ready on ws://localhost:${config.port}`);
   console.log(`Workspace: ${config.workspaceDir}`);
 });
+
+// --- Graceful Shutdown ---
+
+function shutdown(signal) {
+  console.log(`\n[${signal}] Shutting down...`);
+
+  // Stop all active agents
+  for (const sessionId of getActiveAgents()) {
+    stopAgent(sessionId);
+  }
+
+  // Close WebSocket connections
+  for (const ws of wss.clients) {
+    ws.close();
+  }
+
+  // Close HTTP server, then database
+  server.close(() => {
+    closeDb();
+    console.log('Shutdown complete.');
+    process.exit(0);
+  });
+
+  // Force exit if graceful shutdown takes too long
+  setTimeout(() => {
+    console.error('Forced shutdown after timeout.');
+    process.exit(1);
+  }, 5000);
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));

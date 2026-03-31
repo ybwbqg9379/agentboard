@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import styles from './AgentTimeline.module.css';
 
 /**
@@ -121,15 +121,18 @@ function TimelineItem({ item, index }) {
 
 function buildDisplayItems(events) {
   const items = [];
-  for (const event of events) {
-    items.push(...flattenEvent(event));
+  for (let ei = 0; ei < events.length; ei++) {
+    const flat = flattenEvent(events[ei]);
+    for (let bi = 0; bi < flat.length; bi++) {
+      items.push({ ...flat[bi], key: `${ei}-${bi}` });
+    }
   }
   return items;
 }
 
 export default function AgentTimeline({ events, status }) {
   const bottomRef = useRef(null);
-  const displayItems = buildDisplayItems(events);
+  const displayItems = useMemo(() => buildDisplayItems(events), [events]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -161,7 +164,7 @@ export default function AgentTimeline({ events, status }) {
       </div>
       <div className={`panel-body ${styles.timeline}`}>
         {displayItems.map((item, i) => (
-          <TimelineItem key={i} item={item} index={i} />
+          <TimelineItem key={item.key} item={item} index={i} />
         ))}
         {status === 'running' && (
           <div className={styles.runningIndicator}>

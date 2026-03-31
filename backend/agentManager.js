@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 import config from './config.js';
 import { createSession, updateSessionStatus, insertEvent } from './sessionStore.js';
 
-// 活跃的 Agent Query Map<sessionId, Query>
+// 活跃的 Agent Query Map<sessionId, { stream, timeoutId }>
 const activeAgents = new Map();
 
 export const agentEvents = new EventEmitter();
@@ -43,10 +43,18 @@ export function startAgent(prompt) {
     },
   });
 
-  activeAgents.set(sessionId, stream);
+  // 超时保护
+  const timeoutId = setTimeout(() => {
+    if (activeAgents.has(sessionId)) {
+      stopAgent(sessionId);
+    }
+  }, config.agentTimeout);
+
+  activeAgents.set(sessionId, { stream, timeoutId });
 
   // 异步消费事件流
   (async () => {
+    let finalStatus = 'completed';
     try {
       for await (const message of stream) {
         const wrapped = {
@@ -63,6 +71,7 @@ export function startAgent(prompt) {
 
       updateSessionStatus(sessionId, 'completed');
     } catch (err) {
+      finalStatus = 'failed';
       const errEvent = {
         sessionId,
         type: 'stderr',
@@ -73,22 +82,17 @@ export function startAgent(prompt) {
       agentEvents.emit('event', errEvent);
       updateSessionStatus(sessionId, 'failed');
     } finally {
+      const entry = activeAgents.get(sessionId);
+      if (entry) clearTimeout(entry.timeoutId);
       activeAgents.delete(sessionId);
       agentEvents.emit('event', {
         sessionId,
         type: 'done',
-        content: { status: 'completed' },
+        content: { status: finalStatus },
         timestamp: Date.now(),
       });
     }
   })();
-
-  // 超时保护
-  setTimeout(() => {
-    if (activeAgents.has(sessionId)) {
-      stopAgent(sessionId);
-    }
-  }, config.agentTimeout);
 
   return sessionId;
 }
@@ -97,10 +101,11 @@ export function startAgent(prompt) {
  * 停止一个运行中的 Agent
  */
 export function stopAgent(sessionId) {
-  const stream = activeAgents.get(sessionId);
-  if (!stream) return false;
+  const entry = activeAgents.get(sessionId);
+  if (!entry) return false;
 
-  stream.return();
+  clearTimeout(entry.timeoutId);
+  entry.stream.return();
   updateSessionStatus(sessionId, 'stopped');
   activeAgents.delete(sessionId);
   return true;
