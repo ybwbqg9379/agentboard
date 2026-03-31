@@ -2,8 +2,17 @@
 
 ## Unreleased
 
+### Docs
+
+- **全面消除文档漂移 (Zero Documentation Drift)**: 发起“文档全景治理”行动，校准了四大核心文件以匹配当前的实际项目状态：
+  - `README.md`: 摒弃早期单阶段说明，全面升格为“单 Agent 与 DAG Workflow 双引擎平台”的介绍，补充了通配型 OpenAI API 热插拔能力、自适应双模式 UI 主题与 API 层级的门禁机制。
+  - `ARCHITECTURE.md`: 将架构文档从 `docs/` 提升至根目录，详尽补齐了 `workflowEngine.js` 拓扑流转逻辑、中间件层、双 SQLite 数据引擎与前端 RightPanel 拆分树。
+  - `ONBOARDING.md` (全新): 新人五分钟中文速通指南，解析环境配置、依赖安装及双模式的初步操作流程。
+  - `CONTRIBUTING.md` (全新): 树立提交质量护城河，确立以 `npm run check` 拦截链（Prettier + ESLint + Build）与 `Vitest` 自动化断言规则为主的工程化迭代原则。
+
 ### Fixed
 
+- **环境变量断连陷阱**: 修复 `backend/config.js` 未正确提取 `.env.local` 中 `PROXY_PORT` 导致的代理服务隔离问题；修复 `frontend/vite.config.js` 硬编码 `3001` 的问题，通过 `loadEnv` 动态跨目录侦测 `PORT` 变量，实现全盘端口号参数的自动化对齐
 - **[Critical] CORS + WebSocket 跨源防护**: HTTP CORS 继续使用 localhost allowlist；WebSocket 单独改为 `isAllowedWebSocketOrigin()`，必须带显式浏览器 `Origin` 且命中 localhost 白名单，修复了未设置 `AGENTBOARD_API_KEY` 时 raw WS 客户端通过缺失 `Origin` 头绕过鉴权的问题；启动时无 key 打印更准确的安全警告
 - **[Critical] 沙箱白名单路径围栏**: `env.HOME` 指向 WORKSPACE，`PATH` 限制为 `/usr/local/bin:/usr/bin:/bin`；hooks 从纯黑名单升级为双层防护 -- 保留危险命令黑名单，同时新增绝对路径提取与白名单围栏，命令里所有绝对路径都会检查是否位于 workspace 内，仅放行 `/usr/local/bin`、`/usr/bin`、`/bin`、`/dev`、`/tmp`，从而拦截 `sed`/`awk`/`perl` 等通过绝对路径读取宿主机文件的绕过方式
 - **[Major] 条件分支跳过 join 汇合节点**: `markDescendantsSkipped` 递归标记后代时需排除触发 skip 的条件节点自身的出边（`skipSourceId` 参数），否则条件节点已 executed 的入边永远阻止目标被 skip，导致两条分支都执行；`allIncomingSatisfied` 改为 resolved 语义（executed 或 skipped 均算已处理），但至少需要一条 executed 入边
@@ -12,7 +21,7 @@
 - **[Major] 前端 REST 硬编码 :3001**: 三处 `API_BASE` 改为相对路径 `''` 走 Vite proxy
 - **[Major] Workflow 事件广播串台 + 订阅竞态**: 改回按 `runId` 精确订阅，后端 workflow 广播只投递给订阅对应 `runId` 的连接，避免同一 workflow 的并发运行或多页面互相串台；前端在执行前先生成 `runId`、通过 WebSocket 订阅并等待 `workflow_subscribed` ack，再调用 `/run` 启动执行，彻底消除首次运行时短流程事件先于订阅到达的竞态
 - **[Major] abortWorkflow 不取消运行中 agent**: `activeRuns` 追踪当前 agent sessionId，abort 时调用 `stopAgent()` 触发 done 事件，由 `runAgentNode` 的 listener 自然 resolve/reject 并 cleanup（不再手动 off listener 避免 promise 悬挂）
-- **[Major] WorkflowEditor 节点坐标越界崩溃**: 修复因底层数据库混入测试脏数据（缺失 `position` 坐标字段）导致的渲染报错，利用防御性容错逻辑赋予默认坐标（x:0, y:0），避免 React 组件由于 undefined 异常而导致的白屏（White Screen of Death）崩溃
+- **[Major] WorkflowEditor 节点坐标越界崩溃**: 修复因底层数据库混入测试脏数据（缺失 `position` 坐标字段）导致的渲染报错，利用防御性容错逻辑赋予默认坐标（x:0, y:0），避免React 组件由于 undefined 异常而导致的白屏崩溃
 
 ### Added
 
