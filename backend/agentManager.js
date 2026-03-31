@@ -3,6 +3,9 @@ import { EventEmitter } from 'node:events';
 import { resolve } from 'node:path';
 import config from './config.js';
 import { createSession, updateSessionStatus, insertEvent } from './sessionStore.js';
+import { getMcpServers, getAllowedTools } from './mcpConfig.js';
+import { getAgentDefs } from './agentDefs.js';
+import { buildHooks } from './hooks.js';
 
 // 活跃的 Agent Query Map<sessionId, { stream, timeoutId }>
 const activeAgents = new Map();
@@ -25,13 +28,16 @@ export function startAgent(prompt) {
       cwd: WORKSPACE,
       permissionMode: 'bypassPermissions',
       maxTurns: 50,
-      systemPrompt: [
-        `[SECURITY] You are sandboxed to: ${WORKSPACE}`,
-        `All file operations MUST stay within this directory.`,
-        `NEVER use absolute paths outside ${WORKSPACE}.`,
-        `NEVER access parent directories beyond ${WORKSPACE}.`,
-      ].join('\n'),
-      // 不加载用户级配置，完全隔离
+      systemPrompt: {
+        type: 'preset',
+        preset: 'claude_code',
+        append: [
+          `[SECURITY] You are sandboxed to: ${WORKSPACE}`,
+          `All file operations MUST stay within this directory.`,
+          `NEVER use absolute paths outside ${WORKSPACE}.`,
+          `NEVER access parent directories beyond ${WORKSPACE}.`,
+        ].join('\n'),
+      },
       settingSources: [],
       env: {
         PATH: process.env.PATH,
@@ -40,6 +46,22 @@ export function startAgent(prompt) {
         ANTHROPIC_BASE_URL: config.litellm.url,
         ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY || 'placeholder',
       },
+
+      // MCP Servers
+      mcpServers: getMcpServers(WORKSPACE),
+      allowedTools: getAllowedTools(),
+
+      // Subagents
+      agents: getAgentDefs(),
+
+      // Hooks
+      hooks: buildHooks(agentEvents, sessionId),
+
+      // Streaming deltas for real-time rendering
+      includePartialMessages: true,
+
+      // File change tracking for rollback
+      enableFileCheckpointing: true,
     },
   });
 

@@ -1,5 +1,38 @@
 # Changelog
 
+## [0.3.0] - 2026-03-31
+
+### Added
+
+- **MCP Servers**: 5 open-source MCP 服务器集成 (`mcpConfig.js`)
+  - `@modelcontextprotocol/server-filesystem` -- 目录树、文件元数据、高级搜索
+  - `@modelcontextprotocol/server-memory` -- 知识图谱式持久记忆
+  - `@playwright/mcp` -- 浏览器操作、截图、表单填写
+  - `@modelcontextprotocol/server-github` -- Issues、PRs、代码搜索
+  - `@modelcontextprotocol/server-sequential-thinking` -- 结构化多步推理
+
+- **Subagents**: 4 个专精子代理 (`agentDefs.js`)
+  - `code-reviewer` -- 代码审查（只读权限）
+  - `test-writer` -- 测试编写（可写文件、执行命令）
+  - `researcher` -- 联网调研（挂载 browser MCP）
+  - `architect` -- 架构分析（挂载 sequential-thinking MCP）
+
+- **Hooks**: 4 个生命周期钩子 (`hooks.js`)
+  - `PreToolUse` (Bash) -- 拦截危险命令（rm -rf /、sudo、curl|sh 等）
+  - `PostToolUse` -- 工具事件推送到 Timeline
+  - `SubagentStart` -- 子代理分派追踪
+  - `Stop` -- 会话结束日志
+
+- **SDK Options**: 启用 `includePartialMessages`（流式 delta）和 `enableFileCheckpointing`（文件回滚）
+- **System Prompt**: 升级为 `preset: 'claude_code'` + append 安全约束
+
+### Changed
+
+- **代码组织**: 新增 `mcpConfig.js`、`agentDefs.js`、`hooks.js` 三个模块，职责分离
+- **agentManager.js**: 从 6 个 options 扩展到完整配置（MCP/Subagents/Hooks/Streaming/Checkpointing）
+
+---
+
 ## [0.2.1] - 2026-03-31
 
 ### Fixed

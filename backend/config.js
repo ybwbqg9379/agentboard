@@ -11,6 +11,11 @@ const config = {
     url: process.env.LITELLM_URL || 'http://localhost:4000',
   },
 
+  // GitHub 集成（可选，无 token 时仅支持公开仓库）
+  github: {
+    token: process.env.GITHUB_TOKEN || '',
+  },
+
   // Minimax 模型配置
   minimax: {
     baseUrl: 'https://mydamoxing.cn/v1',

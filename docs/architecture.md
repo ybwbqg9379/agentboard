@@ -12,24 +12,23 @@
 |                  |       |   :3001            |       |                    |
 +------------------+       +--------+----------+       +---------+----------+
                                     |                            |
-                                    | SQLite                     | Anthropic API
-                                    v                            v
-                           +--------+----------+       +---------+----------+
-                           |                   |       |                    |
-                           |   data/           |       |  proxy.js          |
-                           |   agentboard.db   |       |  (Node.js)  :4000  |
-                           |                   |       |  Anthropic→OpenAI  |
-                           +-------------------+       +---------+----------+
-                                                                 |
-                                                                 | OpenAI Chat
-                                                                 | Completions
-                                                                 v
-                                                       +---------+----------+
-                                                       |                    |
-                                                       |  Minimax API       |
-                                                       |  mydamoxing.cn/v1  |
-                                                       |  M2.7-highspeed    |
-                                                       +--------------------+
+                                    | SQLite              +------+------+
+                                    v                     |             |
+                           +--------+----------+   Anthropic API   MCP Protocol
+                           |                   |         |             |
+                           |   data/           |         v             v
+                           |   agentboard.db   |  +------+---+  +----+----------+
+                           |                   |  | proxy.js  |  | MCP Servers   |
+                           +-------------------+  | :4000     |  | filesystem    |
+                                                  | Anthropic |  | memory        |
+                                                  | -> OpenAI |  | browser       |
+                                                  +------+----+  | github        |
+                                                         |       | seq-thinking  |
+                                                         v       +---------------+
+                                                  +------+----+
+                                                  | Minimax   |
+                                                  | API       |
+                                                  +-----------+
 ```
 
 ## 数据流
@@ -69,13 +68,16 @@
 
 ### Backend
 
-| 模块          | 文件              | 职责                                                         |
-| ------------- | ----------------- | ------------------------------------------------------------ |
-| Config        | `config.js`       | 集中配置管理（端口、路径、超时、Minimax 端点）               |
-| Session Store | `sessionStore.js` | SQLite CRUD（带错误处理），sessions + events 两表            |
-| Agent Manager | `agentManager.js` | SDK query() 调用、事件消费、生命周期管理（含超时定时器清理） |
-| Server        | `server.js`       | HTTP REST API + WebSocket 服务，事件广播，graceful shutdown  |
-| Proxy         | `proxy.js`        | Anthropic Messages API → OpenAI Chat Completions 翻译        |
+| 模块          | 文件              | 职责                                                           |
+| ------------- | ----------------- | -------------------------------------------------------------- |
+| Config        | `config.js`       | 集中配置管理（端口、路径、超时、Minimax 端点、GitHub token）   |
+| Session Store | `sessionStore.js` | SQLite CRUD（带错误处理），sessions + events 两表              |
+| Agent Manager | `agentManager.js` | SDK query() 调用，组装 MCP/Subagents/Hooks 配置                |
+| MCP Config    | `mcpConfig.js`    | 5 个 MCP 服务器配置 + allowedTools 白名单                      |
+| Agent Defs    | `agentDefs.js`    | 4 个专精子代理定义                                             |
+| Hooks         | `hooks.js`        | 4 个生命周期钩子（安全拦截/Timeline 推送/子代理追踪/会话清理） |
+| Server        | `server.js`       | HTTP REST API + WebSocket 服务，事件广播，graceful shutdown    |
+| Proxy         | `proxy.js`        | Anthropic Messages API -> OpenAI Chat Completions 翻译         |
 
 ### Agent Manager (SDK 方式)
 
@@ -164,11 +166,27 @@ events (
 | 机制                                  | 说明                                                      |
 | ------------------------------------- | --------------------------------------------------------- |
 | `cwd: WORKSPACE`                      | Agent 工作目录限定                                        |
-| `systemPrompt`                        | 每次任务注入目录约束指令                                  |
+| `systemPrompt` (preset + append)      | Claude Code 完整系统提示 + 目录约束指令                   |
 | `workspace/CLAUDE.md`                 | Agent 行为规则文件                                        |
 | `settingSources: []`                  | 不加载用户级 Claude Code 配置（MCP/hooks/settings）       |
 | `env: { HOME: process.env.HOME }`     | HOME 指向真实用户目录（SDK 初始化需要），cwd 限定工作目录 |
 | `permissionMode: 'bypassPermissions'` | 受控环境下自动批准工具调用                                |
+| `PreToolUse` hook (Bash)              | 拦截危险命令（rm -rf /、sudo、curl\|sh 等）               |
+| `allowedTools` whitelist              | MCP 工具显式白名单，仅允许已配置服务器的工具              |
+| Subagent 最小权限                     | 子代理仅获分配所需工具，不可递归派生                      |
+
+## MCP 服务器
+
+| 服务器              | npm 包                                             | 传输方式 | 用途                         |
+| ------------------- | -------------------------------------------------- | -------- | ---------------------------- |
+| filesystem          | `@modelcontextprotocol/server-filesystem`          | stdio    | 目录树、文件元数据、高级搜索 |
+| memory              | `@modelcontextprotocol/server-memory`              | stdio    | 知识图谱式持久记忆           |
+| browser             | `@playwright/mcp`                                  | stdio    | 浏览器操作、截图、表单填写   |
+| github              | `@modelcontextprotocol/server-github`              | stdio    | Issues、PRs、代码搜索        |
+| sequential-thinking | `@modelcontextprotocol/server-sequential-thinking` | stdio    | 结构化多步推理               |
+
+所有服务器通过 `npx -y` 按需启动，独立子进程，崩溃不影响主 Agent。
+工具命名规则：`mcp__{server_name}__{tool_name}`，通过 `allowedTools` 白名单控制。
 
 ## 设计决策
 
