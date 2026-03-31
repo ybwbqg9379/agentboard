@@ -8,6 +8,7 @@
     "dev": "node --env-file=../.env.local --watch server.js"
   },
   "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.2.88",
     "better-sqlite3": "^11.7.0",
     "cors": "^2.8.5",
     "express": "^5.1.0",

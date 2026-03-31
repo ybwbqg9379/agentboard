@@ -1,19 +1,19 @@
 # AgentBoard
 
-AI Agent 编排展示平台 -- 基于 Claude Code CLI 编排框架，接入低成本 Minimax 模型，通过 Web Dashboard 实时展示 Agent 的思考与执行过程。
+AI Agent 编排展示平台 -- 基于 Claude Agent SDK 编排框架，接入低成本 Minimax 模型，通过 Web Dashboard 实时展示 Agent 的思考与执行过程。
 
 ## 架构概览
 
 ```
-Browser ←→ WebSocket ←→ Node.js Backend ←→ Claude Code CLI (subprocess)
-                                               ↓ stream-json
+Browser ←→ WebSocket ←→ Node.js Backend ←→ Claude Agent SDK (query)
+                                               ↓ SDKMessage 事件流
                                           Anthropic→OpenAI Proxy (Node.js)
                                                ↓
                                           Minimax API (OpenAI Compatible)
 ```
 
 - **前端**：Vite + React，暗色主题 Dashboard，实时展示 Agent 时间线
-- **后端**：Express + WebSocket + SQLite，管理 Claude Code subprocess
+- **后端**：Express + WebSocket + SQLite，通过 SDK 调用 Agent
 - **代理**：Node.js 轻量代理，Anthropic Messages API → OpenAI Chat Completions
 - **模型**：MiniMax-M2.7-highspeed（OpenAI Compatible，`mydamoxing.cn/v1`）
 
@@ -23,7 +23,7 @@ Browser ←→ WebSocket ←→ Node.js Backend ←→ Claude Code CLI (subproce
 agentboard/
 ├── backend/
 │   ├── server.js           # Express + WebSocket 主入口
-│   ├── agentManager.js     # Claude Code subprocess 管理
+│   ├── agentManager.js     # Claude Agent SDK 调用与事件分发
 │   ├── proxy.js            # Anthropic→OpenAI 翻译代理
 │   ├── sessionStore.js     # SQLite 会话/事件存储
 │   └── config.js           # 集中配置
@@ -40,20 +40,22 @@ agentboard/
 │   │       └── StatusBar.jsx           # 底部状态栏
 │   └── vite.config.js
 ├── workspace/               # Agent 隔离工作目录
+│   └── CLAUDE.md            # Agent 安全规则
 └── docs/                    # 设计文档与架构
 ```
 
 ## 环境要求
 
 - Node.js 20+
-- Claude Code CLI（已安装并可用）
+
+无需全局安装 Claude Code CLI -- Agent SDK 作为 npm 依赖自动安装。
 
 ## 快速开始
 
 ### 1. 安装依赖
 
 ```bash
-# 后端
+# 后端（含 Claude Agent SDK）
 cd backend && npm install && cd ..
 
 # 前端
@@ -112,8 +114,8 @@ npm run dev
 
 ```json
 { "type": "session_started", "sessionId": "uuid" }
-{ "sessionId": "uuid", "type": "assistant|tool_use|tool_result|result", "content": {}, "timestamp": 1234567890 }
-{ "type": "done", "content": { "exitCode": 0, "status": "completed" } }
+{ "sessionId": "uuid", "type": "assistant|result|system", "content": {}, "timestamp": 1234567890 }
+{ "type": "done", "content": { "status": "completed" } }
 ```
 
 ## 技术栈
@@ -126,7 +128,7 @@ npm run dev
 | 后端 | Express 5 | HTTP API + WebSocket |
 | 存储 | better-sqlite3 | 会话和事件持久化 |
 | 代理 | Node.js proxy.js | Anthropic Messages → OpenAI Chat Completions |
-| Agent | Claude Code CLI | 编排引擎（subprocess） |
+| Agent | @anthropic-ai/claude-agent-sdk | 编排引擎（SDK 编程式调用） |
 | 模型 | MiniMax-M2.7-highspeed | 低成本 LLM（OpenAI Compatible） |
 
 ## License
