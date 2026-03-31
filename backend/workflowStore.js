@@ -101,8 +101,8 @@ export function deleteWorkflow(id) {
 
 // --- Workflow Run CRUD ---
 
-export function createWorkflowRun(workflowId, initialContext = {}) {
-  const id = randomUUID();
+export function createWorkflowRun(workflowId, initialContext = {}, runId = randomUUID()) {
+  const id = runId;
   stmts.createRun.run(id, workflowId, 'pending', JSON.stringify(initialContext));
   return id;
 }

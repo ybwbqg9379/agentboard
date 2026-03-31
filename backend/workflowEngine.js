@@ -20,12 +20,12 @@
  */
 
 import { EventEmitter } from 'node:events';
-import { startAgent, agentEvents } from './agentManager.js';
+import { startAgent, stopAgent, agentEvents } from './agentManager.js';
 import { createWorkflowRun, updateWorkflowRun, completeWorkflowRun } from './workflowStore.js';
 
 export const workflowEvents = new EventEmitter();
 
-// Active workflow runs: Map<runId, { aborted }>
+// Active workflow runs: Map<runId, { aborted, currentAgentSessionId, currentAgentListener }>
 const activeRuns = new Map();
 
 /**
@@ -173,53 +173,53 @@ function applyTemplate(template, context) {
 /**
  * Execute a single node and return its result.
  */
-async function executeNode(node, context, runId) {
+async function executeNode(node, context, runId, workflowId) {
   const nodeId = node.id;
 
-  workflowEvents.emit('node_start', { runId, nodeId, type: node.type });
+  workflowEvents.emit('node_start', { runId, workflowId, nodeId, type: node.type });
 
   switch (node.type) {
     case 'input': {
-      // Input nodes inject their configured variables into context
       const result = { ...context, ...(node.config?.variables || {}) };
-      workflowEvents.emit('node_complete', { runId, nodeId, result });
+      workflowEvents.emit('node_complete', { runId, workflowId, nodeId, result });
       return result;
     }
 
     case 'output': {
-      // Output nodes just pass through and mark workflow end
       const summary = node.config?.summary
         ? applyTemplate(node.config.summary, context)
         : JSON.stringify(context);
       const result = { summary, context };
-      workflowEvents.emit('node_complete', { runId, nodeId, result });
+      workflowEvents.emit('node_complete', { runId, workflowId, nodeId, result });
       return result;
     }
 
     case 'transform': {
-      // Apply mapping to context
       const mapping = node.config?.mapping || {};
       const result = { ...context };
       for (const [key, template] of Object.entries(mapping)) {
         result[key] = applyTemplate(template, context);
       }
-      workflowEvents.emit('node_complete', { runId, nodeId, result });
+      workflowEvents.emit('node_complete', { runId, workflowId, nodeId, result });
       return result;
     }
 
     case 'agent': {
-      // Run a prompt through agentManager and capture result
       const prompt = applyTemplate(node.config.prompt, context);
-      const result = await runAgentNode(prompt, node.config, runId, nodeId);
-      workflowEvents.emit('node_complete', { runId, nodeId, result });
+      const result = await runAgentNode(prompt, node.config, runId, workflowId, nodeId);
+      workflowEvents.emit('node_complete', { runId, workflowId, nodeId, result });
       return result;
     }
 
     case 'condition': {
-      // Evaluate condition -- result is { branch: true/false }
       const condResult = evaluateCondition(node.config?.expression, context);
       const result = { ...context, _branch: condResult };
-      workflowEvents.emit('node_complete', { runId, nodeId, result: { branch: condResult } });
+      workflowEvents.emit('node_complete', {
+        runId,
+        workflowId,
+        nodeId,
+        result: { branch: condResult },
+      });
       return result;
     }
 
@@ -230,28 +230,28 @@ async function executeNode(node, context, runId) {
 
 /**
  * Run an agent node: start a session and wait for completion.
+ * Registers the running agent with activeRuns so abort can cancel it.
  */
-function runAgentNode(prompt, nodeConfig, runId, nodeId) {
+function runAgentNode(prompt, nodeConfig, runId, workflowId, nodeId) {
   return new Promise((resolve, reject) => {
     const sessionId = startAgent(prompt, {
       permissionMode: nodeConfig.permissionMode || 'bypassPermissions',
       maxTurns: nodeConfig.maxTurns || 30,
     });
 
-    workflowEvents.emit('agent_started', { runId, nodeId, sessionId });
+    workflowEvents.emit('agent_started', { runId, workflowId, nodeId, sessionId });
 
     let resultText = '';
 
     function onEvent(event) {
       if (event.sessionId !== sessionId) return;
 
-      // Capture the final assistant text from result
       if (event.type === 'result') {
         resultText = event.content?.result || event.content?.last_assistant_message || '';
       }
 
       if (event.type === 'done') {
-        agentEvents.off('event', onEvent);
+        cleanup();
         const status = event.content?.status || 'completed';
         if (status === 'completed') {
           resolve({ sessionId, status, output: resultText });
@@ -259,6 +259,22 @@ function runAgentNode(prompt, nodeConfig, runId, nodeId) {
           reject(new Error(`Agent node "${nodeId}" ended with status: ${status}`));
         }
       }
+    }
+
+    function cleanup() {
+      agentEvents.off('event', onEvent);
+      const entry = activeRuns.get(runId);
+      if (entry) {
+        entry.currentAgentSessionId = null;
+        entry.currentAgentListener = null;
+      }
+    }
+
+    // Register with activeRuns so abort can stop this agent
+    const entry = activeRuns.get(runId);
+    if (entry) {
+      entry.currentAgentSessionId = sessionId;
+      entry.currentAgentListener = onEvent;
     }
 
     agentEvents.on('event', onEvent);
@@ -270,10 +286,11 @@ function runAgentNode(prompt, nodeConfig, runId, nodeId) {
  * @param {string} workflowId
  * @param {object} definition - { nodes, edges }
  * @param {object} [inputContext={}] - Initial context values
+ * @param {string} [preCreatedRunId] - Optional pre-created run ID (from API layer)
  * @returns {Promise<{ runId, status, nodeResults, context }>}
  */
-export async function executeWorkflow(workflowId, definition, inputContext = {}) {
-  const runId = createWorkflowRun(workflowId, inputContext);
+export async function executeWorkflow(workflowId, definition, inputContext = {}, preCreatedRunId) {
+  const runId = preCreatedRunId || createWorkflowRun(workflowId, inputContext);
   const { nodes, edges } = definition;
 
   activeRuns.set(runId, { aborted: false });
@@ -283,7 +300,12 @@ export async function executeWorkflow(workflowId, definition, inputContext = {})
   const sorted = topologicalSort(nodes, edges);
   if (!sorted) {
     completeWorkflowRun(runId, { status: 'failed', nodeResults: {}, error: 'Cycle detected' });
-    workflowEvents.emit('run_complete', { runId, status: 'failed', error: 'Cycle detected' });
+    workflowEvents.emit('run_complete', {
+      runId,
+      workflowId,
+      status: 'failed',
+      error: 'Cycle detected',
+    });
     activeRuns.delete(runId);
     return { runId, status: 'failed', nodeResults: {}, context: inputContext };
   }
@@ -311,16 +333,19 @@ export async function executeWorkflow(workflowId, definition, inputContext = {})
 
       const node = nodeMap.get(nodeId);
 
-      // Check if all incoming edges are satisfied
+      // Check if all incoming edges are satisfied (executed or skipped)
       const incomingEdges = edges.filter((e) => e.to === nodeId);
-      const allIncomingSatisfied = incomingEdges.every((e) => executed.has(e.from));
-      if (incomingEdges.length > 0 && !allIncomingSatisfied) {
+      const allIncomingResolved = incomingEdges.every(
+        (e) => executed.has(e.from) || skipped.has(e.from),
+      );
+      const anyIncomingExecuted = incomingEdges.some((e) => executed.has(e.from));
+      if (incomingEdges.length > 0 && (!allIncomingResolved || !anyIncomingExecuted)) {
         skipped.add(nodeId);
         continue;
       }
 
       // Execute the node
-      const result = await executeNode(node, context, runId);
+      const result = await executeNode(node, context, runId, workflowId);
       nodeResults[nodeId] = result;
       executed.add(nodeId);
 
@@ -338,9 +363,9 @@ export async function executeWorkflow(workflowId, definition, inputContext = {})
         for (const edge of outgoing) {
           // Edges with condition "true" or "false" (string)
           if (edge.condition === 'true' && !branch) {
-            markDescendantsSkipped(edge.to, outEdges, skipped);
+            markDescendantsSkipped(edge.to, outEdges, skipped, edges, nodeId);
           } else if (edge.condition === 'false' && branch) {
-            markDescendantsSkipped(edge.to, outEdges, skipped);
+            markDescendantsSkipped(edge.to, outEdges, skipped, edges, nodeId);
           }
         }
       }
@@ -350,36 +375,59 @@ export async function executeWorkflow(workflowId, definition, inputContext = {})
     }
 
     completeWorkflowRun(runId, { status: 'completed', nodeResults });
-    workflowEvents.emit('run_complete', { runId, status: 'completed', nodeResults, context });
+    workflowEvents.emit('run_complete', {
+      runId,
+      workflowId,
+      status: 'completed',
+      nodeResults,
+      context,
+    });
     activeRuns.delete(runId);
     return { runId, status: 'completed', nodeResults, context };
   } catch (err) {
     const errorMsg = err.message || String(err);
     completeWorkflowRun(runId, { status: 'failed', nodeResults, error: errorMsg });
-    workflowEvents.emit('run_complete', { runId, status: 'failed', error: errorMsg });
+    workflowEvents.emit('run_complete', { runId, workflowId, status: 'failed', error: errorMsg });
     activeRuns.delete(runId);
     return { runId, status: 'failed', nodeResults, context, error: errorMsg };
   }
 }
 
 /**
- * Mark a node and all its descendants as skipped (for condition branches).
+ * Mark a node and its descendants as skipped (for condition branches).
+ * Does NOT skip nodes that have other non-skipped incoming edges from
+ * sources other than the skip origin (join nodes with live branches).
+ * @param {string} nodeId - node to potentially skip
+ * @param {Map} outEdges - adjacency map
+ * @param {Set} skipped - accumulated skipped set
+ * @param {Array} allEdges - full edge list
+ * @param {string} skipSourceId - the condition node that triggered the skip chain
  */
-function markDescendantsSkipped(nodeId, outEdges, skipped) {
+function markDescendantsSkipped(nodeId, outEdges, skipped, allEdges, skipSourceId) {
   if (skipped.has(nodeId)) return;
+  // Check if this node has incoming edges from live sources OTHER than the skip origin
+  const liveIncomingFromOthers = allEdges.filter(
+    (e) => e.to === nodeId && e.from !== skipSourceId && !skipped.has(e.from),
+  );
+  if (liveIncomingFromOthers.length > 0) return; // join node with live branch -- do not skip
   skipped.add(nodeId);
   for (const edge of outEdges.get(nodeId) || []) {
-    markDescendantsSkipped(edge.to, outEdges, skipped);
+    markDescendantsSkipped(edge.to, outEdges, skipped, allEdges, skipSourceId);
   }
 }
 
 /**
- * Abort a running workflow.
+ * Abort a running workflow. Stops the currently executing agent if any.
+ * The agent's 'done' event will naturally trigger resolve/reject in runAgentNode,
+ * which calls cleanup() to unbind the listener. Do NOT manually off() here.
  */
 export function abortWorkflow(runId) {
   const entry = activeRuns.get(runId);
   if (!entry) return false;
   entry.aborted = true;
+  if (entry.currentAgentSessionId) {
+    stopAgent(entry.currentAgentSessionId);
+  }
   return true;
 }
 

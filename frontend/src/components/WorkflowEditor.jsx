@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import styles from './WorkflowEditor.module.css';
 
-const API_BASE = `${window.location.protocol}//${window.location.hostname}:3001`;
+const API_BASE = '';
 
 const NODE_W = 160;
 const NODE_H = 56;
@@ -185,11 +185,19 @@ export default function WorkflowEditor() {
   const loadWorkflow = useCallback((wf) => {
     setCurrentWorkflow(wf.id);
     setWorkflowName(wf.name);
-    setNodes(wf.definition.nodes || []);
+    const loadedNodes = wf.definition.nodes || [];
+    setNodes(loadedNodes);
     setEdges(wf.definition.edges || []);
     setSelectedNode(null);
     setRunStatus(null);
     setActiveNodes(new Set());
+    // Sync nextId to avoid collisions with existing node ids
+    let maxNum = 0;
+    for (const n of loadedNodes) {
+      const match = n.id.match(/^node_(\d+)$/);
+      if (match) maxNum = Math.max(maxNum, parseInt(match[1], 10));
+    }
+    nextId = maxNum + 1;
   }, []);
 
   // Create new workflow
@@ -249,7 +257,7 @@ export default function WorkflowEditor() {
     [selectedNode],
   );
 
-  // Save workflow
+  // Save workflow -- returns the workflow id
   const saveWorkflow = useCallback(async () => {
     const definition = { nodes, edges };
     try {
@@ -259,6 +267,8 @@ export default function WorkflowEditor() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name: workflowName, description: '', definition }),
         });
+        fetchWorkflows();
+        return currentWorkflow;
       } else {
         const res = await fetch(`${API_BASE}/api/workflows`, {
           method: 'POST',
@@ -268,41 +278,142 @@ export default function WorkflowEditor() {
         if (res.ok) {
           const data = await res.json();
           setCurrentWorkflow(data.id);
+          fetchWorkflows();
+          return data.id;
         }
       }
-      fetchWorkflows();
     } catch {
       /* ignore */
     }
+    return null;
   }, [nodes, edges, workflowName, currentWorkflow, fetchWorkflows]);
+
+  // Dedicated workflow event socket for run-scoped subscriptions.
+  const wsRef = useRef(null);
+  const pendingWorkflowSubscriptionsRef = useRef(new Map());
+
+  const rejectPendingWorkflowSubscriptions = useCallback((message) => {
+    for (const [runId, pending] of pendingWorkflowSubscriptionsRef.current) {
+      clearTimeout(pending.timeoutId);
+      pending.reject(new Error(message));
+      pendingWorkflowSubscriptionsRef.current.delete(runId);
+    }
+  }, []);
+
+  const waitForWorkflowSocket = useCallback(() => {
+    const ws = wsRef.current;
+    if (!ws) {
+      return Promise.reject(new Error('workflow socket not initialized'));
+    }
+    if (ws.readyState === WebSocket.OPEN) {
+      return Promise.resolve(ws);
+    }
+    if (ws.readyState === WebSocket.CLOSED) {
+      return Promise.reject(new Error('workflow socket closed'));
+    }
+
+    return new Promise((resolve, reject) => {
+      const onOpen = () => {
+        cleanup();
+        resolve(ws);
+      };
+      const onError = () => {
+        cleanup();
+        reject(new Error('workflow socket failed to connect'));
+      };
+      const onClose = () => {
+        cleanup();
+        reject(new Error('workflow socket closed'));
+      };
+      const cleanup = () => {
+        clearTimeout(timeoutId);
+        ws.removeEventListener('open', onOpen);
+        ws.removeEventListener('error', onError);
+        ws.removeEventListener('close', onClose);
+      };
+      const timeoutId = window.setTimeout(() => {
+        cleanup();
+        reject(new Error('workflow socket connection timeout'));
+      }, 3000);
+
+      ws.addEventListener('open', onOpen);
+      ws.addEventListener('error', onError);
+      ws.addEventListener('close', onClose);
+    });
+  }, []);
+
+  const subscribeWorkflowRun = useCallback(
+    async (runId) => {
+      const ws = await waitForWorkflowSocket();
+      await new Promise((resolve, reject) => {
+        const timeoutId = window.setTimeout(() => {
+          pendingWorkflowSubscriptionsRef.current.delete(runId);
+          reject(new Error('workflow subscription timeout'));
+        }, 3000);
+
+        pendingWorkflowSubscriptionsRef.current.set(runId, {
+          resolve,
+          reject,
+          timeoutId,
+        });
+        ws.send(JSON.stringify({ action: 'subscribe_workflow', runId }));
+      });
+    },
+    [waitForWorkflowSocket],
+  );
 
   // Run workflow
   const runWorkflow = useCallback(async () => {
-    if (!currentWorkflow) {
-      await saveWorkflow();
-    }
-    const wfId = currentWorkflow;
+    const wfId = currentWorkflow || (await saveWorkflow());
     if (!wfId) return;
     setRunStatus('running');
     setActiveNodes(new Set());
+    const runId = globalThis.crypto?.randomUUID?.();
+    if (!runId) {
+      setRunStatus('failed');
+      return;
+    }
+
     try {
-      await fetch(`${API_BASE}/api/workflows/${wfId}/run`, {
+      await subscribeWorkflowRun(runId);
+      const res = await fetch(`${API_BASE}/api/workflows/${wfId}/run`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ context: {} }),
+        body: JSON.stringify({ context: {}, runId }),
       });
+      if (!res.ok) {
+        throw new Error(`workflow start failed: ${res.status}`);
+      }
     } catch {
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({ action: 'unsubscribe_workflow', runId }));
+      }
       setRunStatus('failed');
     }
-  }, [currentWorkflow, saveWorkflow]);
+  }, [currentWorkflow, saveWorkflow, subscribeWorkflowRun]);
 
-  // Listen for workflow events via WebSocket
+  // Listen for workflow events via WebSocket and subscribe to concrete runIds
+  // before triggering execution to avoid missing early events.
   useEffect(() => {
     const wsUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`;
     const ws = new WebSocket(wsUrl);
+    wsRef.current = ws;
+
     ws.onmessage = (e) => {
       try {
         const msg = JSON.parse(e.data);
+        if (msg.type === 'workflow_subscribed' && msg.runId) {
+          const pending = pendingWorkflowSubscriptionsRef.current.get(msg.runId);
+          if (pending) {
+            clearTimeout(pending.timeoutId);
+            pendingWorkflowSubscriptionsRef.current.delete(msg.runId);
+            pending.resolve();
+          }
+          return;
+        }
+        if (msg.type === 'workflow_unsubscribed') {
+          return;
+        }
         if (msg.type !== 'workflow') return;
         const { subtype, content } = msg;
         if (subtype === 'node_start') {
@@ -318,13 +429,29 @@ export default function WorkflowEditor() {
         if (subtype === 'run_complete') {
           setRunStatus(content.status || 'completed');
           setActiveNodes(new Set());
+          if (content.runId && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ action: 'unsubscribe_workflow', runId: content.runId }));
+          }
         }
       } catch {
         /* ignore */
       }
     };
-    return () => ws.close();
-  }, []);
+
+    ws.onclose = () => {
+      rejectPendingWorkflowSubscriptions('workflow socket closed');
+    };
+
+    ws.onerror = () => {
+      rejectPendingWorkflowSubscriptions('workflow socket error');
+    };
+
+    return () => {
+      rejectPendingWorkflowSubscriptions('workflow socket disposed');
+      ws.close();
+      wsRef.current = null;
+    };
+  }, [rejectPendingWorkflowSubscriptions]);
 
   // --- Mouse handlers for node dragging ---
 

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 
 const WS_URL = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`;
-const API_BASE = `${window.location.protocol}//${window.location.hostname}:3001`;
+const API_BASE = '';
 const RECONNECT_INTERVAL = 3000;
 const MAX_EVENTS = 5000;
 

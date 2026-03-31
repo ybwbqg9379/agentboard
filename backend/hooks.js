@@ -6,6 +6,7 @@
  * lifecycle, and session completion events.
  */
 
+import { isAbsolute, normalize, resolve, sep } from 'node:path';
 import { recordToolCall } from './mcpHealth.js';
 
 export const BLOCKED_PATTERNS = [
@@ -13,10 +14,74 @@ export const BLOCKED_PATTERNS = [
   /\|\s*(sh|bash|zsh)\b/,
   /\bsudo\b/,
   /\b(>\s*|tee\s+)(\/etc|\/usr|\/System|\/bin|\/sbin)\//,
+  // Block reading sensitive files outside workspace
+  /\bcat\s+.*~\/\.ssh\b/,
+  /\bcat\s+.*~\/\.aws\b/,
+  /\bcat\s+.*~\/\.gnupg\b/,
+  /\bcat\s+.*\/etc\/passwd\b/,
+  /\bcat\s+.*\/etc\/shadow\b/,
+  /\bcat\s+.*\.env(?:\.\w+)?(?:\s|$)/,
+  // Block data exfiltration via network tools
+  /\|\s*(curl|wget|nc|ncat)\b/,
+  /\b(curl|wget)\b.*--data/,
+  /\b(curl|wget)\b.*-d\s/,
+  // Block escaping to parent directories beyond workspace
+  /\bcd\s+\.\.\//,
 ];
 
-export function isDangerous(command) {
-  return BLOCKED_PATTERNS.some((p) => p.test(command));
+const ALLOWED_ABSOLUTE_PREFIXES = ['/usr/local/bin', '/usr/bin', '/bin', '/dev', '/tmp'];
+
+function isPathInside(basePath, targetPath) {
+  const normalizedBase = normalize(resolve(basePath));
+  const normalizedTarget = normalize(resolve(targetPath));
+  return (
+    normalizedTarget === normalizedBase || normalizedTarget.startsWith(`${normalizedBase}${sep}`)
+  );
+}
+
+export function extractAbsolutePaths(command) {
+  if (typeof command !== 'string' || command.length === 0) return [];
+
+  const matches = command.matchAll(/(^|[\s"'`=:([])(\/[^\s"'`|&;<>()[\]{}]+)/g);
+  const paths = new Set();
+
+  for (const match of matches) {
+    const candidate = match[2]?.replace(/[),;]+$/, '');
+    if (!candidate || candidate === '/' || candidate.startsWith('//') || !isAbsolute(candidate)) {
+      continue;
+    }
+    paths.add(candidate);
+  }
+
+  return [...paths];
+}
+
+export function getPathFenceViolations(command, workspaceRoot) {
+  if (typeof command !== 'string' || command.length === 0 || !workspaceRoot) return [];
+
+  return extractAbsolutePaths(command).filter((absPath) => {
+    if (isPathInside(workspaceRoot, absPath)) return false;
+    return !ALLOWED_ABSOLUTE_PREFIXES.some((prefix) => isPathInside(prefix, absPath));
+  });
+}
+
+export function getCommandBlockReason(command, workspaceRoot) {
+  if (typeof command !== 'string' || command.trim().length === 0) return null;
+
+  if (BLOCKED_PATTERNS.some((pattern) => pattern.test(command))) {
+    return `Blocked dangerous command: ${command}`;
+  }
+
+  const violations = getPathFenceViolations(command, workspaceRoot);
+  if (violations.length > 0) {
+    return `Blocked command accessing paths outside workspace: ${violations.join(', ')}`;
+  }
+
+  return null;
+}
+
+export function isDangerous(command, workspaceRoot) {
+  return getCommandBlockReason(command, workspaceRoot) !== null;
 }
 
 /**
@@ -24,9 +89,10 @@ export function isDangerous(command) {
  *
  * @param {import('node:events').EventEmitter} emitter - shared event bus
  * @param {string} sessionId - UUID of the current session
+ * @param {string} [workspaceRoot] - Absolute workspace root for path fencing
  * @returns {object} hooks config accepted by the Claude Code Agent SDK
  */
-export function buildHooks(emitter, sessionId) {
+export function buildHooks(emitter, sessionId, workspaceRoot) {
   return {
     PreToolUse: [
       {
@@ -35,8 +101,8 @@ export function buildHooks(emitter, sessionId) {
           async (input) => {
             try {
               const command = input?.tool_input?.command;
-              if (isDangerous(command)) {
-                const reason = `Blocked dangerous command: ${command}`;
+              const reason = getCommandBlockReason(command, workspaceRoot);
+              if (reason) {
                 console.warn(`[hooks] ${reason} (session=${sessionId})`);
                 emitter.emit('event', {
                   sessionId,

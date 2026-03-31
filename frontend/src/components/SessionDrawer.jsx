@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import styles from './SessionDrawer.module.css';
 
-const API_BASE = `${window.location.protocol}//${window.location.hostname}:3001`;
+const API_BASE = '';
 
 export default function SessionDrawer({ open, onClose, onLoadSession, currentSessionId }) {
   const [sessions, setSessions] = useState([]);

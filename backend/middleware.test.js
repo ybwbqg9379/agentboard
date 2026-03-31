@@ -119,10 +119,28 @@ describe('wsAuth - no key configured', () => {
     delete process.env.AGENTBOARD_API_KEY;
   });
 
-  it('returns true when no API key is set', async () => {
+  it('returns true for allowed localhost origin when no API key is set', async () => {
+    const { wsAuth } = await import('./middleware.js');
+    const req = {
+      url: '/ws',
+      headers: { host: 'localhost:3001', origin: 'http://localhost:5173' },
+    };
+    expect(wsAuth(req)).toBe(true);
+  });
+
+  it('returns false when origin header is missing', async () => {
     const { wsAuth } = await import('./middleware.js');
     const req = { url: '/ws', headers: { host: 'localhost:3001' } };
-    expect(wsAuth(req)).toBe(true);
+    expect(wsAuth(req)).toBe(false);
+  });
+
+  it('returns false for disallowed origin', async () => {
+    const { wsAuth } = await import('./middleware.js');
+    const req = {
+      url: '/ws',
+      headers: { host: 'localhost:3001', origin: 'https://evil.example' },
+    };
+    expect(wsAuth(req)).toBe(false);
   });
 });
 
@@ -134,19 +152,37 @@ describe('wsAuth - with key configured', () => {
 
   it('returns true with correct token in query param', async () => {
     const { wsAuth } = await import('./middleware.js');
-    const req = { url: '/ws?token=ws-secret', headers: { host: 'localhost:3001' } };
+    const req = {
+      url: '/ws?token=ws-secret',
+      headers: { host: 'localhost:3001', origin: 'http://localhost:5173' },
+    };
     expect(wsAuth(req)).toBe(true);
   });
 
   it('returns false with wrong token', async () => {
     const { wsAuth } = await import('./middleware.js');
-    const req = { url: '/ws?token=bad', headers: { host: 'localhost:3001' } };
+    const req = {
+      url: '/ws?token=bad',
+      headers: { host: 'localhost:3001', origin: 'http://localhost:5173' },
+    };
     expect(wsAuth(req)).toBe(false);
   });
 
   it('returns false when token param is missing', async () => {
     const { wsAuth } = await import('./middleware.js');
-    const req = { url: '/ws', headers: { host: 'localhost:3001' } };
+    const req = {
+      url: '/ws',
+      headers: { host: 'localhost:3001', origin: 'http://localhost:5173' },
+    };
+    expect(wsAuth(req)).toBe(false);
+  });
+
+  it('returns false for disallowed origin even with a valid token', async () => {
+    const { wsAuth } = await import('./middleware.js');
+    const req = {
+      url: '/ws?token=ws-secret',
+      headers: { host: 'localhost:3001', origin: 'https://evil.example' },
+    };
     expect(wsAuth(req)).toBe(false);
   });
 });
@@ -264,6 +300,29 @@ describe('wsMessageSchema', () => {
       const result = wsMessageSchema.safeParse({ action: 'unsubscribe' });
       expect(result.success).toBe(true);
       expect(result.data.action).toBe('unsubscribe');
+    });
+  });
+
+  describe('workflow subscription actions', () => {
+    it('accepts subscribe_workflow with UUID runId', () => {
+      const runId = '550e8400-e29b-41d4-a716-446655440000';
+      const result = wsMessageSchema.safeParse({ action: 'subscribe_workflow', runId });
+      expect(result.success).toBe(true);
+      expect(result.data.runId).toBe(runId);
+    });
+
+    it('accepts unsubscribe_workflow with optional runId', () => {
+      const runId = '550e8400-e29b-41d4-a716-446655440000';
+      expect(wsMessageSchema.safeParse({ action: 'unsubscribe_workflow', runId }).success).toBe(
+        true,
+      );
+      expect(wsMessageSchema.safeParse({ action: 'unsubscribe_workflow' }).success).toBe(true);
+    });
+
+    it('rejects subscribe_workflow with invalid runId', () => {
+      expect(
+        wsMessageSchema.safeParse({ action: 'subscribe_workflow', runId: 'bad-id' }).success,
+      ).toBe(false);
     });
   });
 

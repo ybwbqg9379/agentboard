@@ -8,6 +8,35 @@ import { z } from 'zod';
 
 const API_KEY = process.env.AGENTBOARD_API_KEY || '';
 
+const ALLOWED_ORIGINS = new Set([
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:5174',
+]);
+
+// Dynamically add backend port origins (for same-origin requests)
+const backendPort = process.env.PORT || '3001';
+ALLOWED_ORIGINS.add(`http://localhost:${backendPort}`);
+ALLOWED_ORIGINS.add(`http://127.0.0.1:${backendPort}`);
+
+/**
+ * Check if an HTTP origin is allowed (localhost only).
+ * Missing origins are allowed for non-browser HTTP clients such as curl.
+ */
+export function isAllowedOrigin(origin) {
+  if (!origin) return true;
+  return ALLOWED_ORIGINS.has(origin);
+}
+
+/**
+ * WebSocket connections must always provide an explicit browser origin.
+ * This closes the no-Origin bypass path for raw WS clients when no API key is set.
+ */
+export function isAllowedWebSocketOrigin(origin) {
+  return typeof origin === 'string' && ALLOWED_ORIGINS.has(origin);
+}
+
 /**
  * Bearer token authentication middleware.
  * Skipped when AGENTBOARD_API_KEY is not set (development mode).
@@ -26,8 +55,12 @@ export function authMiddleware(req, res, next) {
 
 /**
  * WebSocket auth check. Returns true if authorized.
+ * Always enforces origin check (even without API key) to block cross-origin WS.
  */
 export function wsAuth(req) {
+  const origin = req.headers.origin;
+  if (!isAllowedWebSocketOrigin(origin)) return false;
+
   if (!API_KEY) return true;
   const url = new URL(req.url, `http://${req.headers.host}`);
   return url.searchParams.get('token') === API_KEY;
@@ -59,6 +92,14 @@ export const wsMessageSchema = z.discriminatedUnion('action', [
   }),
   z.object({
     action: z.literal('unsubscribe'),
+  }),
+  z.object({
+    action: z.literal('subscribe_workflow'),
+    runId: z.string().uuid(),
+  }),
+  z.object({
+    action: z.literal('unsubscribe_workflow'),
+    runId: z.string().uuid().optional(),
   }),
 ]);
 

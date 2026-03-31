@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### Fixed
+
+- **[Critical] CORS + WebSocket 跨源防护**: HTTP CORS 继续使用 localhost allowlist；WebSocket 单独改为 `isAllowedWebSocketOrigin()`，必须带显式浏览器 `Origin` 且命中 localhost 白名单，修复了未设置 `AGENTBOARD_API_KEY` 时 raw WS 客户端通过缺失 `Origin` 头绕过鉴权的问题；启动时无 key 打印更准确的安全警告
+- **[Critical] 沙箱白名单路径围栏**: `env.HOME` 指向 WORKSPACE，`PATH` 限制为 `/usr/local/bin:/usr/bin:/bin`；hooks 从纯黑名单升级为双层防护 -- 保留危险命令黑名单，同时新增绝对路径提取与白名单围栏，命令里所有绝对路径都会检查是否位于 workspace 内，仅放行 `/usr/local/bin`、`/usr/bin`、`/bin`、`/dev`、`/tmp`，从而拦截 `sed`/`awk`/`perl` 等通过绝对路径读取宿主机文件的绕过方式
+- **[Major] 条件分支跳过 join 汇合节点**: `markDescendantsSkipped` 递归标记后代时需排除触发 skip 的条件节点自身的出边（`skipSourceId` 参数），否则条件节点已 executed 的入边永远阻止目标被 skip，导致两条分支都执行；`allIncomingSatisfied` 改为 resolved 语义（executed 或 skipped 均算已处理），但至少需要一条 executed 入边
+- **[Major] WorkflowEditor 首次 Run 空操作**: `saveWorkflow()` 返回 id，`runWorkflow` 直接用返回值而非闭包旧值
+- **[Major] 节点 ID 冲突**: `loadWorkflow` 解析已有节点 ID 的最大数字并同步 `nextId` 计数器
+- **[Major] 前端 REST 硬编码 :3001**: 三处 `API_BASE` 改为相对路径 `''` 走 Vite proxy
+- **[Major] Workflow 事件广播串台 + 订阅竞态**: 改回按 `runId` 精确订阅，后端 workflow 广播只投递给订阅对应 `runId` 的连接，避免同一 workflow 的并发运行或多页面互相串台；前端在执行前先生成 `runId`、通过 WebSocket 订阅并等待 `workflow_subscribed` ack，再调用 `/run` 启动执行，彻底消除首次运行时短流程事件先于订阅到达的竞态
+- **[Major] abortWorkflow 不取消运行中 agent**: `activeRuns` 追踪当前 agent sessionId，abort 时调用 `stopAgent()` 触发 done 事件，由 `runAgentNode` 的 listener 自然 resolve/reject 并 cleanup（不再手动 off listener 避免 promise 悬挂）
+
 ### Added
 
 - **对话连续性 (Conversation Continuity)**: 支持对已完成/停止/失败的 session 发送后续消息

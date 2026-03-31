@@ -100,6 +100,18 @@ describe('isDangerous', () => {
     it('returns false for undefined', () => {
       expect(isDangerous(undefined)).toBe(false);
     });
+
+    it('allows absolute paths inside the workspace fence', () => {
+      expect(isDangerous('sed -n 1p /workspace/app/file.txt', '/workspace')).toBe(false);
+    });
+
+    it('blocks absolute paths outside the workspace fence', () => {
+      expect(isDangerous('sed -n 1p /etc/passwd', '/workspace')).toBe(true);
+    });
+
+    it('allows whitelisted absolute system paths', () => {
+      expect(isDangerous('cat /tmp/output.log', '/workspace')).toBe(false);
+    });
   });
 });
 
@@ -114,7 +126,7 @@ describe('buildHooks', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     emitter = { emit: vi.fn() };
-    hooks = buildHooks(emitter, sessionId);
+    hooks = buildHooks(emitter, sessionId, '/workspace');
   });
 
   it('returns object with all expected hook types', () => {
@@ -174,6 +186,16 @@ describe('buildHooks', () => {
       const result = await hookFn({ tool_input: { command: 'ls -la' } });
 
       expect(result).toEqual({});
+    });
+
+    it('denies commands that access absolute paths outside the workspace', async () => {
+      const bashHookGroup = hooks.PreToolUse.find((h) => h.matcher === 'Bash');
+      const hookFn = bashHookGroup.hooks[0];
+      const result = await hookFn({ tool_input: { command: 'sed -n 1p /etc/passwd' } });
+
+      expect(result.hookSpecificOutput).toBeDefined();
+      expect(result.hookSpecificOutput.permissionDecision).toBe('deny');
+      expect(result.hookSpecificOutput.permissionDecisionReason).toContain('/etc/passwd');
     });
 
     it('returns empty object when tool_input is undefined (no crash)', async () => {

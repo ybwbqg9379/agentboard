@@ -24,6 +24,7 @@ import {
 import { getMcpHealth } from './mcpHealth.js';
 import {
   createWorkflow,
+  createWorkflowRun,
   updateWorkflow,
   getWorkflow,
   listWorkflows,
@@ -43,6 +44,7 @@ import {
 import {
   authMiddleware,
   wsAuth,
+  isAllowedOrigin,
   wsMessageSchema,
   controlActionSchema,
   sessionsQuerySchema,
@@ -52,7 +54,15 @@ import {
 } from './middleware.js';
 
 const app = express();
-app.use(cors());
+
+app.use(
+  cors({
+    origin(origin, cb) {
+      if (isAllowedOrigin(origin)) return cb(null, true);
+      cb(new Error('CORS: origin not allowed'));
+    },
+  }),
+);
 app.use(express.json());
 app.use(authMiddleware);
 
@@ -188,9 +198,10 @@ app.post('/api/workflows/:id/run', async (req, res) => {
   const workflow = getWorkflow(req.params.id);
   if (!workflow) return res.status(404).json({ error: 'workflow not found' });
   const inputContext = req.body?.context || {};
-  res.status(202).json({ message: 'workflow started', workflowId: req.params.id });
-  // Fire and forget -- events stream via WebSocket
-  executeWorkflow(req.params.id, workflow.definition, inputContext).catch((err) => {
+  const requestedRunId = req.body?.runId;
+  const runId = createWorkflowRun(req.params.id, inputContext, requestedRunId);
+  res.status(202).json({ message: 'workflow started', workflowId: req.params.id, runId });
+  executeWorkflow(req.params.id, workflow.definition, inputContext, runId).catch((err) => {
     console.error(`[workflow] execution error: ${err.message}`);
   });
 });
@@ -230,8 +241,9 @@ app.use((err, _req, res, _next) => {
 const server = createServer(app);
 const wss = new WebSocketServer({ server, path: '/ws' });
 
-// 跟踪每个 ws 连接订阅的 sessionId
+// 跟踪每个 ws 连接订阅的 sessionId 和 workflow runId
 const subscriptions = new Map();
+const workflowSubs = new Map(); // Map<ws, Set<runId>>
 
 wss.on('connection', (ws, req) => {
   if (!wsAuth(req)) {
@@ -315,6 +327,23 @@ wss.on('connection', (ws, req) => {
         break;
       }
 
+      case 'subscribe_workflow': {
+        if (!workflowSubs.has(ws)) workflowSubs.set(ws, new Set());
+        workflowSubs.get(ws).add(msg.runId);
+        ws.send(JSON.stringify({ type: 'workflow_subscribed', runId: msg.runId }));
+        break;
+      }
+
+      case 'unsubscribe_workflow': {
+        if (msg.runId) {
+          workflowSubs.get(ws)?.delete(msg.runId);
+        } else {
+          workflowSubs.delete(ws);
+        }
+        ws.send(JSON.stringify({ type: 'workflow_unsubscribed' }));
+        break;
+      }
+
       default:
         ws.send(JSON.stringify({ error: `unknown action: ${msg.action}` }));
     }
@@ -322,6 +351,7 @@ wss.on('connection', (ws, req) => {
 
   ws.on('close', () => {
     subscriptions.delete(ws);
+    workflowSubs.delete(ws);
   });
 });
 
@@ -334,7 +364,7 @@ agentEvents.on('event', (event) => {
   }
 });
 
-// Broadcast workflow execution events to all connected clients
+// Broadcast workflow execution events to clients subscribed to the runId
 for (const eventName of [
   'run_start',
   'run_complete',
@@ -343,14 +373,18 @@ for (const eventName of [
   'agent_started',
 ]) {
   workflowEvents.on(eventName, (data) => {
+    const runId = data.runId;
+    if (!runId) return;
     const payload = JSON.stringify({
       type: 'workflow',
       subtype: eventName,
       content: data,
       timestamp: Date.now(),
     });
-    for (const ws of wss.clients) {
-      if (ws.readyState === 1) ws.send(payload);
+    for (const [ws, runIds] of workflowSubs) {
+      if (ws.readyState === 1 && runIds.has(runId)) {
+        ws.send(payload);
+      }
     }
   });
 }
@@ -364,6 +398,11 @@ server.listen(config.port, () => {
   console.log(`AgentBoard backend listening on http://localhost:${config.port}`);
   console.log(`WebSocket ready on ws://localhost:${config.port}`);
   console.log(`Workspace: ${config.workspaceDir}`);
+  if (!process.env.AGENTBOARD_API_KEY) {
+    console.warn(
+      '[SECURITY] AGENTBOARD_API_KEY is not set. API remains unauthenticated for allowed localhost origins, and raw WebSocket clients without a browser Origin header are rejected. Set AGENTBOARD_API_KEY for production use.',
+    );
+  }
 });
 
 // --- Graceful Shutdown ---

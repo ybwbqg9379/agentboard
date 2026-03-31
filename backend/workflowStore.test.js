@@ -2,6 +2,7 @@
  * Tests for workflow SQLite persistence layer.
  */
 
+import { randomUUID } from 'node:crypto';
 import { describe, it, expect, afterAll } from 'vitest';
 import {
   createWorkflow,
@@ -115,6 +116,13 @@ describe('Workflow Runs', () => {
     runId = createWorkflowRun(wfId, { input: 'hello' });
     expect(runId).toBeDefined();
     expect(typeof runId).toBe('string');
+  });
+
+  it('supports creating a run with a caller-provided runId', () => {
+    const customRunId = randomUUID();
+    const createdRunId = createWorkflowRun(wfId, { input: 'custom' }, customRunId);
+    expect(createdRunId).toBe(customRunId);
+    expect(getWorkflowRun(customRunId)?.workflow_id).toBe(wfId);
   });
 
   it('retrieves a run with parsed JSON fields', () => {
