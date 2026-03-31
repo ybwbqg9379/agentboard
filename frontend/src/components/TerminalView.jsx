@@ -80,28 +80,24 @@ export default function TerminalView({ events }) {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [lines.length]);
 
-  return (
-    <div className="panel">
-      <div className="panel-header">
-        <span className="dot dot-tool" />
-        Terminal
+  if (lines.length === 0) {
+    return (
+      <div className={styles.empty}>
+        <div>No terminal output</div>
+        <div>Commands executed by the agent will appear here</div>
       </div>
-      {lines.length === 0 ? (
-        <div className="empty-state">
-          <div className="empty-state-title">No terminal output</div>
-          <div>Commands executed by the agent will appear here</div>
+    );
+  }
+
+  return (
+    <div className={styles.terminal}>
+      {lines.map((line) => (
+        <div key={line.key} className={`${styles.line} ${styles[line.type]}`}>
+          {line.type === 'command' && <span className={styles.prompt}>$</span>}
+          <pre className={styles.text}>{line.text}</pre>
         </div>
-      ) : (
-        <div className={`panel-body ${styles.terminal}`}>
-          {lines.map((line) => (
-            <div key={line.key} className={`${styles.line} ${styles[line.type]}`}>
-              {line.type === 'command' && <span className={styles.prompt}>$</span>}
-              <pre className={styles.text}>{line.text}</pre>
-            </div>
-          ))}
-          <div ref={bottomRef} />
-        </div>
-      )}
+      ))}
+      <div ref={bottomRef} />
     </div>
   );
 }

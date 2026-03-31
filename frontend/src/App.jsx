@@ -3,7 +3,7 @@ import { useWebSocket } from './hooks/useWebSocket.js';
 import Header from './components/Header.jsx';
 import ChatInput from './components/ChatInput.jsx';
 import AgentTimeline from './components/AgentTimeline.jsx';
-import TerminalView from './components/TerminalView.jsx';
+import RightPanel from './components/RightPanel.jsx';
 import StatusBar from './components/StatusBar.jsx';
 import SessionDrawer from './components/SessionDrawer.jsx';
 
@@ -39,7 +39,7 @@ export default function App() {
           <AgentTimeline events={events} status={status} />
           <ChatInput onSend={startAgent} onStop={stopAgent} status={status} />
         </div>
-        <TerminalView events={events} />
+        <RightPanel events={events} sessionStats={sessionStats} />
       </div>
 
       <StatusBar

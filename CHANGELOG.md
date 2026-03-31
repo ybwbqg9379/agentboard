@@ -21,6 +21,22 @@
 
 ---
 
+## [0.11.0] - 2026-03-31
+
+### Added
+
+- **右侧 Tab 面板**: Terminal / Context / Files 三个标签页替代单一 Terminal 视图
+- **Context 可视化**: 展示 input/output/cache token 占比分布条、数值、百分比和费用
+- **文件变更面板**: 自动从事件流提取 Read/Write/Edit 工具调用，分 Modified 和 Read Only 两组展示，包含操作计数 (W/E/R)
+- **RightPanel 组件**: 统一管理右侧面板的 tab 切换和内容路由
+
+### Changed
+
+- TerminalView 从独立 panel 改为嵌入式组件，由 RightPanel 包裹
+- App.jsx 右侧面板从单一 TerminalView 升级为 RightPanel（含三个标签页）
+
+---
+
 ## [0.10.0] - 2026-03-31
 
 ### Added
