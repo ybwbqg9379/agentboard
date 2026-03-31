@@ -35,7 +35,7 @@ export function startAgent(prompt) {
       settingSources: [],
       env: {
         PATH: process.env.PATH,
-        HOME: WORKSPACE,
+        HOME: process.env.HOME,
         TMPDIR: resolve(WORKSPACE, '.tmp'),
         ANTHROPIC_BASE_URL: config.litellm.url,
         ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY || 'placeholder',

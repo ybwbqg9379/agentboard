@@ -14,10 +14,8 @@ export default function App() {
       <Header connected={connected} sessionId={sessionId} onClear={clearSession} />
 
       <div className="main-content">
-        <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <div style={{ flex: 1, overflow: 'hidden' }}>
-            <AgentTimeline events={events} status={status} />
-          </div>
+        <div className="left-panel">
+          <AgentTimeline events={events} status={status} />
           <ChatInput onSend={startAgent} onStop={stopAgent} status={status} />
         </div>
         <TerminalView events={events} />

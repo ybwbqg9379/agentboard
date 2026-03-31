@@ -1,5 +1,7 @@
 # AgentBoard Architecture
 
+> Agent SDK: [@anthropic-ai/claude-agent-sdk](https://github.com/anthropics/claude-agent-sdk-typescript) (TypeScript)
+
 ## 系统架构
 
 ```

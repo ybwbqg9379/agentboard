@@ -121,16 +121,16 @@ npm run dev
 
 ## 技术栈
 
-| 层    | 技术                           | 用途                                         |
-| ----- | ------------------------------ | -------------------------------------------- |
-| 前端  | Vite + React 19                | SPA Dashboard                                |
-| 样式  | CSS Modules + CSS Variables    | 暗色主题设计系统                             |
-| 通信  | WebSocket (ws)                 | 实时流式推送                                 |
-| 后端  | Express 5                      | HTTP API + WebSocket                         |
-| 存储  | better-sqlite3                 | 会话和事件持久化                             |
-| 代理  | Node.js proxy.js               | Anthropic Messages → OpenAI Chat Completions |
-| Agent | @anthropic-ai/claude-agent-sdk | 编排引擎（SDK 编程式调用）                   |
-| 模型  | MiniMax-M2.7-highspeed         | 低成本 LLM（OpenAI Compatible）              |
+| 层    | 技术                                                                                        | 用途                                         |
+| ----- | ------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| 前端  | Vite + React 19                                                                             | SPA Dashboard                                |
+| 样式  | CSS Modules + CSS Variables                                                                 | 暗色主题设计系统                             |
+| 通信  | WebSocket (ws)                                                                              | 实时流式推送                                 |
+| 后端  | Express 5                                                                                   | HTTP API + WebSocket                         |
+| 存储  | better-sqlite3                                                                              | 会话和事件持久化                             |
+| 代理  | Node.js proxy.js                                                                            | Anthropic Messages → OpenAI Chat Completions |
+| Agent | [@anthropic-ai/claude-agent-sdk](https://github.com/anthropics/claude-agent-sdk-typescript) | 编排引擎（SDK 编程式调用）                   |
+| 模型  | MiniMax-M2.7-highspeed                                                                      | 低成本 LLM（OpenAI Compatible）              |
 
 ## 开发
 

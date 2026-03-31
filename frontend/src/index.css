@@ -104,6 +104,18 @@ body,
   overflow: hidden;
 }
 
+.left-panel {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.left-panel > .panel {
+  flex: 1;
+  min-height: 0;
+}
+
 /* ---- Panels ---- */
 .panel {
   background: var(--bg-primary);

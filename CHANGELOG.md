@@ -4,7 +4,7 @@
 
 ### Changed
 
-- **Agent 引擎**：从 CLI subprocess 迁移到 Claude Agent SDK (`@anthropic-ai/claude-agent-sdk`)
+- **Agent 引擎**：从 CLI subprocess 迁移到 [Claude Agent SDK](https://github.com/anthropics/claude-agent-sdk-typescript) (`@anthropic-ai/claude-agent-sdk`)
   - `query()` 编程式调用，替代 `spawn('claude', [...])`
   - 结构化 `SDKMessage` 事件流，不再手动解析 NDJSON
   - `stream.return()` 干净停止，替代进程 kill
