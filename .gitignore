@@ -1,7 +1,8 @@
 node_modules/
 dist/
 data/
-workspace/
+workspace/*
+!workspace/CLAUDE.md
 .env
 .env.local
 *.db

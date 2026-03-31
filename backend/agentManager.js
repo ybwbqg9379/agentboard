@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
 import { EventEmitter } from 'node:events';
+import { resolve } from 'node:path';
 import config from './config.js';
 import {
   createSession,
@@ -12,6 +13,24 @@ const activeAgents = new Map();
 
 export const agentEvents = new EventEmitter();
 
+// workspace 绝对路径（用于安全约束）
+const WORKSPACE = resolve(config.workspaceDir);
+
+/**
+ * 构建注入到 prompt 前的安全约束指令
+ */
+function buildSandboxedPrompt(prompt) {
+  return [
+    `[SECURITY] You are sandboxed to: ${WORKSPACE}`,
+    `All file operations MUST stay within this directory.`,
+    `NEVER use absolute paths outside ${WORKSPACE}.`,
+    `NEVER access parent directories beyond ${WORKSPACE}.`,
+    `If the task requires files outside this directory, refuse and explain why.`,
+    ``,
+    `[TASK] ${prompt}`,
+  ].join('\n');
+}
+
 /**
  * 启动一个 Claude Code Agent subprocess
  * @param {string} prompt - 用户指令
@@ -19,18 +38,24 @@ export const agentEvents = new EventEmitter();
  */
 export function startAgent(prompt) {
   const sessionId = createSession(prompt);
+  const sandboxedPrompt = buildSandboxedPrompt(prompt);
 
   const agent = spawn('claude', [
-    '-p', prompt,
+    '-p', sandboxedPrompt,
     '--output-format', 'stream-json',
     '--verbose',
     '--dangerously-skip-permissions',
   ], {
-    cwd: config.workspaceDir,
+    cwd: WORKSPACE,
     env: {
-      ...process.env,
+      // 最小化环境变量，只传递必要的
+      PATH: process.env.PATH,
+      HOME: WORKSPACE,
+      TMPDIR: resolve(WORKSPACE, '.tmp'),
       ANTHROPIC_BASE_URL: config.litellm.url,
       ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY || 'placeholder',
+      // 防止 Claude Code 读取用户级配置
+      CLAUDE_CONFIG_DIR: resolve(WORKSPACE, '.claude'),
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
