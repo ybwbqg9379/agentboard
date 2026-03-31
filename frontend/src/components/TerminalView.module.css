@@ -1,0 +1,39 @@
+.terminal {
+  background: var(--bg-primary);
+  padding: var(--space-md);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.line {
+  display: flex;
+  gap: var(--space-sm);
+  padding: 2px 0;
+}
+
+.prompt {
+  color: var(--status-running);
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.text {
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+  font: inherit;
+}
+
+.command .text {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.output .text {
+  color: var(--text-secondary);
+}
+
+.error .text {
+  color: var(--status-error);
+}

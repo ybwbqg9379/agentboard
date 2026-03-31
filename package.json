@@ -1,0 +1,15 @@
+{
+  "name": "agentboard",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev:backend": "cd backend && node --watch server.js",
+    "dev:frontend": "cd frontend && npx vite",
+    "dev": "npx concurrently -n back,front -c blue,green \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "build": "cd frontend && npx vite build",
+    "litellm": "litellm --config litellm/config.yaml --port 4000"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
