@@ -20,7 +20,12 @@ export const agentEvents = new EventEmitter();
 export function startAgent(prompt) {
   const sessionId = createSession(prompt);
 
-  const agent = spawn('claude', ['-p', prompt, '--output-format', 'stream-json', '--verbose'], {
+  const agent = spawn('claude', [
+    '-p', prompt,
+    '--output-format', 'stream-json',
+    '--verbose',
+    '--dangerously-skip-permissions',
+  ], {
     cwd: config.workspaceDir,
     env: {
       ...process.env,

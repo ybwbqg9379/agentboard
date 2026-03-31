@@ -3,27 +3,43 @@ import styles from './TerminalView.module.css';
 
 function extractTerminalLines(events) {
   const lines = [];
+
   for (const event of events) {
     const { type, content } = event;
 
-    if (type === 'tool_use' && content?.name === 'Bash') {
+    // 提取嵌套在 content blocks 中的 Bash 命令和结果
+    const blocks = content?.content || content?.message?.content;
+    if (Array.isArray(blocks)) {
+      for (const block of blocks) {
+        if (block.type === 'tool_use' && (block.name === 'Bash' || block.name === 'bash')) {
+          const cmd = block.input?.command || (typeof block.input === 'string' ? block.input : '');
+          if (cmd) lines.push({ type: 'command', text: cmd });
+        }
+        if (block.type === 'tool_result') {
+          const output = typeof block.content === 'string' ? block.content : block.output || '';
+          if (output) lines.push({ type: block.is_error ? 'error' : 'output', text: output });
+        }
+      }
+    }
+
+    // 顶层 tool_use（旧格式兼容）
+    if (type === 'tool_use' && (content?.name === 'Bash' || content?.name === 'bash')) {
       const cmd = content?.input?.command || content?.input;
-      if (cmd) {
-        lines.push({ type: 'command', text: typeof cmd === 'string' ? cmd : JSON.stringify(cmd) });
-      }
+      if (cmd) lines.push({ type: 'command', text: typeof cmd === 'string' ? cmd : JSON.stringify(cmd) });
     }
 
+    // 顶层 tool_result
     if (type === 'tool_result') {
-      const output = content?.output || content?.content;
-      if (output && typeof output === 'string') {
-        lines.push({ type: 'output', text: output });
-      }
+      const output = content?.output || (typeof content?.content === 'string' ? content.content : '');
+      if (output) lines.push({ type: content?.is_error ? 'error' : 'output', text: output });
     }
 
+    // stderr
     if (type === 'stderr') {
       lines.push({ type: 'error', text: content?.text || '' });
     }
   }
+
   return lines;
 }
 
