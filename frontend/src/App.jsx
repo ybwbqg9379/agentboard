@@ -15,11 +15,17 @@ export default function App() {
     stopAgent,
     clearSession,
     sessionStats,
+    mcpHealth,
   } = useWebSocket();
 
   return (
     <div className="app-layout">
-      <Header connected={connected} sessionId={sessionId} onClear={clearSession} />
+      <Header
+        connected={connected}
+        sessionId={sessionId}
+        onClear={clearSession}
+        mcpHealth={mcpHealth}
+      />
 
       <div className="main-content">
         <div className="left-panel">

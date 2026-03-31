@@ -10,6 +10,7 @@ export function useWebSocket() {
   const [sessionId, setSessionId] = useState(null);
   const [status, setStatus] = useState('idle'); // idle | running | completed | failed | stopped
   const [sessionStats, setSessionStats] = useState(null);
+  const [mcpHealth, setMcpHealth] = useState({});
   const wsRef = useRef(null);
   const reconnectTimer = useRef(null);
   const sessionIdRef = useRef(null);
@@ -79,7 +80,7 @@ export function useWebSocket() {
         return;
       }
 
-      // Extract session stats from init and result messages
+      // Extract session stats and MCP health from init and result messages
       if (msg.type === 'system' && (msg.subtype === 'init' || msg.content?.subtype === 'init')) {
         const c = msg.content;
         setSessionStats((prev) => ({
@@ -88,6 +89,37 @@ export function useWebSocket() {
           tools: c?.tools?.length || 0,
           mcpServers: c?.mcp_servers?.length || 0,
         }));
+        // Initialize MCP health from init message
+        if (Array.isArray(c?.mcp_servers)) {
+          const health = {};
+          for (const s of c.mcp_servers) {
+            const name = typeof s === 'string' ? s : s.name || String(s);
+            health[name] = { state: 'connected', toolCalls: 0, toolErrors: 0 };
+          }
+          setMcpHealth(health);
+        }
+      }
+      // Track MCP tool outcomes from hook events
+      if (
+        msg.type === 'system' &&
+        (msg.subtype === 'tool_complete' || msg.subtype === 'tool_failed')
+      ) {
+        const toolName = msg.content?.tool;
+        if (toolName?.startsWith('mcp__')) {
+          const serverName = toolName.split('__')[1];
+          const success = msg.subtype === 'tool_complete';
+          setMcpHealth((prev) => {
+            const entry = prev[serverName];
+            if (!entry) return prev;
+            const updated = {
+              ...entry,
+              toolCalls: entry.toolCalls + 1,
+              toolErrors: entry.toolErrors + (success ? 0 : 1),
+              state: success ? 'connected' : entry.toolErrors >= 2 ? 'failed' : 'degraded',
+            };
+            return { ...prev, [serverName]: updated };
+          });
+        }
       }
       if (msg.type === 'result') {
         const c = msg.content;
@@ -142,6 +174,7 @@ export function useWebSocket() {
     setSessionId(null);
     setStatus('idle');
     setSessionStats(null);
+    setMcpHealth({});
   }, [send]);
 
   return {
@@ -153,5 +186,6 @@ export function useWebSocket() {
     stopAgent,
     clearSession,
     sessionStats,
+    mcpHealth,
   };
 }

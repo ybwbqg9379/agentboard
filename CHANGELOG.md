@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.5.0] - 2026-03-31
+
+### Added
+
+- **MCP 健康监测**: 新增 `mcpHealth.js` 模块，实现 MCP 服务器状态机 (connected/degraded/failed)
+  - 从 `system/init` 消息初始化 MCP 服务器列表
+  - `PostToolUse` / `PostToolUseFailure` hooks 追踪 MCP 工具调用成功/失败率
+  - 错误率超过 50% 且 >= 3 次失败时标记为 `failed`，成功调用可从 `degraded` 恢复
+- **MCP 健康面板**: Header 组件新增 MCP 状态灯阵列，悬停显示服务器名、状态、调用次数、错误次数
+- **REST API**: 新增 `GET /api/mcp/health` 端点，返回所有 MCP 服务器健康数据
+- **PostToolUseFailure Hook**: 工具执行失败时记录错误并推送 `tool_failed` 事件到 Timeline
+- **前端 MCP 追踪**: `useWebSocket` 实时追踪 MCP 工具调用结果，更新健康状态
+
+### Changed
+
+- **Header.jsx**: 新增 `mcpHealth` prop，显示 MCP 服务器状态灯（绿/黄/红）
+- **hooks.js**: PostToolUse 调用 `recordToolCall()`，新增 PostToolUseFailure hook
+- **App.jsx**: `mcpHealth` 从 useWebSocket 传递到 Header
+
+---
+
 ## [0.4.0] - 2026-03-31
 
 ### Added

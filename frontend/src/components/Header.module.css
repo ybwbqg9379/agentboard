@@ -53,6 +53,29 @@
   background: var(--bg-hover);
 }
 
+.mcpHealth {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.mcpLabel {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-right: 2px;
+}
+
+.mcpDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  transition: background 0.3s;
+}
+
 .connStatus {
   display: flex;
   align-items: center;

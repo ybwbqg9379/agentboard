@@ -11,6 +11,7 @@ import {
 import { getMcpServers, getAllowedTools } from './mcpConfig.js';
 import { getAgentDefs } from './agentDefs.js';
 import { buildHooks } from './hooks.js';
+import { initMcpHealth } from './mcpHealth.js';
 
 // 活跃的 Agent Query Map<sessionId, { stream, timeoutId }>
 const activeAgents = new Map();
@@ -101,6 +102,11 @@ export function startAgent(prompt) {
 
         insertEvent(sessionId, message.type, message);
         agentEvents.emit('event', wrapped);
+
+        // Initialize MCP health from init message
+        if (message.type === 'system' && message.subtype === 'init' && message.mcp_servers) {
+          initMcpHealth(message.mcp_servers);
+        }
 
         // Extract session stats from result messages
         if (message.type === 'result') {

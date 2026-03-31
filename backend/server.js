@@ -5,6 +5,7 @@ import { WebSocketServer } from 'ws';
 import config from './config.js';
 import { listSessions, getSession, getEvents, close as closeDb } from './sessionStore.js';
 import { startAgent, stopAgent, getActiveAgents, agentEvents } from './agentManager.js';
+import { getMcpHealth } from './mcpHealth.js';
 
 const app = express();
 app.use(cors());
@@ -38,6 +39,10 @@ app.get('/api/status', (_req, res) => {
     activeAgents: getActiveAgents(),
     uptime: process.uptime(),
   });
+});
+
+app.get('/api/mcp/health', (_req, res) => {
+  res.json(getMcpHealth());
 });
 
 // --- Error Handler (Express 5 auto-forwards rejected promises) ---

@@ -6,6 +6,8 @@
  * lifecycle, and session completion events.
  */
 
+import { recordToolCall } from './mcpHealth.js';
+
 const BLOCKED_PATTERNS = [
   /rm\s+(-\w*\s+)*-rf\s+[/~]/,
   /\|\s*(sh|bash|zsh)\b/,
@@ -67,6 +69,7 @@ export function buildHooks(emitter, sessionId) {
           async (input) => {
             try {
               const toolName = input?.tool_name;
+              recordToolCall(toolName, true, null);
               emitter.emit('event', {
                 sessionId,
                 type: 'system',
@@ -76,6 +79,30 @@ export function buildHooks(emitter, sessionId) {
               });
             } catch (err) {
               console.error(`[hooks] PostToolUse error (session=${sessionId}):`, err);
+            }
+            return { async: true };
+          },
+        ],
+      },
+    ],
+
+    PostToolUseFailure: [
+      {
+        hooks: [
+          async (input) => {
+            try {
+              const toolName = input?.tool_name;
+              const error = input?.error || 'unknown';
+              recordToolCall(toolName, false, error);
+              emitter.emit('event', {
+                sessionId,
+                type: 'system',
+                subtype: 'tool_failed',
+                content: { tool: toolName, error, message: `Tool ${toolName} failed: ${error}` },
+                timestamp: Date.now(),
+              });
+            } catch (err) {
+              console.error(`[hooks] PostToolUseFailure error (session=${sessionId}):`, err);
             }
             return { async: true };
           },
