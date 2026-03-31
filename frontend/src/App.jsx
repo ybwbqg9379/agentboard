@@ -16,6 +16,7 @@ export default function App() {
     clearSession,
     sessionStats,
     mcpHealth,
+    subtasks,
   } = useWebSocket();
 
   return (
@@ -40,6 +41,7 @@ export default function App() {
         sessionId={sessionId}
         eventCount={events.length}
         sessionStats={sessionStats}
+        subtasks={subtasks}
       />
     </div>
   );

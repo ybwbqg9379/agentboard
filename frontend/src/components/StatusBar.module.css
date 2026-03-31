@@ -22,3 +22,45 @@
   padding-left: var(--space-md);
   border-left: 1px solid var(--border-primary);
 }
+
+.subtask {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-left: var(--space-md);
+  border-left: 1px solid var(--border-primary);
+  color: var(--accent-primary);
+}
+
+.tokenBar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: var(--space-md);
+  border-left: 1px solid var(--border-primary);
+}
+
+.tokenLabel {
+  white-space: nowrap;
+}
+
+.tokenTrack {
+  display: flex;
+  width: 48px;
+  height: 4px;
+  background: var(--bg-tertiary);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.tokenFillIn {
+  height: 100%;
+  background: var(--accent-primary);
+  transition: width 0.3s;
+}
+
+.tokenFillOut {
+  height: 100%;
+  background: var(--status-running);
+  transition: width 0.3s;
+}

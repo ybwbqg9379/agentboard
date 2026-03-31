@@ -11,6 +11,7 @@ export function useWebSocket() {
   const [status, setStatus] = useState('idle'); // idle | running | completed | failed | stopped
   const [sessionStats, setSessionStats] = useState(null);
   const [mcpHealth, setMcpHealth] = useState({});
+  const [subtasks, setSubtasks] = useState({});
   const wsRef = useRef(null);
   const reconnectTimer = useRef(null);
   const sessionIdRef = useRef(null);
@@ -133,6 +134,29 @@ export function useWebSocket() {
         }));
       }
 
+      // Track subtasks from task lifecycle messages
+      const sub = msg.subtype || msg.content?.subtype;
+      if (msg.type === 'system' && sub === 'task_started' && msg.content?.task_id) {
+        setSubtasks((prev) => ({
+          ...prev,
+          [msg.content.task_id]: {
+            description: msg.content.description || '',
+            status: 'running',
+            startedAt: msg.timestamp || Date.now(),
+          },
+        }));
+      }
+      if (msg.type === 'system' && sub === 'task_notification' && msg.content?.task_id) {
+        setSubtasks((prev) => ({
+          ...prev,
+          [msg.content.task_id]: {
+            ...(prev[msg.content.task_id] || {}),
+            status: msg.content.status || 'completed',
+            summary: msg.content.summary || '',
+          },
+        }));
+      }
+
       setEvents((prev) => {
         const next = [...prev, msg];
         return next.length > MAX_EVENTS ? next.slice(-MAX_EVENTS) : next;
@@ -175,6 +199,7 @@ export function useWebSocket() {
     setStatus('idle');
     setSessionStats(null);
     setMcpHealth({});
+    setSubtasks({});
   }, [send]);
 
   return {
@@ -187,5 +212,6 @@ export function useWebSocket() {
     clearSession,
     sessionStats,
     mcpHealth,
+    subtasks,
   };
 }

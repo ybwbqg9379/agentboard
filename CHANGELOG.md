@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.6.0] - 2026-03-31
+
+### Added
+
+- **子任务追踪**: `useWebSocket` 从 `task_started`/`task_notification` 消息追踪子代理任务状态
+- **Token 进度条**: StatusBar 显示 input/output token 比例可视化条
+- **活跃子任务指示器**: StatusBar 显示当前运行中的子任务数量（含脉冲动画指示灯）
+- **Turns 计数**: StatusBar 显示 agent 执行的 turn 数
+
+### Changed
+
+- **StatusBar**: 接收 `subtasks` prop，展示子任务状态和 token 分布图
+- **StatusBar.module.css**: 新增 `tokenBar`、`tokenTrack`、`tokenFillIn`/`tokenFillOut`、`subtask` 样式
+- **App.jsx**: 传递 `subtasks` 从 useWebSocket 到 StatusBar
+
+---
+
 ## [0.5.0] - 2026-03-31
 
 ### Added
