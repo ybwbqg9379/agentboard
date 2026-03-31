@@ -173,3 +173,37 @@ describe('Workflow Runs', () => {
     expect(getWorkflowRun('test-user', '00000000-0000-0000-0000-000000000000')).toBeNull();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Error handling regression (B-M2)
+// ---------------------------------------------------------------------------
+
+describe('Error handling', () => {
+  it('updateWorkflowRun does not throw on valid input', () => {
+    const wfId = createWorkflow('err-user', 'ErrTest', '', {
+      nodes: [
+        { id: 'in', type: 'input' },
+        { id: 'out', type: 'output' },
+      ],
+      edges: [{ from: 'in', to: 'out' }],
+    });
+    const runId = createWorkflowRun('err-user', wfId);
+    expect(() =>
+      updateWorkflowRun(runId, { status: 'running', context: {}, nodeResults: {} }),
+    ).not.toThrow();
+  });
+
+  it('completeWorkflowRun does not throw on valid input', () => {
+    const wfId = createWorkflow('err-user2', 'ErrTest2', '', {
+      nodes: [
+        { id: 'in', type: 'input' },
+        { id: 'out', type: 'output' },
+      ],
+      edges: [{ from: 'in', to: 'out' }],
+    });
+    const runId = createWorkflowRun('err-user2', wfId);
+    expect(() =>
+      completeWorkflowRun(runId, { status: 'completed', nodeResults: {} }),
+    ).not.toThrow();
+  });
+});

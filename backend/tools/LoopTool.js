@@ -50,8 +50,15 @@ export class LoopTool extends Tool {
         });
 
         let finalResult = 'No result returned.';
+        const SUB_AGENT_TIMEOUT_MS = 10 * 60 * 1000;
 
         await new Promise((resolve) => {
+          const timeoutId = setTimeout(() => {
+            agentEvents.off('event', onEvent);
+            outcomes.push({ item, result: '[Timed out]' });
+            resolve();
+          }, SUB_AGENT_TIMEOUT_MS);
+
           function onEvent(event) {
             if (event.sessionId !== targetSessionId) return;
 
@@ -60,6 +67,7 @@ export class LoopTool extends Tool {
             }
 
             if (event.type === 'done') {
+              clearTimeout(timeoutId);
               agentEvents.off('event', onEvent);
               outcomes.push({ item, result: finalResult });
               resolve();

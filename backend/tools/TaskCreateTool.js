@@ -42,11 +42,15 @@ export class TaskCreateTool extends Tool {
         maxTurns: 30,
       });
 
-      // Wait for it to complete by listening to events on the shared event bus limitlessly
-      // (Since startAgent is running within this Node process, we can tap the event emitter)
       let finalResult = 'No result returned.';
+      const SUB_AGENT_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
 
       const completionPromise = new Promise((resolve, reject) => {
+        const timeoutId = setTimeout(() => {
+          agentEvents.off('event', onEvent);
+          reject(new Error('Sub-agent timed out'));
+        }, SUB_AGENT_TIMEOUT_MS);
+
         function onEvent(event) {
           if (event.sessionId !== targetSessionId) return;
 
@@ -55,6 +59,7 @@ export class TaskCreateTool extends Tool {
           }
 
           if (event.type === 'done') {
+            clearTimeout(timeoutId);
             agentEvents.off('event', onEvent);
             const status = event.content?.status || 'completed';
             if (status === 'completed') {

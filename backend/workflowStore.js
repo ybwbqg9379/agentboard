@@ -86,26 +86,36 @@ const stmts = {
 // --- Workflow CRUD ---
 
 export function createWorkflow(userId, name, description, definition) {
-  const id = randomUUID();
-  stmts.createWorkflow.run(
-    id,
-    userId || 'default',
-    name,
-    description || '',
-    JSON.stringify(definition),
-  );
-  return id;
+  try {
+    const id = randomUUID();
+    stmts.createWorkflow.run(
+      id,
+      userId || 'default',
+      name,
+      description || '',
+      JSON.stringify(definition),
+    );
+    return id;
+  } catch (err) {
+    console.error(`[workflowStore] createWorkflow failed: ${err.message}`);
+    throw err;
+  }
 }
 
 export function updateWorkflow(userId, id, name, description, definition) {
-  const result = stmts.updateWorkflow.run(
-    name,
-    description || '',
-    JSON.stringify(definition),
-    id,
-    userId || 'default',
-  );
-  return result.changes > 0;
+  try {
+    const result = stmts.updateWorkflow.run(
+      name,
+      description || '',
+      JSON.stringify(definition),
+      id,
+      userId || 'default',
+    );
+    return result.changes > 0;
+  } catch (err) {
+    console.error(`[workflowStore] updateWorkflow failed: ${err.message}`);
+    throw err;
+  }
 }
 
 export function getWorkflow(userId, id) {
@@ -124,36 +134,54 @@ export function countWorkflows(userId) {
 }
 
 export function deleteWorkflow(userId, id) {
-  const result = stmts.deleteWorkflow.run(id, userId || 'default');
-  return result.changes > 0;
+  try {
+    const result = stmts.deleteWorkflow.run(id, userId || 'default');
+    return result.changes > 0;
+  } catch (err) {
+    console.error(`[workflowStore] deleteWorkflow failed: ${err.message}`);
+    throw err;
+  }
 }
 
 // --- Workflow Run CRUD ---
 
 export function createWorkflowRun(userId, workflowId, initialContext = {}, runId = randomUUID()) {
-  const id = runId;
-  stmts.createRun.run(
-    id,
-    userId || 'default',
-    workflowId,
-    'pending',
-    JSON.stringify(initialContext),
-  );
-  return id;
+  try {
+    const id = runId;
+    stmts.createRun.run(
+      id,
+      userId || 'default',
+      workflowId,
+      'pending',
+      JSON.stringify(initialContext),
+    );
+    return id;
+  } catch (err) {
+    console.error(`[workflowStore] createWorkflowRun failed: ${err.message}`);
+    throw err;
+  }
 }
 
 export function updateWorkflowRun(id, { status, context, nodeResults, error }) {
-  stmts.updateRun.run(
-    status,
-    JSON.stringify(context || {}),
-    JSON.stringify(nodeResults || {}),
-    error || null,
-    id,
-  );
+  try {
+    stmts.updateRun.run(
+      status,
+      JSON.stringify(context || {}),
+      JSON.stringify(nodeResults || {}),
+      error || null,
+      id,
+    );
+  } catch (err) {
+    console.error(`[workflowStore] updateWorkflowRun failed: ${err.message}`);
+  }
 }
 
 export function completeWorkflowRun(id, { status, nodeResults, error }) {
-  stmts.completeRun.run(status, JSON.stringify(nodeResults || {}), error || null, id);
+  try {
+    stmts.completeRun.run(status, JSON.stringify(nodeResults || {}), error || null, id);
+  } catch (err) {
+    console.error(`[workflowStore] completeWorkflowRun failed: ${err.message}`);
+  }
 }
 
 export function getWorkflowRun(userId, id) {

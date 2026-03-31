@@ -167,6 +167,7 @@ export default function WorkflowEditor() {
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   const [runStatus, setRunStatus] = useState(null); // null | 'running' | 'completed' | 'failed'
   const [activeNodes, setActiveNodes] = useState(new Set());
+  const [isEditing, setIsEditing] = useState(false);
   const svgRef = useRef(null);
 
   // Fetch workflow list
@@ -196,6 +197,7 @@ export default function WorkflowEditor() {
     setSelectedNode(null);
     setRunStatus(null);
     setActiveNodes(new Set());
+    setIsEditing(true);
     // Sync nextId to avoid collisions with existing node ids
     let maxNum = 0;
     for (const n of loadedNodes) {
@@ -228,6 +230,7 @@ export default function WorkflowEditor() {
     setSelectedNode(null);
     setRunStatus(null);
     setActiveNodes(new Set());
+    setIsEditing(true);
   }, []);
 
   // Add node
@@ -267,11 +270,12 @@ export default function WorkflowEditor() {
     const definition = { nodes, edges };
     try {
       if (currentWorkflow) {
-        await fetch(`${API_BASE}/api/workflows/${currentWorkflow}`, {
+        const putRes = await fetch(`${API_BASE}/api/workflows/${currentWorkflow}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name: workflowName, description: '', definition }),
         });
+        if (!putRes.ok) return null;
         fetchWorkflows();
         return currentWorkflow;
       } else {
@@ -373,11 +377,12 @@ export default function WorkflowEditor() {
     if (!wfId) return;
     setRunStatus('running');
     setActiveNodes(new Set());
-    const runId = globalThis.crypto?.randomUUID?.();
-    if (!runId) {
-      setRunStatus('failed');
-      return;
-    }
+    const runId =
+      globalThis.crypto?.randomUUID?.() ||
+      'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+        const r = (Math.random() * 16) | 0;
+        return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+      });
 
     try {
       await subscribeWorkflowRun(runId);
@@ -400,7 +405,13 @@ export default function WorkflowEditor() {
   // Listen for workflow events via WebSocket and subscribe to concrete runIds
   // before triggering execution to avoid missing early events.
   useEffect(() => {
-    const wsUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`;
+    const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    let wsUrl = `${proto}//${window.location.host}/ws`;
+    const token =
+      new URLSearchParams(window.location.search).get('token') ||
+      localStorage.getItem('agentboard_api_key') ||
+      '';
+    if (token) wsUrl += `?token=${encodeURIComponent(token)}`;
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
@@ -421,6 +432,16 @@ export default function WorkflowEditor() {
         }
         if (msg.type !== 'workflow') return;
         const { subtype, content } = msg;
+        if (subtype === 'run_start') {
+          setRunStatus('running');
+          setActiveNodes(new Set());
+        }
+        if (subtype === 'agent_started') {
+          // agent_started carries sessionId for cross-reference; track the node as active
+          if (content.nodeId) {
+            setActiveNodes((prev) => new Set([...prev, content.nodeId]));
+          }
+        }
         if (subtype === 'node_start') {
           setActiveNodes((prev) => new Set([...prev, content.nodeId]));
         }
@@ -573,7 +594,7 @@ export default function WorkflowEditor() {
   const selectedNodeObj = nodes.find((n) => n.id === selectedNode);
 
   // --- Workflow list view when no workflow is open ---
-  if (nodes.length === 0 && !currentWorkflow) {
+  if (!isEditing) {
     return (
       <div className={styles.editor}>
         <div className={styles.toolbar}>
@@ -610,6 +631,7 @@ export default function WorkflowEditor() {
             setNodes([]);
             setEdges([]);
             setCurrentWorkflow(null);
+            setIsEditing(false);
           }}
         >
           Back
@@ -706,8 +728,9 @@ export default function WorkflowEditor() {
               (() => {
                 const from = nodes.find((n) => n.id === drawingEdge.fromId);
                 if (!from) return null;
-                const x1 = from.position.x + NODE_W;
-                const y1 = from.position.y + NODE_H / 2;
+                const fromPos = from.position || { x: 0, y: 0 };
+                const x1 = fromPos.x + NODE_W;
+                const y1 = fromPos.y + NODE_H / 2;
                 return (
                   <path
                     d={edgePath(x1, y1, drawingEdge.mx, drawingEdge.my)}

@@ -16,6 +16,7 @@ import { LoopTool } from './LoopTool.js';
 
 const userId = process.argv[2] || process.env.USER_ID || 'default';
 const sessionId = process.argv[3] || process.env.SESSION_ID || 'unknown';
+const userWorkspaceArg = process.argv[4] || process.env.HOME || '/tmp';
 
 const server = new Server(
   {
@@ -56,12 +57,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       throw new Error(`Unknown tool: ${name}`);
     }
 
-    const context = { userId, sessionId, userWorkspace: process.env.HOME || '/tmp' };
-
-    // Quick hack for userWorkspace mapping in child processes.
-    // In advanced production scenarios, we might pass userWorkspace explicitly as arg 4.
-    // For now, since agentManager runs this, it inherits the environment! Wait. NO.
-    // We should pass workspace dir directly.
+    const context = { userId, sessionId, userWorkspace: userWorkspaceArg };
     return await tool.call(args, context);
   } catch (error) {
     return {

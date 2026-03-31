@@ -1,8 +1,13 @@
 import Database from 'better-sqlite3';
 import crypto from 'node:crypto';
+import { mkdirSync } from 'node:fs';
+import { dirname } from 'node:path';
 import config from './config.js';
 
-const db = new Database(config.dbPath);
+const memoryDbPath = config.dbPath.replace('.db', '-memory.db');
+mkdirSync(dirname(memoryDbPath), { recursive: true });
+
+const db = new Database(memoryDbPath);
 db.pragma('journal_mode = WAL');
 
 // Initialize Memory Knowledge Graph Tables
@@ -81,4 +86,12 @@ export function getUserMemoryGraph(userId) {
     )
     .all(userId);
   return { entities, relations };
+}
+
+export function closeMemoryDb() {
+  try {
+    db.close();
+  } catch {
+    /* ignore */
+  }
 }

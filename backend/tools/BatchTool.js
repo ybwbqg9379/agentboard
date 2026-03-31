@@ -52,8 +52,14 @@ export class BatchTool extends Tool {
         });
 
         let finalResult = 'No result returned.';
+        const SUB_AGENT_TIMEOUT_MS = 10 * 60 * 1000;
 
         return new Promise((resolve) => {
+          const timeoutId = setTimeout(() => {
+            agentEvents.off('event', onEvent);
+            resolve({ task: taskDesc, result: '[Timed out]' });
+          }, SUB_AGENT_TIMEOUT_MS);
+
           function onEvent(event) {
             if (event.sessionId !== targetSessionId) return;
 
@@ -62,6 +68,7 @@ export class BatchTool extends Tool {
             }
 
             if (event.type === 'done') {
+              clearTimeout(timeoutId);
               agentEvents.off('event', onEvent);
               const status = event.content?.status || 'completed';
               if (status === 'completed') {

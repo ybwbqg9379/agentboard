@@ -4,7 +4,8 @@ vi.mock('./config.js', () => ({
   default: { dbPath: ':memory:' },
 }));
 
-const { saveEntity, saveRelation, getUserMemoryGraph } = await import('./memoryStore.js');
+const { saveEntity, saveRelation, getUserMemoryGraph, closeMemoryDb } =
+  await import('./memoryStore.js');
 
 describe('memoryStore.js', () => {
   it('saveEntity creates an entity for a user', () => {
@@ -35,5 +36,11 @@ describe('memoryStore.js', () => {
     // Tenant A searches
     const graphA = getUserMemoryGraph('tenantA');
     expect(graphA.entities.some((e) => e.name === 'SecretKey')).toBe(true);
+  });
+
+  it('exports closeMemoryDb for clean shutdown', () => {
+    expect(typeof closeMemoryDb).toBe('function');
+    // Should not throw when called
+    expect(() => closeMemoryDb()).not.toThrow();
   });
 });

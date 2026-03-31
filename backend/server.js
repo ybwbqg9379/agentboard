@@ -22,6 +22,7 @@ import {
   PERMISSION_MODES,
 } from './agentManager.js';
 import { getMcpHealth } from './mcpHealth.js';
+import { closeMemoryDb } from './memoryStore.js';
 import {
   createWorkflow,
   createWorkflowRun,
@@ -430,6 +431,7 @@ function shutdown(signal) {
   server.close(() => {
     closeDb();
     closeWorkflowDb();
+    closeMemoryDb();
     console.log('Shutdown complete.');
     process.exit(0);
   });

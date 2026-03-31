@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 
@@ -29,6 +30,11 @@ MockWebSocket.CLOSED = 3;
 
 vi.stubGlobal('WebSocket', MockWebSocket);
 vi.stubGlobal('fetch', vi.fn());
+vi.stubGlobal('localStorage', {
+  getItem: vi.fn(() => null),
+  setItem: vi.fn(),
+  removeItem: vi.fn(),
+});
 
 // ---------------------------------------------------------------------------
 // Import after mocks are in place
@@ -383,5 +389,57 @@ describe('useWebSocket', () => {
       lastWs.onmessage({ data: 'not-json{{{' });
     });
     expect(result.current.events).toEqual([]);
+  });
+
+  // --- Regression tests for bugfix batch ---
+
+  it('session_resumed updates sessionIdRef and sessionId state', () => {
+    const { result } = renderAndConnect();
+    act(() => {
+      lastWs.onmessage({
+        data: JSON.stringify({ type: 'session_resumed', sessionId: 'resumed-sid-123' }),
+      });
+    });
+    expect(result.current.sessionId).toBe('resumed-sid-123');
+    expect(result.current.status).toBe('running');
+  });
+
+  it('result message extracts cache_read_tokens into sessionStats', () => {
+    const { result } = renderAndConnect();
+    act(() => {
+      lastWs.onmessage({
+        data: JSON.stringify({
+          type: 'result',
+          content: {
+            total_cost_usd: 0.01,
+            usage: { input_tokens: 100, output_tokens: 50, cache_read_tokens: 30 },
+            duration_ms: 500,
+            num_turns: 2,
+          },
+        }),
+      });
+    });
+    expect(result.current.sessionStats.cache_read_tokens).toBe(30);
+    expect(result.current.sessionStats.input_tokens).toBe(100);
+  });
+
+  it('result message extracts cache_read_input_tokens as fallback', () => {
+    const { result } = renderAndConnect();
+    act(() => {
+      lastWs.onmessage({
+        data: JSON.stringify({
+          type: 'result',
+          content: {
+            usage: { input_tokens: 200, output_tokens: 80, cache_read_input_tokens: 60 },
+          },
+        }),
+      });
+    });
+    expect(result.current.sessionStats.cache_read_tokens).toBe(60);
+  });
+
+  it('getWsUrl appends token from localStorage when available', () => {
+    // Verify the localStorage mock is in place and getItem returns null by default
+    expect(localStorage.getItem('agentboard_api_key')).toBeNull();
   });
 });

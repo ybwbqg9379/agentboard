@@ -471,13 +471,25 @@ const server = createServer(async (req, res) => {
     res.end();
   } catch (err) {
     console.error(`[proxy] fetch error: ${err.message}`);
-    res.writeHead(502, { 'Content-Type': 'application/json' });
-    res.end(
-      JSON.stringify({
-        type: 'error',
-        error: { type: 'api_error', message: err.message },
-      }),
-    );
+    if (res.headersSent) {
+      // Headers already written (mid-stream failure) -- send SSE error event and close
+      try {
+        res.write(
+          `event: error\ndata: ${JSON.stringify({ type: 'error', error: { type: 'stream_error', message: err.message } })}\n\n`,
+        );
+      } catch {
+        /* ignore write failure */
+      }
+      res.end();
+    } else {
+      res.writeHead(502, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          type: 'error',
+          error: { type: 'api_error', message: err.message },
+        }),
+      );
+    }
   }
 });
 

@@ -12,6 +12,7 @@ export default function SessionDrawer({ open, onClose, onLoadSession, currentSes
     setLoading(true);
     try {
       const res = await fetch(`${API_BASE}/api/sessions?limit=30`);
+      if (!res.ok) return;
       const data = await res.json();
       setSessions(data.sessions || []);
       setTotal(data.total || 0);

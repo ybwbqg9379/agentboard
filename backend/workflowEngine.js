@@ -232,8 +232,12 @@ async function executeNode(node, context, runId, workflowId, userId) {
  * Run an agent node: start a session and wait for completion.
  * Registers the running agent with activeRuns so abort can cancel it.
  */
+// Safety timeout for agent nodes: if done event never arrives (e.g. abort race), force-reject.
+const AGENT_NODE_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
+
 function runAgentNode(prompt, nodeConfig, runId, workflowId, nodeId, userId) {
   return new Promise((resolve, reject) => {
+    let settled = false;
     const sessionId = startAgent(prompt, {
       userId,
       permissionMode: nodeConfig.permissionMode || 'bypassPermissions',
@@ -244,6 +248,16 @@ function runAgentNode(prompt, nodeConfig, runId, workflowId, nodeId, userId) {
 
     let resultText = '';
 
+    const timeoutId = setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        cleanup();
+        reject(
+          new Error(`Agent node "${nodeId}" timed out after ${AGENT_NODE_TIMEOUT_MS / 1000}s`),
+        );
+      }
+    }, AGENT_NODE_TIMEOUT_MS);
+
     function onEvent(event) {
       if (event.sessionId !== sessionId) return;
 
@@ -252,6 +266,8 @@ function runAgentNode(prompt, nodeConfig, runId, workflowId, nodeId, userId) {
       }
 
       if (event.type === 'done') {
+        if (settled) return;
+        settled = true;
         cleanup();
         const status = event.content?.status || 'completed';
         if (status === 'completed') {
@@ -263,6 +279,7 @@ function runAgentNode(prompt, nodeConfig, runId, workflowId, nodeId, userId) {
     }
 
     function cleanup() {
+      clearTimeout(timeoutId);
       agentEvents.off('event', onEvent);
       const entry = activeRuns.get(runId);
       if (entry) {

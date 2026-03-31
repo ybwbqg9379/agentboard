@@ -1,9 +1,21 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 
-const WS_URL = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`;
 const API_BASE = '';
 const RECONNECT_INTERVAL = 3000;
 const MAX_EVENTS = 5000;
+
+function getAuthToken() {
+  // Check URL query param first, then localStorage
+  const params = new URLSearchParams(window.location.search);
+  return params.get('token') || localStorage.getItem('agentboard_api_key') || '';
+}
+
+function getWsUrl() {
+  const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const base = `${proto}//${window.location.host}/ws`;
+  const token = getAuthToken();
+  return token ? `${base}?token=${encodeURIComponent(token)}` : base;
+}
 
 export function useWebSocket() {
   const [connected, setConnected] = useState(false);
@@ -21,7 +33,7 @@ export function useWebSocket() {
   const connect = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
 
-    const ws = new WebSocket(WS_URL);
+    const ws = new WebSocket(getWsUrl());
     wsRef.current = ws;
 
     ws.onopen = () => {
@@ -62,6 +74,10 @@ export function useWebSocket() {
       }
 
       if (msg.type === 'session_resumed') {
+        if (msg.sessionId) {
+          sessionIdRef.current = msg.sessionId;
+          setSessionId(msg.sessionId);
+        }
         statusRef.current = 'running';
         setStatus('running');
         return;
@@ -136,6 +152,7 @@ export function useWebSocket() {
           cost_usd: c?.total_cost_usd || 0,
           input_tokens: c?.usage?.input_tokens || 0,
           output_tokens: c?.usage?.output_tokens || 0,
+          cache_read_tokens: c?.usage?.cache_read_input_tokens || c?.usage?.cache_read_tokens || 0,
           duration_ms: c?.duration_ms || 0,
           num_turns: c?.num_turns || 0,
         }));

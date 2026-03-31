@@ -2,6 +2,42 @@
 
 ## Unreleased
 
+### 全量缺陷审计修复 (Full Codebase Bug Audit Fix) -- 16 项
+
+#### Critical 安全与数据完整性修复
+
+- **[C1] MCP 子进程沙箱路径泄漏**: `nativeMcpServer.js` 使用 `process.env.HOME` 作为 `userWorkspace`，实际解析为宿主机真实 HOME 目录。现已通过 CLI arg[4] 从 `agentManager.js` 显式传入隔离工作区路径
+- **[C2] 双 SQLite 连接竞态与关闭泄漏**: `memoryStore.js` 与 `sessionStore.js` 共用同一个 `agentboard.db` 文件的两个独立连接，shutdown 时 memoryStore 连接未关闭。现已将 memoryStore 迁移至独立的 `agentboard-memory.db`，并导出 `closeMemoryDb()` 在 shutdown 时调用
+- **[C3] 工作流 abort 后 Promise 永不 settle**: `runAgentNode` 的 Promise 在 SDK 不发出 `done` 事件时永远挂起。新增 10 分钟安全超时和 `settled` 标志位，确保 abort 场景下 Promise 必定 reject
+
+#### Major 后端修复
+
+- **[M1] `continueAgent` TOCTOU 竞态**: `activeAgents.has()` 检查与 `activeAgents.set()` 之间存在间隙，两个快速 `follow_up` 可对同一 session 启动两个 SDK stream。现已在 guard 通过后立即占位
+- **[M2] `workflowStore` 全量 DB 操作无错误处理**: 所有写操作无 try/catch，SQLite 异常导致请求挂起。现已为所有写操作添加 try/catch + 日志
+- **[M3] 子代理工具 EventEmitter 监听器泄漏**: `TaskCreateTool`/`BatchTool`/`LoopTool` 的事件监听器在父 agent 停止后永远不会移除。新增 10 分钟超时自动清理
+- **[M4] Proxy 流式中断崩溃进程**: 上游断连后对已发送 header 的响应调用 `res.writeHead(502)` 触发 `ERR_HTTP_HEADERS_SENT`。现已检查 `res.headersSent` 并改为发送 SSE error 事件
+
+#### Major 前端修复
+
+- **[F1] 画边时未防御空 position**: `WorkflowEditor` 临时边绘制中 `from.position.x` 未做 fallback，节点缺失 position 时崩溃
+- **[F2] `crypto.randomUUID` 非安全上下文不可用**: 非 HTTPS 部署下所有 workflow 运行静默失败。新增 Math.random UUID v4 降级方案
+- **[F3] 空节点 workflow 退回列表视图**: 加载 nodes 为空数组的 workflow 时误判为列表视图。改用 `isEditing` 状态标志替代 `nodes.length` 检测
+- **[F4] SessionDrawer 未检查响应状态**: `fetchSessions` 在 `res.ok` 为 false 时直接调用 `.json()` 可能抛异常
+
+#### 前后端联动修复
+
+- **[I1] `session_resumed` 未同步 sessionId**: 续接对话后 `sessionIdRef` 和 `setSessionId` 未更新，导致后续操作可能使用旧 session
+- **[I2] `cache_read_tokens` 数据管道缺失**: 从 `agentManager` 到 `useWebSocket` 到 `ContextPanel`，缓存命中 token 从未提取和传递
+- **[I3] 未处理 `run_start`/`agent_started` 事件**: 后端发出但前端丢弃，现已添加处理逻辑
+- **[I4] `saveWorkflow` PUT 分支未检查 `res.ok`**: 保存失败仍返回 workflow ID 触发执行
+- **[I5] WebSocket 连接不携带认证 token**: 设置 `AGENTBOARD_API_KEY` 后 WS 连接被拒绝。前端现从 URL 参数或 `localStorage` 读取 token 并附加到 WS URL
+
+#### 测试
+
+- 测试用例从 473 增至 480，新增 `session_resumed` ref 同步、`cache_read_tokens` 管道、`closeMemoryDb` 导出、workflowStore 错误处理等回归测试
+- 修复 `useWebSocket.test.jsx` 测试环境: 添加 `@vitest-environment jsdom` 注释 + `localStorage` mock + 根级 `jsdom` 依赖，使 `npx vitest run` 从根目录运行时也能通过
+- `useWebSocket.js` 将模块顶层 `window.location` 访问延迟至函数调用时（`getWsUrl()`），避免非浏览器环境加载时崩溃
+
 ### 企业级核心重构 & 零信任架构 (Enterprise Core & Zero-Trust Architecture)
 
 - **多租户 SaaS 隔离架构**: 实现了底层数据库结构的彻底隔离。`sessionStore.js` 和 `workflowStore.js` 现已将 `user_id` 作为硬分区主键，强制实施在 `sessions`, `events`, `workflows` 和 `workflow_runs` 表上。

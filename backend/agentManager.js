@@ -80,7 +80,12 @@ function buildBaseOptions(sessionId, permMode, prompt, userId) {
   // Dynamically inject the Native MCP Server to host our proprietary JS tools (Phase 2)
   selectedMcpServers.agentboard_native = {
     command: 'node',
-    args: [resolve(__dirname, 'tools/nativeMcpServer.js'), userId || 'default', sessionId],
+    args: [
+      resolve(__dirname, 'tools/nativeMcpServer.js'),
+      userId || 'default',
+      sessionId,
+      userWorkspace,
+    ],
   };
   uniqueAllowedTools.push('mcp__agentboard_native__*');
 
@@ -150,6 +155,8 @@ function consumeStream(sessionId, stream) {
             cost_usd: msg.total_cost_usd || 0,
             input_tokens: msg.usage?.input_tokens || 0,
             output_tokens: msg.usage?.output_tokens || 0,
+            cache_read_tokens:
+              msg.usage?.cache_read_input_tokens || msg.usage?.cache_read_tokens || 0,
             duration_ms: msg.duration_ms || 0,
             num_turns: msg.num_turns || 0,
             model: config.llm.model,
@@ -222,10 +229,12 @@ export function startAgent(prompt, opts = {}) {
  * @returns {boolean} 是否成功启动
  */
 export function continueAgent(sessionId, prompt, opts = {}) {
-  // Cannot continue if session is currently running
+  // Cannot continue if session is currently running -- guard + immediate claim to prevent TOCTOU
   if (activeAgents.has(sessionId)) {
     return false;
   }
+  // Claim the slot immediately to block concurrent follow_up calls
+  activeAgents.set(sessionId, { stream: null, timeoutId: null, stopped: false });
 
   const permMode = PERMISSION_MODES.includes(opts.permissionMode)
     ? opts.permissionMode
@@ -245,6 +254,7 @@ export function continueAgent(sessionId, prompt, opts = {}) {
     },
   });
 
+  // consumeStream will overwrite the activeAgents entry with the real stream/timeout
   consumeStream(sessionId, stream);
   return true;
 }
