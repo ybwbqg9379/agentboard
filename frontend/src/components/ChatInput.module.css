@@ -62,6 +62,7 @@
 }
 
 .sendBtn,
+.continueBtn,
 .stopBtn {
   height: 40px;
   padding: 0 20px;
@@ -84,6 +85,20 @@
 }
 
 .sendBtn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.continueBtn {
+  background: var(--status-running);
+  color: white;
+}
+
+.continueBtn:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.continueBtn:disabled {
   opacity: 0.3;
   cursor: not-allowed;
 }

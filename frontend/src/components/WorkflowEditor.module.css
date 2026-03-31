@@ -1,0 +1,346 @@
+.editor {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--bg-primary);
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--border-primary);
+  background: var(--bg-secondary);
+  flex-shrink: 0;
+}
+
+.toolbar button {
+  padding: var(--space-xs) var(--space-md);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-sm, 4px);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-family: var(--font-mono);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.toolbar button:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.toolbar button.active {
+  border-color: var(--border-accent);
+  color: var(--text-accent);
+}
+
+.runBtn {
+  background: var(--status-running) !important;
+  color: white !important;
+  border-color: var(--status-running) !important;
+}
+
+.runBtn:hover {
+  opacity: 0.9;
+}
+
+.runBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.workflowName {
+  flex: 1;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: var(--font-sans);
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-sm, 4px);
+  outline: none;
+}
+
+.workflowName:hover {
+  border-color: var(--border-primary);
+}
+
+.workflowName:focus {
+  border-color: var(--border-accent);
+}
+
+.canvas {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  cursor: grab;
+}
+
+.canvas:active {
+  cursor: grabbing;
+}
+
+.canvasSvg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.grid {
+  opacity: 0.15;
+}
+
+/* Nodes */
+.node {
+  cursor: move;
+  user-select: none;
+}
+
+.nodeBody {
+  rx: 8;
+  ry: 8;
+  stroke-width: 1.5;
+  transition: stroke 0.15s;
+}
+
+.node:hover .nodeBody {
+  stroke-width: 2;
+}
+
+.nodeSelected .nodeBody {
+  stroke-width: 2.5;
+  stroke-dasharray: none;
+}
+
+.nodeLabel {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  fill: var(--text-primary);
+  pointer-events: none;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
+.nodeType {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  fill: var(--text-tertiary);
+  pointer-events: none;
+  text-anchor: middle;
+}
+
+.nodePort {
+  cursor: crosshair;
+  transition: r 0.1s;
+}
+
+.nodePort:hover {
+  r: 6;
+}
+
+/* Edges */
+.edge {
+  fill: none;
+  stroke: var(--border-secondary);
+  stroke-width: 1.5;
+  marker-end: url(#arrowhead);
+  transition: stroke 0.15s;
+}
+
+.edgeLabel {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  fill: var(--text-tertiary);
+  text-anchor: middle;
+}
+
+.edgeActive {
+  stroke: var(--status-running);
+  stroke-width: 2;
+}
+
+/* Node config panel */
+.configPanel {
+  position: absolute;
+  right: var(--space-md);
+  top: var(--space-md);
+  width: 280px;
+  max-height: calc(100% - var(--space-xl));
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+  overflow-y: auto;
+  z-index: 10;
+}
+
+.configHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-md);
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.configTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.configClose {
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-size: 16px;
+  padding: 2px 6px;
+}
+
+.configClose:hover {
+  color: var(--text-primary);
+}
+
+.configBody {
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.configField label {
+  display: block;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-tertiary);
+  margin-bottom: var(--space-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.configField input,
+.configField textarea,
+.configField select {
+  width: 100%;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: 4px;
+  padding: var(--space-sm);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-family: var(--font-mono);
+  outline: none;
+}
+
+.configField textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+
+.configField input:focus,
+.configField textarea:focus,
+.configField select:focus {
+  border-color: var(--border-accent);
+}
+
+.deleteBtn {
+  background: var(--status-error) !important;
+  color: white !important;
+  border-color: var(--status-error) !important;
+  margin-top: var(--space-sm);
+}
+
+/* Status overlays */
+.statusBadge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-left: auto;
+}
+
+.statusRunning {
+  background: rgba(34, 197, 94, 0.15);
+  color: var(--status-running);
+}
+
+.statusCompleted {
+  background: rgba(99, 102, 241, 0.15);
+  color: var(--status-done);
+}
+
+.statusFailed {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--status-error);
+}
+
+/* Empty state */
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  height: 100%;
+  color: var(--text-tertiary);
+  font-size: 13px;
+}
+
+.emptyState button {
+  padding: var(--space-sm) var(--space-lg);
+  background: var(--border-accent);
+  border: none;
+  border-radius: 6px;
+  color: white;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+/* Workflow list */
+.workflowList {
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  overflow-y: auto;
+  flex: 1;
+}
+
+.workflowItem {
+  padding: var(--space-md);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.workflowItem:hover {
+  border-color: var(--border-accent);
+  background: var(--bg-hover);
+}
+
+.workflowItemName {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--space-xs);
+}
+
+.workflowItemMeta {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+}
+
+/* Temp edge while dragging */
+.tempEdge {
+  fill: none;
+  stroke: var(--border-accent);
+  stroke-width: 1.5;
+  stroke-dasharray: 6 3;
+  pointer-events: none;
+}

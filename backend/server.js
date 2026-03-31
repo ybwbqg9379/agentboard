@@ -14,6 +14,7 @@ import {
 } from './sessionStore.js';
 import {
   startAgent,
+  continueAgent,
   stopAgent,
   getActiveAgents,
   getAgentStream,
@@ -22,11 +23,30 @@ import {
 } from './agentManager.js';
 import { getMcpHealth } from './mcpHealth.js';
 import {
+  createWorkflow,
+  updateWorkflow,
+  getWorkflow,
+  listWorkflows,
+  countWorkflows,
+  deleteWorkflow,
+  getWorkflowRun,
+  listWorkflowRuns,
+  closeWorkflowDb,
+} from './workflowStore.js';
+import {
+  validateWorkflow,
+  executeWorkflow,
+  abortWorkflow,
+  getActiveWorkflowRuns,
+  workflowEvents,
+} from './workflowEngine.js';
+import {
   authMiddleware,
   wsAuth,
   wsMessageSchema,
   controlActionSchema,
   sessionsQuerySchema,
+  workflowSchema,
   validate,
   validateQuery,
 } from './middleware.js';
@@ -121,6 +141,83 @@ app.post('/api/sessions/:id/control', validate(controlActionSchema), async (req,
   }
 });
 
+// --- Workflow API ---
+
+app.get('/api/workflows', (req, res) => {
+  const limit = Math.min(Math.max(parseInt(req.query.limit) || 20, 1), 100);
+  const offset = Math.max(parseInt(req.query.offset) || 0, 0);
+  const workflows = listWorkflows(limit, offset);
+  const total = countWorkflows();
+  res.json({ workflows, total, limit, offset });
+});
+
+app.get('/api/workflows/:id', (req, res) => {
+  const workflow = getWorkflow(req.params.id);
+  if (!workflow) return res.status(404).json({ error: 'workflow not found' });
+  res.json(workflow);
+});
+
+app.post('/api/workflows', validate(workflowSchema), (req, res) => {
+  const { name, description, definition } = req.body;
+  const validation = validateWorkflow(definition);
+  if (!validation.valid) {
+    return res.status(400).json({ error: 'invalid workflow', details: validation.errors });
+  }
+  const id = createWorkflow(name, description, definition);
+  res.status(201).json({ id });
+});
+
+app.put('/api/workflows/:id', validate(workflowSchema), (req, res) => {
+  const { name, description, definition } = req.body;
+  const validation = validateWorkflow(definition);
+  if (!validation.valid) {
+    return res.status(400).json({ error: 'invalid workflow', details: validation.errors });
+  }
+  const updated = updateWorkflow(req.params.id, name, description, definition);
+  if (!updated) return res.status(404).json({ error: 'workflow not found' });
+  res.json({ updated: true });
+});
+
+app.delete('/api/workflows/:id', (req, res) => {
+  const deleted = deleteWorkflow(req.params.id);
+  if (!deleted) return res.status(404).json({ error: 'workflow not found' });
+  res.json({ deleted: true });
+});
+
+app.post('/api/workflows/:id/run', async (req, res) => {
+  const workflow = getWorkflow(req.params.id);
+  if (!workflow) return res.status(404).json({ error: 'workflow not found' });
+  const inputContext = req.body?.context || {};
+  res.status(202).json({ message: 'workflow started', workflowId: req.params.id });
+  // Fire and forget -- events stream via WebSocket
+  executeWorkflow(req.params.id, workflow.definition, inputContext).catch((err) => {
+    console.error(`[workflow] execution error: ${err.message}`);
+  });
+});
+
+app.post('/api/workflow-runs/:id/abort', (req, res) => {
+  const aborted = abortWorkflow(req.params.id);
+  if (!aborted) return res.status(404).json({ error: 'run not found or not active' });
+  res.json({ aborted: true });
+});
+
+app.get('/api/workflows/:id/runs', (req, res) => {
+  const limit = Math.min(Math.max(parseInt(req.query.limit) || 20, 1), 100);
+  const offset = Math.max(parseInt(req.query.offset) || 0, 0);
+  const runs = listWorkflowRuns(req.params.id, limit, offset);
+  res.json({ runs });
+});
+
+app.get('/api/workflow-runs/:id', (req, res) => {
+  const run = getWorkflowRun(req.params.id);
+  if (!run) return res.status(404).json({ error: 'run not found' });
+  res.json(run);
+});
+
+app.get('/api/workflow-status', (_req, res) => {
+  res.json({ activeRuns: getActiveWorkflowRuns() });
+});
+
 // --- Error Handler (Express 5 auto-forwards rejected promises) ---
 
 app.use((err, _req, res, _next) => {
@@ -183,6 +280,29 @@ wss.on('connection', (ws, req) => {
         break;
       }
 
+      case 'follow_up': {
+        if (!msg.prompt) {
+          ws.send(JSON.stringify({ error: 'prompt is required' }));
+          return;
+        }
+        const targetSid = msg.sessionId || subscriptions.get(ws);
+        if (!targetSid) {
+          ws.send(JSON.stringify({ error: 'no active session to continue' }));
+          return;
+        }
+        const resumed = continueAgent(targetSid, msg.prompt, {
+          permissionMode: msg.permissionMode,
+          maxTurns: msg.maxTurns,
+        });
+        if (!resumed) {
+          ws.send(JSON.stringify({ error: 'session is still running or not found' }));
+          return;
+        }
+        subscriptions.set(ws, targetSid);
+        ws.send(JSON.stringify({ type: 'session_resumed', sessionId: targetSid }));
+        break;
+      }
+
       case 'stop': {
         const sid = msg.sessionId || subscriptions.get(ws);
         if (sid) stopAgent(sid);
@@ -214,6 +334,27 @@ agentEvents.on('event', (event) => {
   }
 });
 
+// Broadcast workflow execution events to all connected clients
+for (const eventName of [
+  'run_start',
+  'run_complete',
+  'node_start',
+  'node_complete',
+  'agent_started',
+]) {
+  workflowEvents.on(eventName, (data) => {
+    const payload = JSON.stringify({
+      type: 'workflow',
+      subtype: eventName,
+      content: data,
+      timestamp: Date.now(),
+    });
+    for (const ws of wss.clients) {
+      if (ws.readyState === 1) ws.send(payload);
+    }
+  });
+}
+
 // --- Start ---
 
 // Recover stale sessions from previous crashes before accepting connections
@@ -240,9 +381,10 @@ function shutdown(signal) {
     ws.close();
   }
 
-  // Close HTTP server, then database
+  // Close HTTP server, then databases
   server.close(() => {
     closeDb();
+    closeWorkflowDb();
     console.log('Shutdown complete.');
     process.exit(0);
   });

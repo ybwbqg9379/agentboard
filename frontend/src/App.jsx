@@ -6,6 +6,7 @@ import AgentTimeline from './components/AgentTimeline.jsx';
 import RightPanel from './components/RightPanel.jsx';
 import StatusBar from './components/StatusBar.jsx';
 import SessionDrawer from './components/SessionDrawer.jsx';
+import WorkflowEditor from './components/WorkflowEditor.jsx';
 
 export default function App() {
   const {
@@ -14,6 +15,7 @@ export default function App() {
     sessionId,
     status,
     startAgent,
+    followUp,
     stopAgent,
     clearSession,
     loadSession,
@@ -23,6 +25,7 @@ export default function App() {
   } = useWebSocket();
 
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [mode, setMode] = useState('agent'); // 'agent' | 'workflow'
 
   return (
     <div className="app-layout">
@@ -32,23 +35,39 @@ export default function App() {
         onClear={clearSession}
         onOpenHistory={() => setDrawerOpen(true)}
         mcpHealth={mcpHealth}
+        mode={mode}
+        onModeChange={setMode}
       />
 
-      <div className="main-content">
-        <div className="left-panel">
-          <AgentTimeline events={events} status={status} />
-          <ChatInput onSend={startAgent} onStop={stopAgent} status={status} />
+      {mode === 'agent' ? (
+        <>
+          <div className="main-content">
+            <div className="left-panel">
+              <AgentTimeline events={events} status={status} />
+              <ChatInput
+                onSend={startAgent}
+                onFollowUp={followUp}
+                onStop={stopAgent}
+                status={status}
+                sessionId={sessionId}
+              />
+            </div>
+            <RightPanel events={events} sessionStats={sessionStats} />
+          </div>
+
+          <StatusBar
+            status={status}
+            sessionId={sessionId}
+            eventCount={events.length}
+            sessionStats={sessionStats}
+            subtasks={subtasks}
+          />
+        </>
+      ) : (
+        <div className="main-content workflow-mode">
+          <WorkflowEditor />
         </div>
-        <RightPanel events={events} sessionStats={sessionStats} />
-      </div>
-
-      <StatusBar
-        status={status}
-        sessionId={sessionId}
-        eventCount={events.length}
-        sessionStats={sessionStats}
-        subtasks={subtasks}
-      />
+      )}
 
       <SessionDrawer
         open={drawerOpen}

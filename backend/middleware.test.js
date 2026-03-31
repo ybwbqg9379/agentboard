@@ -12,6 +12,7 @@ import {
   wsMessageSchema,
   controlActionSchema,
   sessionsQuerySchema,
+  workflowSchema,
   validate,
   validateQuery,
 } from './middleware.js';
@@ -484,5 +485,138 @@ describe('validateQuery middleware', () => {
 
     expect(next).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(400);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// wsMessageSchema -- follow_up action
+// ---------------------------------------------------------------------------
+
+describe('wsMessageSchema - follow_up action', () => {
+  it('accepts follow_up with prompt', () => {
+    const result = wsMessageSchema.safeParse({ action: 'follow_up', prompt: 'continue' });
+    expect(result.success).toBe(true);
+    expect(result.data.action).toBe('follow_up');
+  });
+
+  it('accepts follow_up with optional sessionId and permissionMode', () => {
+    const msg = {
+      action: 'follow_up',
+      prompt: 'do more',
+      sessionId: '550e8400-e29b-41d4-a716-446655440000',
+      permissionMode: 'default',
+    };
+    const result = wsMessageSchema.safeParse(msg);
+    expect(result.success).toBe(true);
+    expect(result.data.sessionId).toBe('550e8400-e29b-41d4-a716-446655440000');
+  });
+
+  it('rejects follow_up without prompt', () => {
+    const result = wsMessageSchema.safeParse({ action: 'follow_up' });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects follow_up with empty prompt', () => {
+    const result = wsMessageSchema.safeParse({ action: 'follow_up', prompt: '' });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects follow_up with non-UUID sessionId', () => {
+    const result = wsMessageSchema.safeParse({
+      action: 'follow_up',
+      prompt: 'hi',
+      sessionId: 'not-uuid',
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// workflowSchema
+// ---------------------------------------------------------------------------
+
+describe('workflowSchema', () => {
+  const validDef = {
+    name: 'Test',
+    definition: {
+      nodes: [
+        { id: 'in', type: 'input' },
+        { id: 'out', type: 'output' },
+      ],
+      edges: [{ from: 'in', to: 'out' }],
+    },
+  };
+
+  it('accepts a valid workflow', () => {
+    const result = workflowSchema.safeParse(validDef);
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects missing name', () => {
+    const result = workflowSchema.safeParse({ definition: validDef.definition });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects empty name', () => {
+    const result = workflowSchema.safeParse({ ...validDef, name: '' });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects empty nodes array', () => {
+    const result = workflowSchema.safeParse({
+      name: 'Bad',
+      definition: { nodes: [], edges: [] },
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects invalid node type', () => {
+    const result = workflowSchema.safeParse({
+      name: 'Bad',
+      definition: {
+        nodes: [{ id: 'x', type: 'magic' }],
+        edges: [],
+      },
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts all valid node types', () => {
+    const types = ['agent', 'condition', 'transform', 'input', 'output'];
+    for (const type of types) {
+      const result = workflowSchema.safeParse({
+        name: 'Test',
+        definition: {
+          nodes: [{ id: `n-${type}`, type }],
+          edges: [],
+        },
+      });
+      expect(result.success).toBe(true);
+    }
+  });
+
+  it('accepts nodes with position', () => {
+    const result = workflowSchema.safeParse({
+      name: 'Test',
+      definition: {
+        nodes: [{ id: 'in', type: 'input', position: { x: 100, y: 200 } }],
+        edges: [],
+      },
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts edges with condition', () => {
+    const result = workflowSchema.safeParse({
+      name: 'Test',
+      definition: {
+        nodes: [
+          { id: 'in', type: 'input' },
+          { id: 'out', type: 'output' },
+        ],
+        edges: [{ from: 'in', to: 'out', condition: 'true' }],
+      },
+    });
+    expect(result.success).toBe(true);
   });
 });

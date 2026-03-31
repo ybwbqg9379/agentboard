@@ -104,6 +104,11 @@ body,
   overflow: hidden;
 }
 
+.main-content.workflow-mode {
+  grid-template-columns: 1fr;
+  grid-row: 2 / -1;
+}
+
 .left-panel {
   display: flex;
   flex-direction: column;

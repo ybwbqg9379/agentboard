@@ -61,6 +61,12 @@ export function useWebSocket() {
         return;
       }
 
+      if (msg.type === 'session_resumed') {
+        statusRef.current = 'running';
+        setStatus('running');
+        return;
+      }
+
       if (msg.type === 'subscribed') {
         sessionIdRef.current = msg.sessionId;
         setSessionId(msg.sessionId);
@@ -187,6 +193,19 @@ export function useWebSocket() {
     [send],
   );
 
+  const followUp = useCallback(
+    (prompt, opts = {}) => {
+      setStatus('running');
+      send({
+        action: 'follow_up',
+        prompt,
+        sessionId: sessionIdRef.current,
+        permissionMode: opts.permissionMode,
+      });
+    },
+    [send],
+  );
+
   // Load a past session from REST API into the current view
   const loadSession = useCallback(async (sid) => {
     try {
@@ -244,6 +263,7 @@ export function useWebSocket() {
     sessionId,
     status,
     startAgent,
+    followUp,
     stopAgent,
     clearSession,
     loadSession,

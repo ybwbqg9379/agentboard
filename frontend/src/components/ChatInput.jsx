@@ -8,17 +8,25 @@ const PERMISSION_MODES = [
   { value: 'plan', label: 'Plan' },
 ];
 
-export default function ChatInput({ onSend, onStop, status }) {
+// Statuses that allow sending a follow-up message
+const CONTINUABLE = new Set(['completed', 'failed', 'stopped']);
+
+export default function ChatInput({ onSend, onFollowUp, onStop, status, sessionId }) {
   const [value, setValue] = useState('');
   const [permissionMode, setPermissionMode] = useState('bypassPermissions');
   const inputRef = useRef(null);
   const isRunning = status === 'running';
+  const canFollowUp = sessionId && CONTINUABLE.has(status);
 
   function handleSubmit(e) {
     e.preventDefault();
     const text = value.trim();
     if (!text || isRunning) return;
-    onSend(text, { permissionMode });
+    if (canFollowUp) {
+      onFollowUp(text, { permissionMode });
+    } else {
+      onSend(text, { permissionMode });
+    }
     setValue('');
   }
 
@@ -28,6 +36,10 @@ export default function ChatInput({ onSend, onStop, status }) {
       handleSubmit(e);
     }
   }
+
+  const placeholder = canFollowUp ? 'Send a follow-up message...' : 'Enter a task for the agent...';
+
+  const buttonLabel = canFollowUp ? 'Continue' : 'Run';
 
   return (
     <form className={styles.wrapper} onSubmit={handleSubmit}>
@@ -51,7 +63,7 @@ export default function ChatInput({ onSend, onStop, status }) {
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Enter a task for the agent..."
+          placeholder={placeholder}
           rows={1}
           disabled={isRunning}
         />
@@ -60,8 +72,12 @@ export default function ChatInput({ onSend, onStop, status }) {
             Stop
           </button>
         ) : (
-          <button type="submit" className={styles.sendBtn} disabled={!value.trim()}>
-            Run
+          <button
+            type="submit"
+            className={canFollowUp ? styles.continueBtn : styles.sendBtn}
+            disabled={!value.trim()}
+          >
+            {buttonLabel}
           </button>
         )}
       </div>

@@ -43,6 +43,13 @@ export const wsMessageSchema = z.discriminatedUnion('action', [
     maxTurns: z.number().int().min(1).max(200).optional(),
   }),
   z.object({
+    action: z.literal('follow_up'),
+    prompt: z.string().min(1).max(50000),
+    sessionId: z.string().uuid().optional(),
+    permissionMode: z.string().optional(),
+    maxTurns: z.number().int().min(1).max(200).optional(),
+  }),
+  z.object({
     action: z.literal('subscribe'),
     sessionId: z.string().uuid(),
   }),
@@ -59,6 +66,34 @@ export const controlActionSchema = z.object({
   action: z.enum(['get_context_usage', 'set_model', 'rewind_files', 'mcp_status']),
   model: z.string().optional(),
   messageId: z.string().optional(),
+});
+
+const nodeSchema = z.object({
+  id: z.string().min(1),
+  type: z.enum(['agent', 'condition', 'transform', 'input', 'output']),
+  label: z.string().optional(),
+  config: z.record(z.unknown()).optional(),
+  position: z
+    .object({
+      x: z.number(),
+      y: z.number(),
+    })
+    .optional(),
+});
+
+const edgeSchema = z.object({
+  from: z.string().min(1),
+  to: z.string().min(1),
+  condition: z.string().optional(),
+});
+
+export const workflowSchema = z.object({
+  name: z.string().min(1).max(200),
+  description: z.string().max(2000).optional(),
+  definition: z.object({
+    nodes: z.array(nodeSchema).min(1),
+    edges: z.array(edgeSchema),
+  }),
 });
 
 export const sessionsQuerySchema = z.object({

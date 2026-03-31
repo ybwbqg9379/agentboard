@@ -4,6 +4,33 @@
 
 ### Added
 
+- **对话连续性 (Conversation Continuity)**: 支持对已完成/停止/失败的 session 发送后续消息
+  - 后端: 利用 Claude Agent SDK 的 `resume` 机制恢复对话上下文，新增 `continueAgent()` 函数和 `follow_up` WebSocket action
+  - 前端: ChatInput 在 session 结束后保持可用，显示 "Continue" 按钮（绿色），placeholder 切换为 "Send a follow-up message..."
+  - 重构 agentManager: 提取 `buildBaseOptions()` 和 `consumeStream()` 消除代码重复，传递 `sessionId` 给 SDK 确保 resume 可追踪
+- **多 Agent 工作流引擎 (Multi-Agent Workflow Engine)**: DAG 编排系统，支持串行/并行/条件分支执行
+  - 后端: `workflowEngine.js` -- DAG 拓扑排序、条件评估（==, !=, >, <, contains）、模板变量替换（`{{key}}`）、节点间上下文传递
+  - 五种节点类型: `input`（入口）、`output`（出口）、`agent`（调用 Claude Agent）、`condition`（条件分支）、`transform`（数据变换）
+  - `workflowStore.js` -- 独立 SQLite DB 存储工作流定义和运行历史
+  - 完整 REST API: CRUD (`/api/workflows`)、执行 (`POST /run`)、中止 (`POST /abort`)、历史查询 (`/runs`)
+  - 实时 WebSocket 事件广播: `node_start`、`node_complete`、`run_start`、`run_complete`、`agent_started`
+- **可视化工作流编辑器 (Workflow Editor UI)**: SVG Canvas 拖拽式 DAG 编辑器
+  - Agent/Workflow 双模式切换（Header tab），Workflow 模式全屏编辑
+  - 节点拖拽移动、端口连线（右侧输出端 -> 左侧输入端）、贝塞尔曲线边
+  - 节点配置面板: Agent 节点（prompt/maxTurns/permissionMode）、Condition 节点（表达式）、Transform 节点（JSON mapping）
+  - 工作流列表浏览、一键创建/保存/运行、执行状态实时高亮
+  - 运行时节点激活指示器（脉冲动画）和边高亮
+- **测试覆盖扩展**: 443 个测试（原 391），新增 workflowEngine 验证/排序/条件评估 30 tests + workflowStore CRUD 13 tests + middleware follow_up/workflowSchema 19 tests
+
+### Changed
+
+- `agentManager.js` 重构: 系统提示提取为常量 `SYSTEM_PROMPT_APPEND`，核心逻辑拆分为 `buildBaseOptions()` + `consumeStream()` + `startAgent()` + `continueAgent()`
+- `middleware.js` 新增 `follow_up` WebSocket schema 和 `workflowSchema` Zod 验证
+- Header 组件新增 Agent/Workflow 模式切换 tab
+- ChatInput 支持三态按钮: Run（新 session）/ Continue（续接 session）/ Stop（运行中）
+
+---
+
 - **完整测试套件**: Vitest 框架，373 个测试用例覆盖前后端关键逻辑
   - 后端 6 个测试文件（218 tests）: proxy 转换、isDangerous 安全检测、auth + Zod 验证、SQLite CRUD 集成、MCP 状态机、REST API 路由集成
   - 前端 4 个测试文件（155 tests）: flattenEvent 事件展平、Terminal 命令提取、文件变更聚合、useWebSocket hook 状态机
