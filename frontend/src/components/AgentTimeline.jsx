@@ -40,7 +40,14 @@ function flattenEvent(event) {
 
   // tool_result 顶层（旧格式兼容）
   if (content?.tool_result) {
-    return [{ label: 'Tool Result', dot: content?.is_error ? 'error' : 'done', body: content.tool_result, ts }];
+    return [
+      {
+        label: 'Tool Result',
+        dot: content?.is_error ? 'error' : 'done',
+        body: content.tool_result,
+        ts,
+      },
+    ];
   }
 
   // fallback -- 展示原始 JSON
@@ -67,9 +74,10 @@ function parseBlock(block, ts) {
       };
 
     case 'tool_result': {
-      const body = typeof block.content === 'string'
-        ? block.content
-        : block.output || JSON.stringify(block.content, null, 2) || '';
+      const body =
+        typeof block.content === 'string'
+          ? block.content
+          : block.output || JSON.stringify(block.content, null, 2) || '';
       return {
         label: block.is_error ? 'Tool Error' : 'Tool Result',
         dot: block.is_error ? 'error' : 'done',
@@ -79,7 +87,12 @@ function parseBlock(block, ts) {
     }
 
     default:
-      return { label: block.type || 'Block', dot: 'done', body: JSON.stringify(block, null, 2), ts };
+      return {
+        label: block.type || 'Block',
+        dot: 'done',
+        body: JSON.stringify(block, null, 2),
+        ts,
+      };
   }
 }
 
@@ -98,13 +111,9 @@ function TimelineItem({ item, index }) {
       <div className={styles.eventContent}>
         <div className={styles.eventHeader}>
           <span className={styles.eventLabel}>{item.label}</span>
-          <span className={styles.eventTime}>
-            {new Date(item.ts).toLocaleTimeString()}
-          </span>
+          <span className={styles.eventTime}>{new Date(item.ts).toLocaleTimeString()}</span>
         </div>
-        {item.body && (
-          <pre className={styles.eventBody}>{truncate(item.body)}</pre>
-        )}
+        {item.body && <pre className={styles.eventBody}>{truncate(item.body)}</pre>}
       </div>
     </div>
   );

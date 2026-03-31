@@ -25,12 +25,14 @@ function extractTerminalLines(events) {
     // 顶层 tool_use（旧格式兼容）
     if (type === 'tool_use' && (content?.name === 'Bash' || content?.name === 'bash')) {
       const cmd = content?.input?.command || content?.input;
-      if (cmd) lines.push({ type: 'command', text: typeof cmd === 'string' ? cmd : JSON.stringify(cmd) });
+      if (cmd)
+        lines.push({ type: 'command', text: typeof cmd === 'string' ? cmd : JSON.stringify(cmd) });
     }
 
     // 顶层 tool_result
     if (type === 'tool_result') {
-      const output = content?.output || (typeof content?.content === 'string' ? content.content : '');
+      const output =
+        content?.output || (typeof content?.content === 'string' ? content.content : '');
       if (output) lines.push({ type: content?.is_error ? 'error' : 'output', text: output });
     }
 

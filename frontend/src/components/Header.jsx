@@ -15,13 +15,8 @@ export default function Header({ connected, sessionId, onClear }) {
           </button>
         )}
         <div className={styles.connStatus}>
-          <span
-            className={styles.connDot}
-            data-connected={connected}
-          />
-          <span className={styles.connText}>
-            {connected ? 'Connected' : 'Disconnected'}
-          </span>
+          <span className={styles.connDot} data-connected={connected} />
+          <span className={styles.connText}>{connected ? 'Connected' : 'Disconnected'}</span>
         </div>
       </div>
     </header>

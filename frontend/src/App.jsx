@@ -6,43 +6,24 @@ import TerminalView from './components/TerminalView.jsx';
 import StatusBar from './components/StatusBar.jsx';
 
 export default function App() {
-  const {
-    connected,
-    events,
-    sessionId,
-    status,
-    startAgent,
-    stopAgent,
-    clearSession,
-  } = useWebSocket();
+  const { connected, events, sessionId, status, startAgent, stopAgent, clearSession } =
+    useWebSocket();
 
   return (
     <div className="app-layout">
-      <Header
-        connected={connected}
-        sessionId={sessionId}
-        onClear={clearSession}
-      />
+      <Header connected={connected} sessionId={sessionId} onClear={clearSession} />
 
       <div className="main-content">
         <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <div style={{ flex: 1, overflow: 'hidden' }}>
             <AgentTimeline events={events} status={status} />
           </div>
-          <ChatInput
-            onSend={startAgent}
-            onStop={stopAgent}
-            status={status}
-          />
+          <ChatInput onSend={startAgent} onStop={stopAgent} status={status} />
         </div>
         <TerminalView events={events} />
       </div>
 
-      <StatusBar
-        status={status}
-        sessionId={sessionId}
-        eventCount={events.length}
-      />
+      <StatusBar status={status} sessionId={sessionId} eventCount={events.length} />
     </div>
   );
 }

@@ -49,9 +49,8 @@ function convertMessages(anthropicMessages) {
             openaiMessages.push({
               role: 'tool',
               tool_call_id: block.tool_use_id,
-              content: typeof block.content === 'string'
-                ? block.content
-                : JSON.stringify(block.content),
+              content:
+                typeof block.content === 'string' ? block.content : JSON.stringify(block.content),
             });
             continue;
           }
@@ -112,7 +111,7 @@ function convertResponse(openaiResp, requestModel) {
   // 工具调用
   if (choice.message?.tool_calls) {
     for (const tc of choice.message.tool_calls) {
-      let input = {};
+      let input;
       try {
         input = JSON.parse(tc.function.arguments);
       } catch {
@@ -196,14 +195,14 @@ function createStreamTransformer(requestModel) {
           events.push(
             `event: content_block_start`,
             `data: ${JSON.stringify({ type: 'content_block_start', index: contentIndex, content_block: { type: 'text', text: '' } })}`,
-            ''
+            '',
           );
           sentStart = true;
         }
         events.push(
           `event: content_block_delta`,
           `data: ${JSON.stringify({ type: 'content_block_delta', index: contentIndex, delta: { type: 'text_delta', text: delta.content } })}`,
-          ''
+          '',
         );
       }
 
@@ -216,7 +215,7 @@ function createStreamTransformer(requestModel) {
               events.push(
                 `event: content_block_stop`,
                 `data: ${JSON.stringify({ type: 'content_block_stop', index: contentIndex })}`,
-                ''
+                '',
               );
               contentIndex++;
             }
@@ -225,9 +224,14 @@ function createStreamTransformer(requestModel) {
               `data: ${JSON.stringify({
                 type: 'content_block_start',
                 index: contentIndex,
-                content_block: { type: 'tool_use', id: tc.id, name: tc.function?.name || '', input: {} },
+                content_block: {
+                  type: 'tool_use',
+                  id: tc.id,
+                  name: tc.function?.name || '',
+                  input: {},
+                },
               })}`,
-              ''
+              '',
             );
             sentStart = true;
           }
@@ -239,7 +243,7 @@ function createStreamTransformer(requestModel) {
                 index: contentIndex,
                 delta: { type: 'input_json_delta', partial_json: tc.function.arguments },
               })}`,
-              ''
+              '',
             );
           }
         }
@@ -251,7 +255,7 @@ function createStreamTransformer(requestModel) {
           events.push(
             `event: content_block_stop`,
             `data: ${JSON.stringify({ type: 'content_block_stop', index: contentIndex })}`,
-            ''
+            '',
           );
         }
 
@@ -265,7 +269,7 @@ function createStreamTransformer(requestModel) {
           '',
           `event: message_stop`,
           `data: ${JSON.stringify({ type: 'message_stop' })}`,
-          ''
+          '',
         );
       }
 
@@ -331,9 +335,10 @@ const server = createServer(async (req, res) => {
 
   // system prompt
   if (anthropicReq.system) {
-    const systemText = typeof anthropicReq.system === 'string'
-      ? anthropicReq.system
-      : anthropicReq.system.map((s) => s.text || '').join('\n');
+    const systemText =
+      typeof anthropicReq.system === 'string'
+        ? anthropicReq.system
+        : anthropicReq.system.map((s) => s.text || '').join('\n');
     openaiReq.messages.push({ role: 'system', content: systemText });
   }
 
@@ -360,7 +365,7 @@ const server = createServer(async (req, res) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${API_KEY}`,
+        Authorization: `Bearer ${API_KEY}`,
       },
       body: JSON.stringify(openaiReq),
     });
@@ -369,10 +374,12 @@ const server = createServer(async (req, res) => {
       const errText = await targetResp.text();
       console.error(`[proxy] target error ${targetResp.status}: ${errText}`);
       res.writeHead(targetResp.status, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        type: 'error',
-        error: { type: 'api_error', message: errText },
-      }));
+      res.end(
+        JSON.stringify({
+          type: 'error',
+          error: { type: 'api_error', message: errText },
+        }),
+      );
       return;
     }
 
@@ -389,7 +396,7 @@ const server = createServer(async (req, res) => {
     res.writeHead(200, {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
+      Connection: 'keep-alive',
     });
 
     const transformer = createStreamTransformer(requestModel);
@@ -426,10 +433,12 @@ const server = createServer(async (req, res) => {
   } catch (err) {
     console.error(`[proxy] fetch error: ${err.message}`);
     res.writeHead(502, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({
-      type: 'error',
-      error: { type: 'api_error', message: err.message },
-    }));
+    res.end(
+      JSON.stringify({
+        type: 'error',
+        error: { type: 'api_error', message: err.message },
+      }),
+    );
   }
 });
 

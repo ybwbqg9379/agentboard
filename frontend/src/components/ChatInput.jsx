@@ -35,19 +35,11 @@ export default function ChatInput({ onSend, onStop, status }) {
           disabled={isRunning}
         />
         {isRunning ? (
-          <button
-            type="button"
-            className={styles.stopBtn}
-            onClick={onStop}
-          >
+          <button type="button" className={styles.stopBtn} onClick={onStop}>
             Stop
           </button>
         ) : (
-          <button
-            type="submit"
-            className={styles.sendBtn}
-            disabled={!value.trim()}
-          >
+          <button type="submit" className={styles.sendBtn} disabled={!value.trim()}>
             Run
           </button>
         )}

@@ -2,11 +2,7 @@ import { query } from '@anthropic-ai/claude-agent-sdk';
 import { EventEmitter } from 'node:events';
 import { resolve } from 'node:path';
 import config from './config.js';
-import {
-  createSession,
-  updateSessionStatus,
-  insertEvent,
-} from './sessionStore.js';
+import { createSession, updateSessionStatus, insertEvent } from './sessionStore.js';
 
 // 活跃的 Agent Query Map<sessionId, Query>
 const activeAgents = new Map();

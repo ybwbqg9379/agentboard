@@ -30,24 +30,14 @@ db.exec(`
 `);
 
 const stmts = {
-  createSession: db.prepare(
-    'INSERT INTO sessions (id, prompt, status) VALUES (?, ?, ?)'
-  ),
-  updateStatus: db.prepare(
-    'UPDATE sessions SET status = ? WHERE id = ?'
-  ),
-  getSession: db.prepare(
-    'SELECT * FROM sessions WHERE id = ?'
-  ),
-  listSessions: db.prepare(
-    'SELECT * FROM sessions ORDER BY created_at DESC LIMIT ?'
-  ),
+  createSession: db.prepare('INSERT INTO sessions (id, prompt, status) VALUES (?, ?, ?)'),
+  updateStatus: db.prepare('UPDATE sessions SET status = ? WHERE id = ?'),
+  getSession: db.prepare('SELECT * FROM sessions WHERE id = ?'),
+  listSessions: db.prepare('SELECT * FROM sessions ORDER BY created_at DESC LIMIT ?'),
   insertEvent: db.prepare(
-    'INSERT INTO events (session_id, type, content, timestamp) VALUES (?, ?, ?, ?)'
+    'INSERT INTO events (session_id, type, content, timestamp) VALUES (?, ?, ?, ?)',
   ),
-  getEvents: db.prepare(
-    'SELECT * FROM events WHERE session_id = ? ORDER BY timestamp ASC'
-  ),
+  getEvents: db.prepare('SELECT * FROM events WHERE session_id = ? ORDER BY timestamp ASC'),
 };
 
 export function createSession(prompt) {

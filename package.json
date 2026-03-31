@@ -1,15 +1,22 @@
 {
   "name": "agentboard",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev:backend": "cd backend && node --env-file=../.env.local --watch server.js",
     "dev:frontend": "cd frontend && npx vite",
     "dev:proxy": "cd backend && node --env-file=../.env.local proxy.js",
     "dev": "npx concurrently -n proxy,back,front -c yellow,blue,green \"npm run dev:proxy\" \"npm run dev:backend\" \"npm run dev:frontend\"",
-    "build": "cd frontend && npx vite build"
+    "build": "cd frontend && npx vite build",
+    "format": "npx prettier --write .",
+    "format:check": "npx prettier --check .",
+    "lint": "npx eslint backend/ frontend/src/"
   },
   "devDependencies": {
-    "concurrently": "^9.1.2"
+    "@eslint/js": "^10.0.1",
+    "concurrently": "^9.1.2",
+    "eslint": "^10.1.0",
+    "prettier": "^3.8.1"
   }
 }

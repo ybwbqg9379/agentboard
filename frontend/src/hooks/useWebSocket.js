@@ -78,10 +78,13 @@ export function useWebSocket() {
     }
   }, []);
 
-  const startAgent = useCallback((prompt) => {
-    setStatus('running');
-    send({ action: 'start', prompt });
-  }, [send]);
+  const startAgent = useCallback(
+    (prompt) => {
+      setStatus('running');
+      send({ action: 'start', prompt });
+    },
+    [send],
+  );
 
   const stopAgent = useCallback(() => {
     send({ action: 'stop', sessionId });

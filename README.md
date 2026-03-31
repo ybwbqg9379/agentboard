@@ -81,6 +81,7 @@ npm run dev
 ```
 
 一条命令同时启动三个服务：
+
 - **proxy** (黄色) -- Anthropic→OpenAI 翻译代理 `:4000`
 - **back** (蓝色) -- Express + WebSocket 后端 `:3001`
 - **front** (绿色) -- Vite 前端 `:5173`
@@ -93,12 +94,12 @@ npm run dev
 
 ### REST
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/sessions` | 获取会话列表 |
-| GET | `/api/sessions/:id` | 获取会话详情（含事件） |
-| POST | `/api/sessions/:id/stop` | 停止运行中的 Agent |
-| GET | `/api/status` | 服务状态 |
+| Method | Path                     | Description            |
+| ------ | ------------------------ | ---------------------- |
+| GET    | `/api/sessions`          | 获取会话列表           |
+| GET    | `/api/sessions/:id`      | 获取会话详情（含事件） |
+| POST   | `/api/sessions/:id/stop` | 停止运行中的 Agent     |
+| GET    | `/api/status`            | 服务状态               |
 
 ### WebSocket (`ws://localhost:3001`)
 
@@ -120,16 +121,16 @@ npm run dev
 
 ## 技术栈
 
-| 层 | 技术 | 用途 |
-|----|------|------|
-| 前端 | Vite + React 19 | SPA Dashboard |
-| 样式 | CSS Modules + CSS Variables | 暗色主题设计系统 |
-| 通信 | WebSocket (ws) | 实时流式推送 |
-| 后端 | Express 5 | HTTP API + WebSocket |
-| 存储 | better-sqlite3 | 会话和事件持久化 |
-| 代理 | Node.js proxy.js | Anthropic Messages → OpenAI Chat Completions |
-| Agent | @anthropic-ai/claude-agent-sdk | 编排引擎（SDK 编程式调用） |
-| 模型 | MiniMax-M2.7-highspeed | 低成本 LLM（OpenAI Compatible） |
+| 层    | 技术                           | 用途                                         |
+| ----- | ------------------------------ | -------------------------------------------- |
+| 前端  | Vite + React 19                | SPA Dashboard                                |
+| 样式  | CSS Modules + CSS Variables    | 暗色主题设计系统                             |
+| 通信  | WebSocket (ws)                 | 实时流式推送                                 |
+| 后端  | Express 5                      | HTTP API + WebSocket                         |
+| 存储  | better-sqlite3                 | 会话和事件持久化                             |
+| 代理  | Node.js proxy.js               | Anthropic Messages → OpenAI Chat Completions |
+| Agent | @anthropic-ai/claude-agent-sdk | 编排引擎（SDK 编程式调用）                   |
+| 模型  | MiniMax-M2.7-highspeed         | 低成本 LLM（OpenAI Compatible）              |
 
 ## License
 
