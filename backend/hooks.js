@@ -225,5 +225,89 @@ export function buildHooks(emitter, sessionId) {
         ],
       },
     ],
+
+    PreCompact: [
+      {
+        hooks: [
+          async () => {
+            try {
+              emitter.emit('event', {
+                sessionId,
+                type: 'system',
+                subtype: 'pre_compact',
+                content: { message: 'Context window compaction starting' },
+                timestamp: Date.now(),
+              });
+            } catch (err) {
+              console.error(`[hooks] PreCompact error (session=${sessionId}):`, err);
+            }
+            return { async: true };
+          },
+        ],
+      },
+    ],
+
+    PostCompact: [
+      {
+        hooks: [
+          async () => {
+            try {
+              emitter.emit('event', {
+                sessionId,
+                type: 'system',
+                subtype: 'post_compact',
+                content: { message: 'Context window compaction completed' },
+                timestamp: Date.now(),
+              });
+            } catch (err) {
+              console.error(`[hooks] PostCompact error (session=${sessionId}):`, err);
+            }
+            return { async: true };
+          },
+        ],
+      },
+    ],
+
+    SessionStart: [
+      {
+        hooks: [
+          async () => {
+            try {
+              emitter.emit('event', {
+                sessionId,
+                type: 'system',
+                subtype: 'session_start',
+                content: { message: 'Session initialized' },
+                timestamp: Date.now(),
+              });
+            } catch (err) {
+              console.error(`[hooks] SessionStart error (session=${sessionId}):`, err);
+            }
+            return { async: true };
+          },
+        ],
+      },
+    ],
+
+    SessionEnd: [
+      {
+        hooks: [
+          async () => {
+            try {
+              emitter.emit('event', {
+                sessionId,
+                type: 'system',
+                subtype: 'session_end',
+                content: { message: 'Session ended' },
+                timestamp: Date.now(),
+              });
+            } catch (err) {
+              console.error(`[hooks] SessionEnd error (session=${sessionId}):`, err);
+            }
+            return { async: true };
+          },
+        ],
+      },
+    ],
   };
 }

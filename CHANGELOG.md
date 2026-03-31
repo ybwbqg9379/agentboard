@@ -13,11 +13,28 @@
 
 ### Fixed
 
-- **[Critical] SQLite 启动崩溃**: `sessionStore.js` 的 `CREATE TABLE sessions` DDL 缺少 `stats TEXT` 列，导致 `updateStats` prepared statement 在服务启动时抛出 `SqliteError: no such column: stats`，进程立即退出；已将 `stats TEXT` 补入表定义
-- **Token 计数为 0**: proxy.js 流式路径未追踪 `input_tokens`，`message_delta` 只发送 `output_tokens`；现在同时捕获并转发 `prompt_tokens` 和 `completion_tokens`
-- **Terminal 显示非 Bash 工具结果**: `extractTerminalLines` 展示了所有 tool_result（含 WebFetch/WebSearch），改为追踪 Bash tool_use ID 仅显示对应结果
-- **Timeline 重复 Assistant/Result**: result 事件同时显示文本和统计，与 assistant 事件重复；result 事件现在只保留 Stats 行
-- **模型名显示为 Sonnet**: SDK init 事件报告 Anthropic 模型名，实际通过 proxy 调用 MiniMax；agentManager 在 init 和 result 事件中覆盖为 `config.minimax.model`
+- **[严重] SQLite 启动崩溃**: `sessionStore.js` 的 `CREATE TABLE sessions` DDL 缺少 `stats TEXT` 列
+- **Token 计数为 0**: proxy.js 流式路径未追踪 `input_tokens`，现在同时捕获并转发
+- **Terminal 显示非 Bash 工具结果**: 改为追踪 Bash tool_use ID 仅显示对应结果
+- **Timeline 重复 Assistant/Result**: result 事件现在只保留 Stats 行
+- **模型名显示为 Sonnet**: agentManager 在 init/result 事件中覆盖为 `config.minimax.model`
+
+---
+
+## [0.9.0] - 2026-03-31
+
+### Added
+
+- **MCP 5 态状态机**: 从 3 态 (connected/degraded/failed) 升级为 5 态，新增 `pending`（重连中）和 `needs_auth`（认证失败）；配合指数退避重连参数 (1s -> 30s, 最多 5 次)
+- **新增 Hook 事件**: PreCompact（上下文压缩前）、PostCompact（压缩后）、SessionStart（会话初始化）、SessionEnd（会话结束）
+- **Agent 定义增强**: 每个子代理新增 `effort`（思考深度: high/medium）和 `color`（UI 标识色）字段
+- **MCP 认证错误检测**: tool call 错误中包含 auth/401/403 关键词时自动转为 `needs_auth` 状态
+- **Timeline 新事件渲染**: 前端 AgentTimeline 支持渲染 pre_compact、post_compact、session_start、session_end 事件
+
+### Changed
+
+- Header MCP 健康指示器支持 5 种颜色对应 5 种状态
+- mcpHealth 条目新增 `reconnectAttempt`、`maxReconnectAttempts`、`nextBackoffMs` 字段
 
 ---
 
@@ -25,18 +42,18 @@
 
 ### Added
 
-- **Session History Drawer**: right-side slide-in panel listing past sessions with status, prompt preview, and stats; click to load/replay any session
-- **Session Management API**: `GET /api/sessions` with pagination (limit/offset), `GET /api/sessions/:id` with event count, `GET /api/config/permissions` to expose available modes
-- **Permission Mode Selection**: ChatInput now includes a dropdown to choose permission mode (Bypass/Accept Edits/Default/Plan) before starting an agent
-- **Stream Control API**: `POST /api/sessions/:id/control` dispatches runtime control actions (`get_context_usage`, `set_model`, `rewind_files`, `mcp_status`) to running agent streams
-- **Stale Session Recovery**: on startup, all sessions stuck in "running" status from previous crashes are marked as "interrupted"
-- **Load Past Sessions**: `useWebSocket.loadSession(id)` restores events, stats, and status from SQLite into the frontend view
+- **Session 历史抽屉**: 右侧滑入面板，展示历史会话列表（状态、prompt 预览、统计），点击可加载/回放
+- **Session 管理 API**: `GET /api/sessions` 支持分页 (limit/offset)，`GET /api/sessions/:id` 含事件计数，`GET /api/config/permissions` 暴露可用权限模式
+- **权限模式选择**: ChatInput 新增下拉框选择权限模式（Bypass/Accept Edits/Default/Plan）
+- **Stream Control API**: `POST /api/sessions/:id/control` 分发运行时控制指令（get_context_usage、set_model、rewind_files、mcp_status）
+- **崩溃恢复**: 启动时将上次崩溃遗留的 "running" 会话标记为 "interrupted"
+- **加载历史会话**: `useWebSocket.loadSession(id)` 从 SQLite 恢复事件、统计和状态到前端
 
 ### Changed
 
-- `startAgent()` now accepts `opts.permissionMode` and `opts.maxTurns` parameters
-- Sessions API returns `{ sessions, total, limit, offset }` instead of a flat array
-- `agentManager.js` exposes `getAgentStream()` for stream control access and `PERMISSION_MODES` constant
+- `startAgent()` 接受 `opts.permissionMode` 和 `opts.maxTurns` 参数
+- Sessions API 返回 `{ sessions, total, limit, offset }` 而非扁平数组
+- `agentManager.js` 暴露 `getAgentStream()` 和 `PERMISSION_MODES` 常量
 
 ---
 

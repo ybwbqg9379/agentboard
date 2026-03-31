@@ -66,7 +66,15 @@ function flattenEvent(event) {
           ts,
         },
       ];
-    if (subtype === 'prompt_submitted') return []; // audit only, don't clutter timeline
+    if (subtype === 'prompt_submitted') return []; // audit only
+    if (subtype === 'pre_compact')
+      return [{ label: 'Compacting', dot: 'thinking', body: 'Context compaction starting...', ts }];
+    if (subtype === 'post_compact')
+      return [{ label: 'Compacted', dot: 'done', body: 'Context compaction completed', ts }];
+    if (subtype === 'session_start')
+      return [{ label: 'Session', dot: 'done', body: 'Session initialized', ts }];
+    if (subtype === 'session_end')
+      return [{ label: 'Session End', dot: 'done', body: 'Session ended', ts }];
     if (subtype === 'tool_failed')
       return [
         {

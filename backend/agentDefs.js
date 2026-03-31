@@ -27,6 +27,8 @@ export function getAgentDefs() {
       maxTurns: 15,
       permissionMode: 'default',
       model: 'inherit',
+      effort: 'high',
+      color: '#ef4444',
     },
 
     'test-writer': {
@@ -44,6 +46,8 @@ export function getAgentDefs() {
       maxTurns: 25,
       permissionMode: 'acceptEdits',
       model: 'inherit',
+      effort: 'high',
+      color: '#22c55e',
     },
 
     researcher: {
@@ -60,6 +64,8 @@ export function getAgentDefs() {
       maxTurns: 20,
       permissionMode: 'default',
       model: 'inherit',
+      effort: 'medium',
+      color: '#0ea5e9',
       background: true,
     },
 
@@ -78,6 +84,8 @@ export function getAgentDefs() {
       maxTurns: 20,
       permissionMode: 'default',
       model: 'inherit',
+      effort: 'high',
+      color: '#818cf8',
       initialPrompt: 'Analyze the workspace structure before proposing any design.',
     },
   };

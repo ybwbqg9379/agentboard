@@ -5,6 +5,7 @@ const MCP_STATE_COLORS = {
   degraded: 'var(--status-warning, #f59e0b)',
   failed: 'var(--status-error)',
   pending: 'var(--text-tertiary)',
+  needs_auth: '#f97316',
 };
 
 export default function Header({ connected, sessionId, onClear, onOpenHistory, mcpHealth }) {
@@ -14,7 +15,7 @@ export default function Header({ connected, sessionId, onClear, onOpenHistory, m
     <header className={styles.header}>
       <div className={styles.left}>
         <span className={styles.logo}>AgentBoard</span>
-        <span className={styles.version}>v0.8.0</span>
+        <span className={styles.version}>v0.9.0</span>
       </div>
 
       <div className={styles.right}>
