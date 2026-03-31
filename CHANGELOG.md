@@ -10,7 +10,7 @@
 - **`npm run lint:strict`**: ESLint `--max-warnings 0` 严格模式
 - **Markdown 渲染**: Timeline 的 Assistant/Result/Tool Result 事件支持 Markdown 渲染（react-markdown + remark-gfm）
 - **Markdown 样式**: 全局 `.markdown-body` 暗色主题适配
-- **Web 访问引导**: System prompt 指示 Agent 使用 Playwright MCP (`mcp__browser__*`) 替代不可用的 WebFetch/WebSearch
+- **Web 访问引导**: System prompt 三级策略 -- WebSearch 快速查询、WebFetch 常规抓取、Playwright MCP 兜底（403 立即切换，不重试）
 
 ### Fixed
 
