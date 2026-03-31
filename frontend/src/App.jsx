@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { useWebSocket } from './hooks/useWebSocket.js';
 import Header from './components/Header.jsx';
 import ChatInput from './components/ChatInput.jsx';
 import AgentTimeline from './components/AgentTimeline.jsx';
 import TerminalView from './components/TerminalView.jsx';
 import StatusBar from './components/StatusBar.jsx';
+import SessionDrawer from './components/SessionDrawer.jsx';
 
 export default function App() {
   const {
@@ -14,10 +16,13 @@ export default function App() {
     startAgent,
     stopAgent,
     clearSession,
+    loadSession,
     sessionStats,
     mcpHealth,
     subtasks,
   } = useWebSocket();
+
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   return (
     <div className="app-layout">
@@ -25,6 +30,7 @@ export default function App() {
         connected={connected}
         sessionId={sessionId}
         onClear={clearSession}
+        onOpenHistory={() => setDrawerOpen(true)}
         mcpHealth={mcpHealth}
       />
 
@@ -42,6 +48,13 @@ export default function App() {
         eventCount={events.length}
         sessionStats={sessionStats}
         subtasks={subtasks}
+      />
+
+      <SessionDrawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        onLoadSession={loadSession}
+        currentSessionId={sessionId}
       />
     </div>
   );

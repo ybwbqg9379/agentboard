@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 
 const WS_URL = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`;
+const API_BASE = `${window.location.protocol}//${window.location.hostname}:3001`;
 const RECONNECT_INTERVAL = 3000;
 const MAX_EVENTS = 5000;
 
@@ -179,12 +180,47 @@ export function useWebSocket() {
   }, []);
 
   const startAgent = useCallback(
-    (prompt) => {
+    (prompt, opts = {}) => {
       setStatus('running');
-      send({ action: 'start', prompt });
+      send({ action: 'start', prompt, permissionMode: opts.permissionMode });
     },
     [send],
   );
+
+  // Load a past session from REST API into the current view
+  const loadSession = useCallback(async (sid) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/sessions/${sid}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      sessionIdRef.current = sid;
+      setSessionId(sid);
+      // Convert stored events to the format useWebSocket expects
+      const restored = (data.events || []).map((e) => ({
+        sessionId: sid,
+        type: e.type,
+        subtype: e.content?.subtype || null,
+        content: e.content,
+        timestamp: e.timestamp,
+      }));
+      setEvents(restored);
+      const finalStatus = data.status || 'completed';
+      statusRef.current = finalStatus;
+      setStatus(finalStatus);
+      // Restore stats
+      if (data.stats) {
+        try {
+          const st = typeof data.stats === 'string' ? JSON.parse(data.stats) : data.stats;
+          setSessionStats(st);
+        } catch {
+          /* ignore */
+        }
+      }
+      setSubtasks({});
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   const stopAgent = useCallback(() => {
     send({ action: 'stop', sessionId: sessionIdRef.current });
@@ -210,6 +246,7 @@ export function useWebSocket() {
     startAgent,
     stopAgent,
     clearSession,
+    loadSession,
     sessionStats,
     mcpHealth,
     subtasks,

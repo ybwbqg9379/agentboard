@@ -38,6 +38,29 @@
   color: var(--text-tertiary);
 }
 
+.modeSelect {
+  height: 40px;
+  padding: 0 var(--space-sm);
+  background: var(--bg-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-family: var(--font-mono);
+  cursor: pointer;
+  outline: none;
+  flex-shrink: 0;
+}
+
+.modeSelect:focus {
+  border-color: var(--border-accent);
+}
+
+.modeSelect:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .sendBtn,
 .stopBtn {
   height: 40px;

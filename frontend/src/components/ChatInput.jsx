@@ -1,8 +1,16 @@
 import { useState, useRef } from 'react';
 import styles from './ChatInput.module.css';
 
+const PERMISSION_MODES = [
+  { value: 'bypassPermissions', label: 'Bypass' },
+  { value: 'acceptEdits', label: 'Accept Edits' },
+  { value: 'default', label: 'Default' },
+  { value: 'plan', label: 'Plan' },
+];
+
 export default function ChatInput({ onSend, onStop, status }) {
   const [value, setValue] = useState('');
+  const [permissionMode, setPermissionMode] = useState('bypassPermissions');
   const inputRef = useRef(null);
   const isRunning = status === 'running';
 
@@ -10,7 +18,7 @@ export default function ChatInput({ onSend, onStop, status }) {
     e.preventDefault();
     const text = value.trim();
     if (!text || isRunning) return;
-    onSend(text);
+    onSend(text, { permissionMode });
     setValue('');
   }
 
@@ -24,6 +32,19 @@ export default function ChatInput({ onSend, onStop, status }) {
   return (
     <form className={styles.wrapper} onSubmit={handleSubmit}>
       <div className={styles.inputRow}>
+        <select
+          className={styles.modeSelect}
+          value={permissionMode}
+          onChange={(e) => setPermissionMode(e.target.value)}
+          disabled={isRunning}
+          title="Permission mode"
+        >
+          {PERMISSION_MODES.map((m) => (
+            <option key={m.value} value={m.value}>
+              {m.label}
+            </option>
+          ))}
+        </select>
         <textarea
           ref={inputRef}
           className={styles.input}

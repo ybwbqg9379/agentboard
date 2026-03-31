@@ -21,21 +21,31 @@ export const agentEvents = new EventEmitter();
 const WORKSPACE = resolve(config.workspaceDir);
 const PLUGINS_DIR = resolve(config.pluginsDir);
 
+// Valid permission modes exposed to the frontend
+export const PERMISSION_MODES = ['bypassPermissions', 'default', 'acceptEdits', 'plan'];
+
 /**
  * 启动一个 Claude Code Agent (SDK 方式)
  * @param {string} prompt - 用户指令
+ * @param {object} [opts] - 启动选项
+ * @param {string} [opts.permissionMode] - 权限模式
+ * @param {number} [opts.maxTurns] - 最大轮次
  * @returns {string} sessionId
  */
-export function startAgent(prompt) {
+export function startAgent(prompt, opts = {}) {
   const sessionId = createSession(prompt);
+  const permMode = PERMISSION_MODES.includes(opts.permissionMode)
+    ? opts.permissionMode
+    : 'bypassPermissions';
+  const needsSkip = permMode === 'bypassPermissions';
 
   const stream = query({
     prompt,
     options: {
       cwd: WORKSPACE,
-      permissionMode: 'bypassPermissions',
-      allowDangerouslySkipPermissions: true,
-      maxTurns: 50,
+      permissionMode: permMode,
+      allowDangerouslySkipPermissions: needsSkip,
+      maxTurns: opts.maxTurns || 50,
       systemPrompt: {
         type: 'preset',
         preset: 'claude_code',
@@ -175,4 +185,12 @@ export function stopAgent(sessionId) {
  */
 export function getActiveAgents() {
   return [...activeAgents.keys()];
+}
+
+/**
+ * 获取运行中 Agent 的 stream 对象，用于 stream control
+ */
+export function getAgentStream(sessionId) {
+  const entry = activeAgents.get(sessionId);
+  return entry?.stream || null;
 }

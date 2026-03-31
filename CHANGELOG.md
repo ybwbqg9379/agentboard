@@ -21,6 +21,25 @@
 
 ---
 
+## [0.8.0] - 2026-03-31
+
+### Added
+
+- **Session History Drawer**: right-side slide-in panel listing past sessions with status, prompt preview, and stats; click to load/replay any session
+- **Session Management API**: `GET /api/sessions` with pagination (limit/offset), `GET /api/sessions/:id` with event count, `GET /api/config/permissions` to expose available modes
+- **Permission Mode Selection**: ChatInput now includes a dropdown to choose permission mode (Bypass/Accept Edits/Default/Plan) before starting an agent
+- **Stream Control API**: `POST /api/sessions/:id/control` dispatches runtime control actions (`get_context_usage`, `set_model`, `rewind_files`, `mcp_status`) to running agent streams
+- **Stale Session Recovery**: on startup, all sessions stuck in "running" status from previous crashes are marked as "interrupted"
+- **Load Past Sessions**: `useWebSocket.loadSession(id)` restores events, stats, and status from SQLite into the frontend view
+
+### Changed
+
+- `startAgent()` now accepts `opts.permissionMode` and `opts.maxTurns` parameters
+- Sessions API returns `{ sessions, total, limit, offset }` instead of a flat array
+- `agentManager.js` exposes `getAgentStream()` for stream control access and `PERMISSION_MODES` constant
+
+---
+
 ## [0.7.0] - 2026-03-31
 
 ### Added

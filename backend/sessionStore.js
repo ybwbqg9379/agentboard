@@ -36,10 +36,14 @@ const stmts = {
   updateStats: db.prepare('UPDATE sessions SET stats = ? WHERE id = ?'),
   getSession: db.prepare('SELECT * FROM sessions WHERE id = ?'),
   listSessions: db.prepare('SELECT * FROM sessions ORDER BY created_at DESC LIMIT ?'),
+  listSessionsPaged: db.prepare('SELECT * FROM sessions ORDER BY created_at DESC LIMIT ? OFFSET ?'),
+  countSessions: db.prepare('SELECT count(*) as total FROM sessions'),
+  recoverStale: db.prepare("UPDATE sessions SET status = 'interrupted' WHERE status = 'running'"),
   insertEvent: db.prepare(
     'INSERT INTO events (session_id, type, content, timestamp) VALUES (?, ?, ?, ?)',
   ),
   getEvents: db.prepare('SELECT * FROM events WHERE session_id = ? ORDER BY timestamp ASC'),
+  countEvents: db.prepare('SELECT count(*) as total FROM events WHERE session_id = ?'),
 };
 
 export function createSession(prompt) {
@@ -102,6 +106,49 @@ export function getEvents(sessionId) {
   } catch (err) {
     console.error(`[sessionStore] getEvents failed: ${err.message}`);
     return [];
+  }
+}
+
+/**
+ * Mark any "running" sessions as "interrupted" -- called on startup to clean stale state.
+ */
+export function recoverStaleSessions() {
+  try {
+    const result = stmts.recoverStale.run();
+    if (result.changes > 0) {
+      console.log(`[sessionStore] Recovered ${result.changes} stale session(s)`);
+    }
+    return result.changes;
+  } catch (err) {
+    console.error(`[sessionStore] recoverStaleSessions failed: ${err.message}`);
+    return 0;
+  }
+}
+
+export function listSessionsPaged(limit = 20, offset = 0) {
+  try {
+    return stmts.listSessionsPaged.all(limit, offset);
+  } catch (err) {
+    console.error(`[sessionStore] listSessionsPaged failed: ${err.message}`);
+    return [];
+  }
+}
+
+export function countSessions() {
+  try {
+    return stmts.countSessions.get()?.total || 0;
+  } catch (err) {
+    console.error(`[sessionStore] countSessions failed: ${err.message}`);
+    return 0;
+  }
+}
+
+export function countEvents(sessionId) {
+  try {
+    return stmts.countEvents.get(sessionId)?.total || 0;
+  } catch (err) {
+    console.error(`[sessionStore] countEvents failed: ${err.message}`);
+    return 0;
   }
 }
 

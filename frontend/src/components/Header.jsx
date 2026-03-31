@@ -7,14 +7,14 @@ const MCP_STATE_COLORS = {
   pending: 'var(--text-tertiary)',
 };
 
-export default function Header({ connected, sessionId, onClear, mcpHealth }) {
+export default function Header({ connected, sessionId, onClear, onOpenHistory, mcpHealth }) {
   const mcpEntries = Object.entries(mcpHealth || {});
 
   return (
     <header className={styles.header}>
       <div className={styles.left}>
         <span className={styles.logo}>AgentBoard</span>
-        <span className={styles.version}>v0.7.0</span>
+        <span className={styles.version}>v0.8.0</span>
       </div>
 
       <div className={styles.right}>
@@ -31,6 +31,9 @@ export default function Header({ connected, sessionId, onClear, mcpHealth }) {
             ))}
           </div>
         )}
+        <button className={styles.historyBtn} onClick={onOpenHistory}>
+          History
+        </button>
         {sessionId && (
           <button className={styles.clearBtn} onClick={onClear}>
             New Session

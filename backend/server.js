@@ -3,8 +3,23 @@ import cors from 'cors';
 import { createServer } from 'node:http';
 import { WebSocketServer } from 'ws';
 import config from './config.js';
-import { listSessions, getSession, getEvents, close as closeDb } from './sessionStore.js';
-import { startAgent, stopAgent, getActiveAgents, agentEvents } from './agentManager.js';
+import {
+  listSessionsPaged,
+  countSessions,
+  getSession,
+  getEvents,
+  countEvents,
+  recoverStaleSessions,
+  close as closeDb,
+} from './sessionStore.js';
+import {
+  startAgent,
+  stopAgent,
+  getActiveAgents,
+  getAgentStream,
+  agentEvents,
+  PERMISSION_MODES,
+} from './agentManager.js';
 import { getMcpHealth } from './mcpHealth.js';
 
 const app = express();
@@ -13,16 +28,20 @@ app.use(express.json());
 
 // --- REST API ---
 
-app.get('/api/sessions', (_req, res) => {
-  const sessions = listSessions();
-  res.json(sessions);
+app.get('/api/sessions', (req, res) => {
+  const limit = Math.min(parseInt(req.query.limit || '20', 10), 100);
+  const offset = Math.max(parseInt(req.query.offset || '0', 10), 0);
+  const sessions = listSessionsPaged(limit, offset);
+  const total = countSessions();
+  res.json({ sessions, total, limit, offset });
 });
 
 app.get('/api/sessions/:id', (req, res) => {
   const session = getSession(req.params.id);
   if (!session) return res.status(404).json({ error: 'session not found' });
   const events = getEvents(req.params.id);
-  res.json({ ...session, events });
+  const eventCount = countEvents(req.params.id);
+  res.json({ ...session, events, eventCount });
 });
 
 app.post('/api/sessions/:id/stop', (req, res) => {
@@ -43,6 +62,54 @@ app.get('/api/status', (_req, res) => {
 
 app.get('/api/mcp/health', (_req, res) => {
   res.json(getMcpHealth());
+});
+
+app.get('/api/config/permissions', (_req, res) => {
+  res.json({ modes: PERMISSION_MODES });
+});
+
+// Stream control -- dispatch actions to a running agent's stream
+app.post('/api/sessions/:id/control', async (req, res) => {
+  const { action } = req.body;
+  const stream = getAgentStream(req.params.id);
+  if (!stream) {
+    return res.status(404).json({ error: 'session not active' });
+  }
+  try {
+    switch (action) {
+      case 'get_context_usage': {
+        if (typeof stream.getContextUsage === 'function') {
+          const usage = await stream.getContextUsage();
+          return res.json({ action, result: usage });
+        }
+        return res.json({ action, result: null, note: 'not supported by SDK version' });
+      }
+      case 'set_model': {
+        const { model } = req.body;
+        if (!model) return res.status(400).json({ error: 'model is required' });
+        if (typeof stream.setModel === 'function') {
+          await stream.setModel(model);
+          return res.json({ action, result: { model } });
+        }
+        return res.json({ action, result: null, note: 'not supported by SDK version' });
+      }
+      case 'rewind_files': {
+        const { messageId } = req.body;
+        if (typeof stream.rewindFiles === 'function') {
+          const result = await stream.rewindFiles(messageId);
+          return res.json({ action, result });
+        }
+        return res.json({ action, result: null, note: 'not supported by SDK version' });
+      }
+      case 'mcp_status': {
+        return res.json({ action, result: getMcpHealth() });
+      }
+      default:
+        return res.status(400).json({ error: `unknown control action: ${action}` });
+    }
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
 });
 
 // --- Error Handler (Express 5 auto-forwards rejected promises) ---
@@ -76,7 +143,10 @@ wss.on('connection', (ws) => {
           ws.send(JSON.stringify({ error: 'prompt is required' }));
           return;
         }
-        const sessionId = startAgent(msg.prompt);
+        const sessionId = startAgent(msg.prompt, {
+          permissionMode: msg.permissionMode,
+          maxTurns: msg.maxTurns,
+        });
         subscriptions.set(ws, sessionId);
         ws.send(JSON.stringify({ type: 'session_started', sessionId }));
         break;
@@ -124,6 +194,9 @@ agentEvents.on('event', (event) => {
 });
 
 // --- Start ---
+
+// Recover stale sessions from previous crashes before accepting connections
+recoverStaleSessions();
 
 server.listen(config.port, () => {
   console.log(`AgentBoard backend listening on http://localhost:${config.port}`);
