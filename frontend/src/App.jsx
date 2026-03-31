@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useWebSocket } from './hooks/useWebSocket.js';
 import Header from './components/Header.jsx';
 import ChatInput from './components/ChatInput.jsx';
@@ -27,6 +27,20 @@ export default function App() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [mode, setMode] = useState('agent'); // 'agent' | 'workflow'
 
+  const [theme, setTheme] = useState(() => {
+    return (
+      window.localStorage.getItem('agentboard-theme') ||
+      (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+    );
+  });
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    window.localStorage.setItem('agentboard-theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
+
   return (
     <div className="app-layout">
       <Header
@@ -37,6 +51,8 @@ export default function App() {
         mcpHealth={mcpHealth}
         mode={mode}
         onModeChange={setMode}
+        theme={theme}
+        onToggleTheme={toggleTheme}
       />
 
       {mode === 'agent' ? (

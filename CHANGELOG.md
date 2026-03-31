@@ -15,6 +15,11 @@
 
 ### Added
 
+- **全面移动端支持 (Comprehensive Mobile Responsiveness)**: 实现纯 CSS 驱动的响应式布局，完美适配小屏设备 (`< 768px`)
+  - 主布局从 `1fr 1fr` 硬分栏改为垂直连贯堆叠，允许自然手势滚动 Terminal。
+  - Header 导航精简非绝对必要字样；ChatInput 采用 `flex-wrap` 让文本输入框跨屏占满 100% 宽度。
+  - Workflow Editor 的配置面板在手机端自适应折叠为底部抽屉 (Bottom Sheet) 以防止阻挡画布拓扑，SessionDrawer 自动扩容至 `100vw`。
+
 - **对话连续性 (Conversation Continuity)**: 支持对已完成/停止/失败的 session 发送后续消息
   - 后端: 利用 Claude Agent SDK 的 `resume` 机制恢复对话上下文，新增 `continueAgent()` 函数和 `follow_up` WebSocket action
   - 前端: ChatInput 在 session 结束后保持可用，显示 "Continue" 按钮（绿色），placeholder 切换为 "Send a follow-up message..."
@@ -35,9 +40,14 @@
 
 ### Changed
 
+- **UI Design Tokens 统一化与主题覆盖**: 彻底剥离全站零星的前端硬编码色值（`#hex` 与 `rgba(xx,x,x)`）
+  - 通过 `index.css` 抽离中央控制的语义化 Token 模型 (`--bg-primary`, `--status-running-rgb` 等)。
+  - 原生系统完全适配 **Light Mode (暗色) / Dark Mode (浅色)** 双模式无缝切换，且自动侦测 `prefers-color-scheme` 与 `localStorage` 持久化记忆。
+  - 移除了项目历史中老旧的 `<select>` 原生控件，自研 `Dropdown.jsx` 使得包含配置表单在内的交互 UI 全部贴合全局赛博设计语言。
+  - 全局补齐 `*:focus-visible` 焦点光圈，且去除移动端繁杂丑陋的自绘滚动条轨道。
 - `agentManager.js` 重构: 系统提示提取为常量 `SYSTEM_PROMPT_APPEND`，核心逻辑拆分为 `buildBaseOptions()` + `consumeStream()` + `startAgent()` + `continueAgent()`
 - `middleware.js` 新增 `follow_up` WebSocket schema 和 `workflowSchema` Zod 验证
-- Header 组件新增 Agent/Workflow 模式切换 tab
+- Header 组件新增 Agent/Workflow 模式切换 tab 和全局主题一键切换 Sun/Moon 按钮
 - ChatInput 支持三态按钮: Run（新 session）/ Continue（续接 session）/ Stop（运行中）
 
 ---

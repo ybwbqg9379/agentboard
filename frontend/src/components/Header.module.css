@@ -39,7 +39,10 @@
 }
 
 .modeTab {
-  padding: 3px 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 14px;
   font-size: 12px;
   font-weight: 500;
   font-family: var(--font-sans);
@@ -67,23 +70,32 @@
 }
 
 .historyBtn,
-.clearBtn {
+.clearBtn,
+.themeBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   font-size: 12px;
   font-weight: 500;
   color: var(--text-secondary);
   background: var(--bg-tertiary);
   border: 1px solid var(--border-primary);
-  padding: 4px 12px;
+  padding: 4px 14px;
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition: all 0.15s;
 }
 
 .historyBtn:hover,
-.clearBtn:hover {
+.clearBtn:hover,
+.themeBtn:hover {
   color: var(--text-primary);
   border-color: var(--border-secondary);
   background: var(--bg-hover);
+}
+
+.themeBtn {
+  padding: 4px 10px; /* Slightly tighter padding for icon-only button */
 }
 
 .mcpHealth {
@@ -131,4 +143,33 @@
   font-size: 12px;
   color: var(--text-tertiary);
   font-family: var(--font-mono);
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  .logo,
+  .version,
+  .connText,
+  .mcpLabel {
+    display: none;
+  }
+
+  .right {
+    gap: var(--space-xs);
+  }
+
+  .modeTabs {
+    margin-left: 0;
+  }
+
+  .header {
+    padding: 0 var(--space-sm);
+  }
+
+  .historyBtn,
+  .clearBtn,
+  .themeBtn {
+    padding: 4px 8px;
+    font-size: 11px;
+  }
 }

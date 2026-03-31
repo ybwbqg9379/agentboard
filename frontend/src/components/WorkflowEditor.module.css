@@ -263,17 +263,17 @@
 }
 
 .statusRunning {
-  background: rgba(34, 197, 94, 0.15);
+  background: rgba(var(--status-running-rgb), 0.15);
   color: var(--status-running);
 }
 
 .statusCompleted {
-  background: rgba(99, 102, 241, 0.15);
+  background: rgba(var(--status-done-rgb), 0.15);
   color: var(--status-done);
 }
 
 .statusFailed {
-  background: rgba(239, 68, 68, 0.15);
+  background: rgba(var(--status-error-rgb), 0.15);
   color: var(--status-error);
 }
 
@@ -343,4 +343,32 @@
   stroke-width: 1.5;
   stroke-dasharray: 6 3;
   pointer-events: none;
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  .toolbar {
+    flex-wrap: wrap;
+    padding: var(--space-xs);
+  }
+
+  .workflowName {
+    width: 100%;
+    order: -1; /* Push to own row at top */
+    margin-bottom: var(--space-xs);
+  }
+
+  .configPanel {
+    top: auto;
+    bottom: 0;
+    right: 0;
+    left: 0;
+    width: 100%;
+    max-height: 50vh;
+    border-radius: 16px 16px 0 0;
+    border-right: none;
+    border-left: none;
+    border-bottom: none;
+    box-shadow: 0 -4px 16px rgba(var(--bg-black-rgb), 0.3);
+  }
 }

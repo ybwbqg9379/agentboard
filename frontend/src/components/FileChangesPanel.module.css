@@ -85,12 +85,12 @@
 
 .write {
   color: var(--status-running);
-  background: rgba(34, 197, 94, 0.1);
+  background: rgba(var(--status-running-rgb), 0.1);
 }
 
 .edit {
   color: var(--status-thinking);
-  background: rgba(245, 158, 11, 0.1);
+  background: rgba(var(--status-thinking-rgb), 0.1);
 }
 
 .read {

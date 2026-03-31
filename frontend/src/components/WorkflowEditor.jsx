@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import styles from './WorkflowEditor.module.css';
+import Dropdown from './Dropdown';
 
 const API_BASE = '';
 
@@ -8,11 +9,11 @@ const NODE_H = 56;
 const PORT_R = 5;
 
 const NODE_COLORS = {
-  input: { fill: '#1a2332', stroke: '#3b82f6' },
-  output: { fill: '#1a2332', stroke: '#8b5cf6' },
-  agent: { fill: '#1a2e1a', stroke: '#22c55e' },
-  condition: { fill: '#2e2a1a', stroke: '#f59e0b' },
-  transform: { fill: '#1a2a2e', stroke: '#0ea5e9' },
+  input: { fill: 'var(--bg-tertiary)', stroke: 'var(--status-tool)' },
+  output: { fill: 'var(--bg-tertiary)', stroke: 'var(--status-done)' },
+  agent: { fill: 'var(--bg-tertiary)', stroke: 'var(--status-running)' },
+  condition: { fill: 'var(--bg-tertiary)', stroke: 'var(--status-thinking)' },
+  transform: { fill: 'var(--bg-tertiary)', stroke: 'var(--status-tool)' },
 };
 
 const DEFAULT_CONFIGS = {
@@ -36,6 +37,13 @@ function edgePath(x1, y1, x2, y2) {
 }
 
 // --- Node Config Panel ---
+
+const PERMISSION_MODES = [
+  { value: 'bypassPermissions', label: 'Bypass' },
+  { value: 'acceptEdits', label: 'Accept Edits' },
+  { value: 'default', label: 'Default' },
+  { value: 'plan', label: 'Plan' },
+];
 
 function NodeConfigPanel({ node, onUpdate, onDelete, onClose }) {
   if (!node) return null;
@@ -85,15 +93,12 @@ function NodeConfigPanel({ node, onUpdate, onDelete, onClose }) {
             </div>
             <div className={styles.configField}>
               <label>Permission Mode</label>
-              <select
+              <Dropdown
+                options={PERMISSION_MODES}
                 value={node.config?.permissionMode || 'bypassPermissions'}
-                onChange={(e) => updateConfig('permissionMode', e.target.value)}
-              >
-                <option value="bypassPermissions">Bypass</option>
-                <option value="acceptEdits">Accept Edits</option>
-                <option value="default">Default</option>
-                <option value="plan">Plan</option>
-              </select>
+                onChange={(val) => updateConfig('permissionMode', val)}
+                direction="down"
+              />
             </div>
           </>
         )}

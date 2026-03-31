@@ -7,7 +7,7 @@
 .inputRow {
   display: flex;
   gap: var(--space-sm);
-  align-items: flex-end;
+  align-items: center;
 }
 
 .input {
@@ -15,11 +15,12 @@
   background: var(--bg-primary);
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-md);
-  padding: var(--space-md) var(--space-lg);
+  padding: 10px var(--space-lg);
+  height: 44px;
   color: var(--text-primary);
   font-family: var(--font-sans);
   font-size: 14px;
-  line-height: 1.5;
+  line-height: calc(44px - 20px);
   resize: none;
   outline: none;
   transition: border-color 0.15s;
@@ -39,16 +40,7 @@
 }
 
 .modeSelect {
-  height: 40px;
-  padding: 0 var(--space-sm);
-  background: var(--bg-primary);
-  border: 1px solid var(--border-primary);
-  border-radius: var(--radius-md);
-  color: var(--text-secondary);
-  font-size: 12px;
-  font-family: var(--font-mono);
-  cursor: pointer;
-  outline: none;
+  height: 44px;
   flex-shrink: 0;
 }
 
@@ -64,8 +56,8 @@
 .sendBtn,
 .continueBtn,
 .stopBtn {
-  height: 40px;
-  padding: 0 20px;
+  height: 44px;
+  padding: 0 24px;
   border: none;
   border-radius: var(--radius-md);
   font-size: 13px;
@@ -110,4 +102,24 @@
 
 .stopBtn:hover {
   opacity: 0.9;
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  .wrapper {
+    padding: var(--space-sm);
+  }
+  .inputRow {
+    flex-wrap: wrap;
+  }
+  .input {
+    order: -1;
+    min-width: 100%;
+  }
+  .modeSelect,
+  .sendBtn,
+  .continueBtn,
+  .stopBtn {
+    flex-grow: 1;
+  }
 }

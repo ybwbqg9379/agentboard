@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import styles from './ChatInput.module.css';
+import Dropdown from './Dropdown';
 
 const PERMISSION_MODES = [
   { value: 'bypassPermissions', label: 'Bypass' },
@@ -44,19 +45,15 @@ export default function ChatInput({ onSend, onFollowUp, onStop, status, sessionI
   return (
     <form className={styles.wrapper} onSubmit={handleSubmit}>
       <div className={styles.inputRow}>
-        <select
+        <Dropdown
           className={styles.modeSelect}
+          options={PERMISSION_MODES}
           value={permissionMode}
-          onChange={(e) => setPermissionMode(e.target.value)}
+          onChange={setPermissionMode}
           disabled={isRunning}
           title="Permission mode"
-        >
-          {PERMISSION_MODES.map((m) => (
-            <option key={m.value} value={m.value}>
-              {m.label}
-            </option>
-          ))}
-        </select>
+          direction="up"
+        />
         <textarea
           ref={inputRef}
           className={styles.input}
