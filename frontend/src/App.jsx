@@ -6,8 +6,16 @@ import TerminalView from './components/TerminalView.jsx';
 import StatusBar from './components/StatusBar.jsx';
 
 export default function App() {
-  const { connected, events, sessionId, status, startAgent, stopAgent, clearSession } =
-    useWebSocket();
+  const {
+    connected,
+    events,
+    sessionId,
+    status,
+    startAgent,
+    stopAgent,
+    clearSession,
+    sessionStats,
+  } = useWebSocket();
 
   return (
     <div className="app-layout">
@@ -21,7 +29,12 @@ export default function App() {
         <TerminalView events={events} />
       </div>
 
-      <StatusBar status={status} sessionId={sessionId} eventCount={events.length} />
+      <StatusBar
+        status={status}
+        sessionId={sessionId}
+        eventCount={events.length}
+        sessionStats={sessionStats}
+      />
     </div>
   );
 }

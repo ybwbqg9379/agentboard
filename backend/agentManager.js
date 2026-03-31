@@ -2,7 +2,12 @@ import { query } from '@anthropic-ai/claude-agent-sdk';
 import { EventEmitter } from 'node:events';
 import { resolve } from 'node:path';
 import config from './config.js';
-import { createSession, updateSessionStatus, insertEvent } from './sessionStore.js';
+import {
+  createSession,
+  updateSessionStatus,
+  updateSessionStats,
+  insertEvent,
+} from './sessionStore.js';
 import { getMcpServers, getAllowedTools } from './mcpConfig.js';
 import { getAgentDefs } from './agentDefs.js';
 import { buildHooks } from './hooks.js';
@@ -47,6 +52,7 @@ export function startAgent(prompt) {
         TMPDIR: resolve(WORKSPACE, '.tmp'),
         ANTHROPIC_BASE_URL: config.litellm.url,
         ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY || 'placeholder',
+        CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING: '1',
       },
 
       // MCP Servers
@@ -62,8 +68,9 @@ export function startAgent(prompt) {
       // Streaming deltas for real-time rendering
       includePartialMessages: true,
 
-      // File change tracking for rollback
+      // File change tracking for rollback (SDK mode uses env var)
       enableFileCheckpointing: true,
+      // Also set env var for SDK mode compatibility
 
       // Skills (via local plugin)
       plugins: [{ type: 'local', path: resolve(PLUGINS_DIR, 'agentboard-skills') }],
@@ -94,6 +101,23 @@ export function startAgent(prompt) {
 
         insertEvent(sessionId, message.type, message);
         agentEvents.emit('event', wrapped);
+
+        // Extract session stats from result messages
+        if (message.type === 'result') {
+          const stats = {
+            cost_usd: message.total_cost_usd || 0,
+            input_tokens: message.usage?.input_tokens || 0,
+            output_tokens: message.usage?.output_tokens || 0,
+            duration_ms: message.duration_ms || 0,
+            num_turns: message.num_turns || 0,
+            model: null,
+          };
+          if (message.modelUsage) {
+            const models = Object.keys(message.modelUsage);
+            if (models.length > 0) stats.model = models[0];
+          }
+          updateSessionStats(sessionId, stats);
+        }
       }
     } catch (err) {
       finalStatus = 'failed';

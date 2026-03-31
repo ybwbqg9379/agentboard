@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.4.0] - 2026-03-31
+
+### Added
+
+- **SDKMessage 全类型处理**: 从 ~5 种扩展到覆盖全部 23 种 SDK 消息类型
+  - `system/init`: 显示加载的 Model、Tools、MCP Servers、Skills 数量
+  - `system/api_retry`: API 重试可视化（attempt/max/delay）
+  - `system/status`: 上下文压缩状态
+  - `system/compact_boundary`: 压缩完成标记
+  - `system/task_started/task_notification`: 子代理任务追踪
+  - `tool_progress`: 工具执行进度（elapsed time）
+  - `rate_limit_event`: 限流警告
+  - `stream_event`: 静默处理（partial messages）
+  - `result`: 完整统计信息展示（turns、duration、tokens、cost）
+- **Session Stats 持久化**: `sessionStore.js` 新增 `stats` 列，`result` 消息自动提取成本/token/耗时/模型信息
+- **StatusBar 增强**: 实时显示 Model、Token 用量、API 成本、运行时长
+- **File Checkpointing**: 通过 `CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING` 环境变量启用（SDK 模式兼容）
+
+### Changed
+
+- **AgentTimeline**: `flattenEvent()` 重写，按消息 subtype 精确路由，减少 fallback JSON 噪音
+- **useWebSocket**: 新增 `sessionStats` state，从 init/result 消息提取统计数据
+- **App.jsx**: `sessionStats` 传递到 `StatusBar`
+
+---
+
 ## [0.3.2] - 2026-03-31
 
 ### Fixed

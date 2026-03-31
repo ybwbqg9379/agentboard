@@ -9,6 +9,7 @@ export function useWebSocket() {
   const [events, setEvents] = useState([]);
   const [sessionId, setSessionId] = useState(null);
   const [status, setStatus] = useState('idle'); // idle | running | completed | failed | stopped
+  const [sessionStats, setSessionStats] = useState(null);
   const wsRef = useRef(null);
   const reconnectTimer = useRef(null);
   const sessionIdRef = useRef(null);
@@ -53,6 +54,7 @@ export function useWebSocket() {
         setSessionId(msg.sessionId);
         setStatus('running');
         setEvents([]);
+        setSessionStats(null);
         return;
       }
 
@@ -75,6 +77,28 @@ export function useWebSocket() {
 
       if (msg.error) {
         return;
+      }
+
+      // Extract session stats from init and result messages
+      if (msg.type === 'system' && (msg.subtype === 'init' || msg.content?.subtype === 'init')) {
+        const c = msg.content;
+        setSessionStats((prev) => ({
+          ...prev,
+          model: c?.model || null,
+          tools: c?.tools?.length || 0,
+          mcpServers: c?.mcp_servers?.length || 0,
+        }));
+      }
+      if (msg.type === 'result') {
+        const c = msg.content;
+        setSessionStats((prev) => ({
+          ...prev,
+          cost_usd: c?.total_cost_usd || 0,
+          input_tokens: c?.usage?.input_tokens || 0,
+          output_tokens: c?.usage?.output_tokens || 0,
+          duration_ms: c?.duration_ms || 0,
+          num_turns: c?.num_turns || 0,
+        }));
       }
 
       setEvents((prev) => {
@@ -117,6 +141,7 @@ export function useWebSocket() {
     setEvents([]);
     setSessionId(null);
     setStatus('idle');
+    setSessionStats(null);
   }, [send]);
 
   return {
@@ -127,5 +152,6 @@ export function useWebSocket() {
     startAgent,
     stopAgent,
     clearSession,
+    sessionStats,
   };
 }

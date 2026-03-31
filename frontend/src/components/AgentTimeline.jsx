@@ -10,21 +10,95 @@ import styles from './AgentTimeline.module.css';
 function flattenEvent(event) {
   const { type, content } = event;
   const ts = event.timestamp;
+  const subtype = event.subtype || content?.subtype;
 
-  // system / stderr / raw / result -- 直接展示
+  // --- system messages (23 subtypes) ---
   if (type === 'system') {
-    const body = content?.message || content?.text || content?.subtype || '';
+    if (subtype === 'init') {
+      const model = content?.model || 'unknown';
+      const toolCount = content?.tools?.length || 0;
+      const mcpCount = content?.mcp_servers?.length || 0;
+      const skillCount = content?.skills?.length || 0;
+      const parts = [`Model: ${model}`, `Tools: ${toolCount}`, `MCP: ${mcpCount}`];
+      if (skillCount > 0) parts.push(`Skills: ${skillCount}`);
+      return [{ label: 'Session Init', dot: 'done', body: parts.join(' | '), ts }];
+    }
+    if (subtype === 'api_retry') {
+      const attempt = content?.attempt || '?';
+      const max = content?.max_retries || '?';
+      const delay = content?.retry_delay_ms || 0;
+      return [
+        { label: 'API Retry', dot: 'error', body: `Retry ${attempt}/${max} (${delay}ms)`, ts },
+      ];
+    }
+    if (subtype === 'status') {
+      if (content?.status === 'compacting')
+        return [{ label: 'Compacting', dot: 'thinking', body: 'Context compacting...', ts }];
+      return [];
+    }
+    if (subtype === 'compact_boundary')
+      return [{ label: 'Compacted', dot: 'done', body: 'Context window compacted', ts }];
+    if (subtype === 'task_started')
+      return [{ label: 'Subtask', dot: 'running', body: content?.description || '', ts }];
+    if (subtype === 'task_notification') {
+      const st = content?.status || 'completed';
+      return [
+        {
+          label: `Subtask ${st}`,
+          dot: st === 'failed' ? 'error' : 'done',
+          body: content?.summary || '',
+          ts,
+        },
+      ];
+    }
+    if (subtype === 'task_progress') return []; // skip noisy progress
+    if (subtype === 'hook_started' || subtype === 'hook_progress' || subtype === 'hook_response')
+      return [];
+    const body = content?.message || content?.text || subtype || '';
     return body ? [{ label: 'System', dot: 'done', body, ts }] : [];
   }
+
+  // --- tool progress ---
+  if (type === 'tool_progress') {
+    const tool = content?.tool_name || 'unknown';
+    const elapsed = content?.elapsed_time_seconds || 0;
+    return [{ label: `${tool}`, dot: 'running', body: `${elapsed}s elapsed`, ts }];
+  }
+
+  // --- rate limit ---
+  if (type === 'rate_limit_event') {
+    const info = content?.rate_limit_info;
+    return [{ label: 'Rate Limit', dot: 'error', body: info?.status || 'Rate limited', ts }];
+  }
+
+  // --- stream events (partial messages) ---
+  if (type === 'stream_event') return []; // rendered separately if needed
+
   if (type === 'stderr') {
     return [{ label: 'Stderr', dot: 'error', body: content?.text || '', ts }];
   }
   if (type === 'raw') {
     return [{ label: 'Output', dot: 'done', body: content?.text || '', ts }];
   }
+
+  // --- result with stats ---
   if (type === 'result') {
-    const body = content?.result || content?.text || '';
-    return body ? [{ label: 'Result', dot: 'done', body, ts }] : [];
+    const items = [];
+    const resultText = content?.result || content?.text || '';
+    if (resultText) items.push({ label: 'Result', dot: 'done', body: resultText, ts });
+    const cost = content?.total_cost_usd;
+    const tokens = content?.usage;
+    const duration = content?.duration_ms;
+    const turns = content?.num_turns;
+    if (cost != null || tokens || duration) {
+      const parts = [];
+      if (turns) parts.push(`${turns} turns`);
+      if (duration) parts.push(`${(duration / 1000).toFixed(1)}s`);
+      if (tokens) parts.push(`${(tokens.input_tokens || 0) + (tokens.output_tokens || 0)} tokens`);
+      if (cost) parts.push(`$${cost.toFixed(4)}`);
+      items.push({ label: 'Stats', dot: 'done', body: parts.join(' | '), ts });
+    }
+    return items.length ? items : [];
   }
 
   // assistant / user -- 拆开 content blocks

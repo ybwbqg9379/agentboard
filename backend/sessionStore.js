@@ -32,6 +32,7 @@ db.exec(`
 const stmts = {
   createSession: db.prepare('INSERT INTO sessions (id, prompt, status) VALUES (?, ?, ?)'),
   updateStatus: db.prepare('UPDATE sessions SET status = ? WHERE id = ?'),
+  updateStats: db.prepare('UPDATE sessions SET stats = ? WHERE id = ?'),
   getSession: db.prepare('SELECT * FROM sessions WHERE id = ?'),
   listSessions: db.prepare('SELECT * FROM sessions ORDER BY created_at DESC LIMIT ?'),
   insertEvent: db.prepare(
@@ -56,6 +57,14 @@ export function updateSessionStatus(id, status) {
     stmts.updateStatus.run(status, id);
   } catch (err) {
     console.error(`[sessionStore] updateSessionStatus failed: ${err.message}`);
+  }
+}
+
+export function updateSessionStats(id, stats) {
+  try {
+    stmts.updateStats.run(JSON.stringify(stats), id);
+  } catch (err) {
+    console.error(`[sessionStore] updateSessionStats failed: ${err.message}`);
   }
 }
 
