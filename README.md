@@ -132,6 +132,27 @@ npm run dev
 | Agent | @anthropic-ai/claude-agent-sdk | 编排引擎（SDK 编程式调用）                   |
 | 模型  | MiniMax-M2.7-highspeed         | 低成本 LLM（OpenAI Compatible）              |
 
+## 开发
+
+### 代码格式化
+
+```bash
+npm run format        # 格式化全部文件
+npm run format:check  # 检查格式（CI 用）
+```
+
+### 代码检查
+
+```bash
+npm run lint          # ESLint 检查
+```
+
+### 构建
+
+```bash
+npm run build         # 构建前端生产包
+```
+
 ## License
 
 MIT

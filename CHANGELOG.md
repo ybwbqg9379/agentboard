@@ -13,6 +13,13 @@
   - `systemPrompt` 直接注入 workspace 安全约束
   - `permissionMode: 'bypassPermissions'` 替代 `--dangerously-skip-permissions`
 
+### Added
+
+- **代码质量工具**
+  - Prettier: 单引号、尾逗号、100 字符行宽 (`.prettierrc`)
+  - ESLint: recommended 规则、no-unused-vars warning (`eslint.config.js`)
+  - `npm run format` / `npm run format:check` / `npm run lint` 脚本
+
 ### Removed
 
 - 移除 `child_process` spawn 方式
