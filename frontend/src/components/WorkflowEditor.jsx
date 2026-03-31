@@ -468,9 +468,10 @@ export default function WorkflowEditor() {
       if (!node) return;
       setDraggingNode(nodeId);
       setSelectedNode(nodeId);
+      const pos = node.position || { x: 0, y: 0 };
       setDragOffset({
-        x: e.clientX - node.position.x - pan.x,
-        y: e.clientY - node.position.y - pan.y,
+        x: e.clientX - pos.x - pan.x,
+        y: e.clientY - pos.y - pan.y,
       });
     },
     [nodes, pan],
@@ -517,8 +518,9 @@ export default function WorkflowEditor() {
         const mx = e.clientX - rect.left - pan.x;
         const my = e.clientY - rect.top - pan.y;
         const target = nodes.find((n) => {
-          const px = n.position.x;
-          const py = n.position.y + NODE_H / 2;
+          const pos = n.position || { x: 0, y: 0 };
+          const px = pos.x;
+          const py = pos.y + NODE_H / 2;
           return Math.hypot(mx - px, my - py) < 15;
         });
         if (target && target.id !== drawingEdge.fromId) {
@@ -675,10 +677,12 @@ export default function WorkflowEditor() {
               const from = nodes.find((n) => n.id === edge.from);
               const to = nodes.find((n) => n.id === edge.to);
               if (!from || !to) return null;
-              const x1 = from.position.x + NODE_W;
-              const y1 = from.position.y + NODE_H / 2;
-              const x2 = to.position.x;
-              const y2 = to.position.y + NODE_H / 2;
+              const fromPos = from.position || { x: 0, y: 0 };
+              const toPos = to.position || { x: 0, y: 0 };
+              const x1 = fromPos.x + NODE_W;
+              const y1 = fromPos.y + NODE_H / 2;
+              const x2 = toPos.x;
+              const y2 = toPos.y + NODE_H / 2;
               const isActive = activeNodes.has(edge.from) || activeNodes.has(edge.to);
               return (
                 <g key={`${edge.from}-${edge.to}`}>
@@ -717,11 +721,12 @@ export default function WorkflowEditor() {
               const color = NODE_COLORS[node.type] || NODE_COLORS.agent;
               const isSelected = selectedNode === node.id;
               const isActive = activeNodes.has(node.id);
+              const pos = node.position || { x: 0, y: 0 };
               return (
                 <g
                   key={node.id}
                   className={`${styles.node} ${isSelected ? styles.nodeSelected : ''}`}
-                  transform={`translate(${node.position.x}, ${node.position.y})`}
+                  transform={`translate(${pos.x}, ${pos.y})`}
                   onMouseDown={(e) => handleNodeMouseDown(e, node.id)}
                   onClick={(e) => {
                     e.stopPropagation();

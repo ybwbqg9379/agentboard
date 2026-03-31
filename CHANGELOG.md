@@ -12,6 +12,7 @@
 - **[Major] 前端 REST 硬编码 :3001**: 三处 `API_BASE` 改为相对路径 `''` 走 Vite proxy
 - **[Major] Workflow 事件广播串台 + 订阅竞态**: 改回按 `runId` 精确订阅，后端 workflow 广播只投递给订阅对应 `runId` 的连接，避免同一 workflow 的并发运行或多页面互相串台；前端在执行前先生成 `runId`、通过 WebSocket 订阅并等待 `workflow_subscribed` ack，再调用 `/run` 启动执行，彻底消除首次运行时短流程事件先于订阅到达的竞态
 - **[Major] abortWorkflow 不取消运行中 agent**: `activeRuns` 追踪当前 agent sessionId，abort 时调用 `stopAgent()` 触发 done 事件，由 `runAgentNode` 的 listener 自然 resolve/reject 并 cleanup（不再手动 off listener 避免 promise 悬挂）
+- **[Major] WorkflowEditor 节点坐标越界崩溃**: 修复因底层数据库混入测试脏数据（缺失 `position` 坐标字段）导致的渲染报错，利用防御性容错逻辑赋予默认坐标（x:0, y:0），避免 React 组件由于 undefined 异常而导致的白屏（White Screen of Death）崩溃
 
 ### Added
 
