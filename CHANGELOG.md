@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.7.0] - 2026-03-31
+
+### Added
+
+- **Agent 高级字段**: 每个子代理增加 `disallowedTools`、`maxTurns`、`permissionMode`、`model`、`background`、`initialPrompt`
+  - `code-reviewer`: 显式禁止 Bash/Write，限制 15 turns，default 权限
+  - `test-writer`: 禁止 `rm`/`sudo` 模式的 Bash，25 turns，acceptEdits 权限
+  - `researcher`: 禁止 Write/Bash，20 turns，后台运行 (`background: true`)
+  - `architect`: 禁止 Write/Bash，20 turns，`initialPrompt` 先分析 workspace
+- **新增 Hook 事件**:
+  - `SubagentStop`: 子代理完成时推送事件到 Timeline
+  - `PermissionDenied`: 权限拒绝审计日志，Timeline 红色标记
+  - `UserPromptSubmit`: 用户输入审计记录（字符数统计）
+- **SKILL.md 增强**: 4 个技能添加 `allowed-tools`、`when_to_use`、`model` frontmatter 字段
+  - writing-plans, brainstorming, systematic-debugging, verification-before-completion
+
+### Changed
+
+- **AgentTimeline**: 处理 `subagent_stop`、`permission_denied`、`tool_failed` 新事件类型
+
+---
+
 ## [0.6.0] - 2026-03-31
 
 ### Added

@@ -133,6 +133,84 @@ export function buildHooks(emitter, sessionId) {
       },
     ],
 
+    SubagentStop: [
+      {
+        hooks: [
+          async (input) => {
+            try {
+              const agentType = input?.agent_type;
+              emitter.emit('event', {
+                sessionId,
+                type: 'system',
+                subtype: 'subagent_stop',
+                content: {
+                  message: `Subagent completed: ${agentType}`,
+                  agent: agentType,
+                },
+                timestamp: Date.now(),
+              });
+            } catch (err) {
+              console.error(`[hooks] SubagentStop error (session=${sessionId}):`, err);
+            }
+            return { async: true };
+          },
+        ],
+      },
+    ],
+
+    PermissionDenied: [
+      {
+        hooks: [
+          async (input) => {
+            try {
+              const toolName = input?.tool_name;
+              const reason = input?.reason || 'denied';
+              emitter.emit('event', {
+                sessionId,
+                type: 'system',
+                subtype: 'permission_denied',
+                content: {
+                  tool: toolName,
+                  reason,
+                  message: `Permission denied: ${toolName} -- ${reason}`,
+                },
+                timestamp: Date.now(),
+              });
+            } catch (err) {
+              console.error(`[hooks] PermissionDenied error (session=${sessionId}):`, err);
+            }
+            return { async: true };
+          },
+        ],
+      },
+    ],
+
+    UserPromptSubmit: [
+      {
+        hooks: [
+          async (input) => {
+            try {
+              const prompt = input?.prompt || '';
+              // Log prompt submission for audit trail
+              emitter.emit('event', {
+                sessionId,
+                type: 'system',
+                subtype: 'prompt_submitted',
+                content: {
+                  message: `Prompt received (${prompt.length} chars)`,
+                  length: prompt.length,
+                },
+                timestamp: Date.now(),
+              });
+            } catch (err) {
+              console.error(`[hooks] UserPromptSubmit error (session=${sessionId}):`, err);
+            }
+            return { async: true };
+          },
+        ],
+      },
+    ],
+
     Stop: [
       {
         hooks: [

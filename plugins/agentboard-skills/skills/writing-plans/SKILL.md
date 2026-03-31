@@ -1,6 +1,12 @@
 ---
 name: writing-plans
 description: Use when you have a spec or requirements for a multi-step task, before touching code
+allowed-tools:
+  - Read
+  - Glob
+  - Grep
+when_to_use: When the user requests a plan, architecture design, or multi-step implementation strategy
+model: inherit
 ---
 
 # Writing Plans

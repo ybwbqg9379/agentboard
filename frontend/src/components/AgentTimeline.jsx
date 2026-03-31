@@ -54,6 +54,27 @@ function flattenEvent(event) {
     if (subtype === 'task_progress') return []; // skip noisy progress
     if (subtype === 'hook_started' || subtype === 'hook_progress' || subtype === 'hook_response')
       return [];
+    if (subtype === 'subagent_stop')
+      return [{ label: 'Subagent Done', dot: 'done', body: content?.message || '', ts }];
+    if (subtype === 'permission_denied')
+      return [
+        {
+          label: 'Permission Denied',
+          dot: 'error',
+          body: content?.message || `${content?.tool}: ${content?.reason}`,
+          ts,
+        },
+      ];
+    if (subtype === 'prompt_submitted') return []; // audit only, don't clutter timeline
+    if (subtype === 'tool_failed')
+      return [
+        {
+          label: 'Tool Failed',
+          dot: 'error',
+          body: content?.message || `${content?.tool}: ${content?.error}`,
+          ts,
+        },
+      ];
     const body = content?.message || content?.text || subtype || '';
     return body ? [{ label: 'System', dot: 'done', body, ts }] : [];
   }

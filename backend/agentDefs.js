@@ -22,7 +22,11 @@ export function getAgentDefs() {
         'Be concise -- prioritise actionable feedback over lengthy explanations.',
       ].join('\n'),
       tools: ['Read', 'Glob', 'Grep'],
+      disallowedTools: ['Bash', 'Write'],
       skills: ['differential-review'],
+      maxTurns: 15,
+      permissionMode: 'default',
+      model: 'inherit',
     },
 
     'test-writer': {
@@ -35,7 +39,11 @@ export function getAgentDefs() {
         'Ensure every test is deterministic and self-contained.',
       ].join('\n'),
       tools: ['Read', 'Write', 'Bash', 'Glob'],
+      disallowedTools: ['Bash(rm *)', 'Bash(sudo *)'],
       skills: ['test-driven-development', 'property-based-testing'],
+      maxTurns: 25,
+      permissionMode: 'acceptEdits',
+      model: 'inherit',
     },
 
     researcher: {
@@ -47,7 +55,12 @@ export function getAgentDefs() {
         'Prefer official documentation over third-party blog posts.',
       ].join('\n'),
       tools: ['Read', 'Grep', 'mcp__browser__*'],
+      disallowedTools: ['Write', 'Bash'],
       skills: ['audit-context-building'],
+      maxTurns: 20,
+      permissionMode: 'default',
+      model: 'inherit',
+      background: true,
     },
 
     architect: {
@@ -60,7 +73,12 @@ export function getAgentDefs() {
         'Produce actionable plans that other agents or developers can execute directly.',
       ].join('\n'),
       tools: ['Read', 'Glob', 'Grep', 'mcp__sequential-thinking__*'],
+      disallowedTools: ['Write', 'Bash'],
       skills: ['writing-plans', 'brainstorming'],
+      maxTurns: 20,
+      permissionMode: 'default',
+      model: 'inherit',
+      initialPrompt: 'Analyze the workspace structure before proposing any design.',
     },
   };
 }
