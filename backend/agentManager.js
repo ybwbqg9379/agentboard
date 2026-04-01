@@ -13,6 +13,7 @@ import { routeTools } from './router.js';
 import { getAgentDefs } from './agentDefs.js';
 import { buildHooks } from './hooks.js';
 import { initMcpHealth } from './mcpHealth.js';
+import { buildAgentEnv, getSdkExecutablePath } from './sdkRuntime.js';
 
 // 活跃的 Agent Query Map<sessionId, { stream, timeoutId }>
 const activeAgents = new Map();
@@ -79,7 +80,7 @@ function buildBaseOptions(sessionId, permMode, prompt, userId) {
 
   // Dynamically inject the Native MCP Server to host our proprietary JS tools (Phase 2)
   selectedMcpServers.agentboard_native = {
-    command: 'node',
+    command: getSdkExecutablePath(),
     args: [
       resolve(__dirname, 'tools/nativeMcpServer.js'),
       userId || 'default',
@@ -93,20 +94,18 @@ function buildBaseOptions(sessionId, permMode, prompt, userId) {
     cwd: userWorkspace,
     permissionMode: permMode,
     allowDangerouslySkipPermissions: needsSkip,
+    executable: getSdkExecutablePath(),
     systemPrompt: {
       type: 'preset',
       preset: 'claude_code',
       append: getSystemPromptAppend(userWorkspace),
     },
     settingSources: [],
-    env: {
-      PATH: '/usr/local/bin:/usr/bin:/bin',
-      HOME: userWorkspace,
-      TMPDIR: resolve(userWorkspace, '.tmp'),
-      ANTHROPIC_BASE_URL: config.proxy.url,
-      ANTHROPIC_API_KEY: config.llm.apiKey || 'placeholder',
-      CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING: '1',
-    },
+    env: buildAgentEnv({
+      userWorkspace,
+      proxyUrl: config.proxy.url,
+      apiKey: config.llm.apiKey,
+    }),
     mcpServers: selectedMcpServers,
     allowedTools: uniqueAllowedTools,
     agents: getAgentDefs(),

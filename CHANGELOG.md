@@ -9,14 +9,16 @@
 - **前后端鉴权透传补齐**: 新增前端 `clientAuth` 协议层，统一为 REST 请求注入 `Authorization` / `x-user-id`，并为 WebSocket 自动附加 `token` / `user_id` 查询参数；修复设置 `AGENTBOARD_API_KEY` 后前端历史加载、workflow CRUD、workflow run 与 session 恢复链路失效的问题
 - **Session / Workflow ownership 校验**: 后端在 REST 和 WebSocket 两侧为 `subscribe`、`follow_up`、`stop`、`control`、`abort`、`subscribe_workflow` 增加 tenant 归属校验，阻断跨用户操作他人 session/run 的漏洞；`/api/status` 与 `/api/workflow-status` 仅返回当前用户的活跃资源
 - **`x-user-id` / `user_id` 输入清洗**: 新增统一的 user id 规范化逻辑，拒绝非法 tenant 标识，避免路径逃逸样式的用户 ID 落入运行态或数据库查询
+- **Claude Agent SDK 启动环境修复**: 修复受限 PATH 下 SDK 误报 `Claude Code executable not found` 的问题；Agent 运行环境现显式使用 `process.execPath` 启动 SDK 与本地 MCP，并将当前 Node bin 目录注入受控 PATH，保证 `node` / `npx` 型子进程在 Homebrew 等安装路径下也能启动
 - **Workflow Condition UI 真正可用**: Workflow 编辑器新增 edge 级配置面板，支持为 condition 节点的出边设置 `true` / `false` 分支标签；新建条件边时自动补首条 `true`、第二条 `false` 的默认分支，后端同步限制只有 condition 节点允许携带 edge condition
 - **Workflow 安全预订阅恢复**: `subscribe_workflow` 新增 `workflowId` 预订阅通道，在保留 ownership 校验的前提下继续支持“先订阅再创建 run”，避免首次执行时丢失早期事件
 - **Workflow `/run` 请求校验**: 为 workflow 启动请求新增 Zod schema，校验 `runId` 与 `context` 结构，补齐这一条 API 的输入防线
 
 #### Tests
 
-- 测试总数从 `480` 增至 `504`
+- 测试总数从 `480` 增至 `507`
 - 后端新增 user id 规范化、ownership 拦截、workflow run 请求校验、condition edge 约束等回归测试
+- 后端新增 SDK 运行时 PATH / 可执行路径回归测试，锁住 Homebrew / 非系统 Node 安装场景
 - 前端新增 `clientAuth` 协议层测试与 `workflowEdgeUtils` 条件分支默认值/更新逻辑测试
 
 ### 全量缺陷审计修复 (Full Codebase Bug Audit Fix) -- 16 项
