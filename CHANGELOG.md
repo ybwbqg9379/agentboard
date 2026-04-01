@@ -10,6 +10,8 @@
 - **Session 删除**: 新增 `DELETE /api/sessions/:id` API 和前端删除按钮（hover 显示垃圾桶图标），删除 session 及其所有事件
 - **Cmd/Ctrl+Enter 提交**: ChatInput 从 Enter 提交改为 Cmd+Enter (Mac) / Ctrl+Enter (Windows)，纯 Enter 现在插入换行，支持多行输入
 - **Workflow 删除**: Workflow 列表每项新增 hover 删除按钮，调用已有的 `DELETE /api/workflows/:id` API
+- **批量选择/删除 (Session & Workflow)**: 两个列表均支持 checkbox 勾选、Select All、BatchDelete；后端新增 `POST /api/sessions/batch-delete` 和 `POST /api/workflows/batch-delete`
+- **自定义确认弹窗 (ConfirmDialog)**: 替换浏览器原生 `window.confirm`，采用平台主题风格（暗色毛玻璃 + 动画），支持 Escape/Enter 快捷键
 
 ### Agent 生命周期修复与第三方 LLM 适配
 

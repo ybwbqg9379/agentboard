@@ -324,6 +324,16 @@
   flex: 1;
 }
 
+.batchDeleteBtn {
+  background: var(--status-error) !important;
+  color: white !important;
+  border-color: var(--status-error) !important;
+}
+
+.batchDeleteBtn:hover {
+  opacity: 0.85;
+}
+
 .workflowItem {
   display: flex;
   align-items: stretch;
@@ -331,6 +341,26 @@
   border: 1px solid var(--border-primary);
   border-radius: 6px;
   transition: all 0.15s;
+}
+
+.workflowItemSelected {
+  background: rgba(var(--status-running-rgb), 0.08);
+  border-color: rgba(var(--status-running-rgb), 0.3);
+}
+
+.workflowCheckbox {
+  display: flex;
+  align-items: center;
+  padding: 0 var(--space-xs) 0 var(--space-md);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.workflowCheckbox input[type='checkbox'] {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--border-accent);
+  cursor: pointer;
 }
 
 .workflowItem:hover {

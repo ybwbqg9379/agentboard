@@ -48,13 +48,44 @@
   border-radius: 8px;
 }
 
+.selectAllBtn {
+  font-size: 11px;
+  padding: 2px 8px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.selectAllBtn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.batchDeleteBtn {
+  font-size: 11px;
+  padding: 2px 8px;
+  background: var(--status-error);
+  border: 1px solid var(--status-error);
+  border-radius: var(--radius-sm);
+  color: white;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.batchDeleteBtn:hover {
+  opacity: 0.85;
+}
+
 .closeBtn {
   margin-left: auto;
   background: none;
   border: none;
   color: var(--text-tertiary);
   cursor: pointer;
-  font-size: 16px;
+  font-size: 14px;
   padding: 2px 6px;
   border-radius: var(--radius-sm);
 }
@@ -76,6 +107,7 @@
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   margin-bottom: 2px;
+  transition: border-color 0.15s;
 }
 
 .item:hover {
@@ -88,13 +120,33 @@
   border-color: var(--border-accent);
 }
 
+.item.selected {
+  background: rgba(var(--status-running-rgb), 0.08);
+  border-color: rgba(var(--status-running-rgb), 0.3);
+}
+
+.checkbox {
+  display: flex;
+  align-items: center;
+  padding: 0 var(--space-xs) 0 var(--space-sm);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.checkbox input[type='checkbox'] {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--border-accent);
+  cursor: pointer;
+}
+
 .itemContent {
   flex: 1;
   display: block;
   text-align: left;
   background: none;
   border: none;
-  padding: var(--space-sm) var(--space-md);
+  padding: var(--space-sm) var(--space-sm) var(--space-sm) var(--space-xs);
   cursor: pointer;
   color: var(--text-primary);
   font: inherit;

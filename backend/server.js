@@ -103,6 +103,21 @@ app.delete('/api/sessions/:id', (req, res) => {
   res.json({ deleted });
 });
 
+// Batch delete sessions
+app.post('/api/sessions/batch-delete', (req, res) => {
+  const { ids } = req.body;
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ error: 'ids array required' });
+  }
+  let count = 0;
+  for (const id of ids) {
+    if (hasOwnedSession(req.user.id, id)) {
+      if (deleteSession(req.user.id, id)) count++;
+    }
+  }
+  res.json({ deleted: count });
+});
+
 app.post('/api/sessions/:id/stop', (req, res) => {
   if (!hasOwnedSession(req.user.id, req.params.id)) {
     return res.status(404).json({ error: 'session not found' });
@@ -218,6 +233,23 @@ app.delete('/api/workflows/:id', (req, res) => {
   const deleted = deleteWorkflow(req.user.id, req.params.id);
   if (!deleted) return res.status(404).json({ error: 'workflow not found' });
   res.json({ deleted: true });
+});
+
+// Batch delete workflows
+app.post('/api/workflows/batch-delete', (req, res) => {
+  const { ids } = req.body;
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ error: 'ids array required' });
+  }
+  let count = 0;
+  for (const id of ids) {
+    try {
+      if (deleteWorkflow(req.user.id, id)) count++;
+    } catch {
+      /* ignore individual failures */
+    }
+  }
+  res.json({ deleted: count });
 });
 
 app.post('/api/workflows/:id/run', validate(workflowRunRequestSchema), async (req, res) => {

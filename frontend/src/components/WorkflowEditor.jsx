@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import styles from './WorkflowEditor.module.css';
 import Dropdown from './Dropdown';
+import ConfirmDialog from './ConfirmDialog.jsx';
 import { buildWsUrl, withClientAuth } from '../lib/clientAuth.js';
 import {
   EDGE_CONDITION_OPTIONS,
@@ -226,6 +227,8 @@ export default function WorkflowEditor() {
   const [runStatus, setRunStatus] = useState(null); // null | 'running' | 'completed' | 'failed'
   const [activeNodes, setActiveNodes] = useState(new Set());
   const [isEditing, setIsEditing] = useState(false);
+  const [wfSelected, setWfSelected] = useState(new Set());
+  const [wfConfirm, setWfConfirm] = useState(null); // { ids, message }
   const svgRef = useRef(null);
 
   // Fetch workflow list
@@ -688,11 +691,85 @@ export default function WorkflowEditor() {
 
   // --- Workflow list view when no workflow is open ---
   if (!isEditing) {
+    const wfIsSelectMode = wfSelected.size > 0;
+
+    function toggleWfSelect(id, e) {
+      e.stopPropagation();
+      setWfSelected((prev) => {
+        const next = new Set(prev);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        return next;
+      });
+    }
+
+    function toggleWfSelectAll() {
+      if (wfSelected.size === workflows.length) {
+        setWfSelected(new Set());
+      } else {
+        setWfSelected(new Set(workflows.map((w) => w.id)));
+      }
+    }
+
+    function requestWfDeleteSingle(e, wf) {
+      e.stopPropagation();
+      setWfConfirm({
+        ids: [wf.id],
+        message: `Delete workflow "${wf.name}"?`,
+      });
+    }
+
+    function requestWfDeleteBatch() {
+      if (wfSelected.size === 0) return;
+      setWfConfirm({
+        ids: [...wfSelected],
+        message: `Delete ${wfSelected.size} workflow${wfSelected.size > 1 ? 's' : ''}?`,
+      });
+    }
+
+    async function executeWfDelete() {
+      if (!wfConfirm) return;
+      const { ids } = wfConfirm;
+      setWfConfirm(null);
+      try {
+        if (ids.length === 1) {
+          await fetch(`${API_BASE}/api/workflows/${ids[0]}`, withClientAuth({ method: 'DELETE' }));
+        } else {
+          await fetch(
+            `${API_BASE}/api/workflows/batch-delete`,
+            withClientAuth({
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ ids }),
+            }),
+          );
+        }
+        setWorkflows((prev) => prev.filter((w) => !ids.includes(w.id)));
+        setWfSelected((prev) => {
+          const next = new Set(prev);
+          ids.forEach((id) => next.delete(id));
+          return next;
+        });
+      } catch {
+        /* ignore */
+      }
+    }
+
     return (
       <div className={styles.editor}>
         <div className={styles.toolbar}>
           <button onClick={newWorkflow}>+ New Workflow</button>
           <button onClick={fetchWorkflows}>Refresh</button>
+          {workflows.length > 0 && (
+            <button onClick={toggleWfSelectAll}>
+              {wfSelected.size === workflows.length ? 'Deselect All' : 'Select All'}
+            </button>
+          )}
+          {wfIsSelectMode && (
+            <button className={styles.batchDeleteBtn} onClick={requestWfDeleteBatch}>
+              Delete ({wfSelected.size})
+            </button>
+          )}
         </div>
         {workflows.length === 0 ? (
           <div className={styles.emptyState}>
@@ -702,7 +779,17 @@ export default function WorkflowEditor() {
         ) : (
           <div className={styles.workflowList}>
             {workflows.map((wf) => (
-              <div key={wf.id} className={styles.workflowItem}>
+              <div
+                key={wf.id}
+                className={`${styles.workflowItem} ${wfSelected.has(wf.id) ? styles.workflowItemSelected : ''}`}
+              >
+                <label className={styles.workflowCheckbox} onClick={(e) => e.stopPropagation()}>
+                  <input
+                    type="checkbox"
+                    checked={wfSelected.has(wf.id)}
+                    onChange={(e) => toggleWfSelect(wf.id, e)}
+                  />
+                </label>
                 <button className={styles.workflowItemContent} onClick={() => loadWorkflow(wf)}>
                   <div className={styles.workflowItemName}>{wf.name}</div>
                   <div className={styles.workflowItemMeta}>
@@ -713,21 +800,7 @@ export default function WorkflowEditor() {
                 <button
                   className={styles.workflowDeleteBtn}
                   title="Delete workflow"
-                  onClick={async (e) => {
-                    e.stopPropagation();
-                    if (!window.confirm(`Delete workflow "${wf.name}"?`)) return;
-                    try {
-                      const res = await fetch(
-                        `${API_BASE}/api/workflows/${wf.id}`,
-                        withClientAuth({ method: 'DELETE' }),
-                      );
-                      if (res.ok) {
-                        setWorkflows((prev) => prev.filter((w) => w.id !== wf.id));
-                      }
-                    } catch {
-                      /* ignore */
-                    }
-                  }}
+                  onClick={(e) => requestWfDeleteSingle(e, wf)}
                 >
                   🗑
                 </button>
@@ -735,6 +808,14 @@ export default function WorkflowEditor() {
             ))}
           </div>
         )}
+
+        <ConfirmDialog
+          open={!!wfConfirm}
+          title="Delete Workflows"
+          message={wfConfirm?.message || ''}
+          onConfirm={executeWfDelete}
+          onCancel={() => setWfConfirm(null)}
+        />
       </div>
     );
   }
