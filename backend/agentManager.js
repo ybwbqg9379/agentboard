@@ -14,7 +14,7 @@ import {
 } from './sessionStore.js';
 import { routeTools } from './router.js';
 import { getAgentDefs } from './agentDefs.js';
-import { buildHooks } from './hooks.js';
+import { buildHooks, cleanupSessionLoopState } from './hooks.js';
 import { initMcpHealth } from './mcpHealth.js';
 import { buildAgentEnv, getSdkExecutablePath } from './sdkRuntime.js';
 
@@ -343,6 +343,7 @@ function consumeStream(sessionId, stream, abortController, userId = 'default') {
         if (entry.stopped) finalStatus = 'stopped';
       }
       activeAgents.delete(sessionId);
+      cleanupSessionLoopState(sessionId);
       updateSessionStatus(sessionId, finalStatus);
       agentEvents.emit('event', {
         sessionId,

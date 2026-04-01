@@ -630,4 +630,16 @@ describe('createStreamTransformer', () => {
     expect(msgDelta.data.delta.stop_reason).toBe('tool_use');
     expect(types[types.length - 1]).toBe('message_stop');
   });
+
+  it('flush() still works after being called multiple times (idempotent for error recovery)', () => {
+    const t = createStreamTransformer('m');
+    t.transform({ choices: [{ delta: { content: 'x' }, finish_reason: null }] });
+    t.transform({ choices: [{ delta: {}, finish_reason: 'stop' }] });
+
+    const first = t.flush();
+    expect(first).toContain('message_stop');
+    // Second call should return empty (already flushed)
+    const second = t.flush();
+    expect(second).toBe('');
+  });
 });

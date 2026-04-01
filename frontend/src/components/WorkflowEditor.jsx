@@ -59,6 +59,40 @@ const PERMISSION_MODES = [
   { value: 'plan', label: 'Plan' },
 ];
 
+function JsonTextarea({ value, onChange, placeholder }) {
+  const [text, setText] = useState(() => JSON.stringify(value || {}, null, 2));
+  const prevValueRef = useRef(value);
+
+  useEffect(() => {
+    if (prevValueRef.current !== value) {
+      prevValueRef.current = value;
+      try {
+        const current = JSON.parse(text);
+        if (JSON.stringify(current) !== JSON.stringify(value)) {
+          setText(JSON.stringify(value || {}, null, 2));
+        }
+      } catch {
+        setText(JSON.stringify(value || {}, null, 2));
+      }
+    }
+  }, [value, text]);
+
+  return (
+    <textarea
+      value={text}
+      onChange={(e) => setText(e.target.value)}
+      onBlur={() => {
+        try {
+          onChange(JSON.parse(text));
+        } catch {
+          setText(JSON.stringify(value || {}, null, 2));
+        }
+      }}
+      placeholder={placeholder}
+    />
+  );
+}
+
 function NodeConfigPanel({ node, onUpdate, onDelete, onClose }) {
   if (!node) return null;
 
@@ -131,15 +165,9 @@ function NodeConfigPanel({ node, onUpdate, onDelete, onClose }) {
         {node.type === 'transform' && (
           <div className={styles.configField}>
             <label>Mapping (JSON)</label>
-            <textarea
-              value={JSON.stringify(node.config?.mapping || {}, null, 2)}
-              onChange={(e) => {
-                try {
-                  updateConfig('mapping', JSON.parse(e.target.value));
-                } catch {
-                  /* ignore invalid JSON while typing */
-                }
-              }}
+            <JsonTextarea
+              value={node.config?.mapping}
+              onChange={(parsed) => updateConfig('mapping', parsed)}
               placeholder='{"key": "{{source}}"}'
             />
           </div>
@@ -394,6 +422,7 @@ export default function WorkflowEditor() {
   const wsRef = useRef(null);
   const pendingWorkflowSubscriptionsRef = useRef(new Map());
   const reconnectTimerRef = useRef(null);
+  const workflowHeartbeatRef = useRef(null);
   const workflowSocketDisposedRef = useRef(false);
   const connectWorkflowSocketRef = useRef(() => null);
   const activeRunIdRef = useRef(null);
@@ -540,6 +569,10 @@ export default function WorkflowEditor() {
 
       ws.onopen = () => {
         clearTimeout(reconnectTimerRef.current);
+        clearInterval(workflowHeartbeatRef.current);
+        workflowHeartbeatRef.current = setInterval(() => {
+          if (ws.readyState === WebSocket.OPEN) ws.send('ping');
+        }, 30_000);
         if (activeRunIdRef.current && activeWorkflowIdRef.current) {
           ws.send(
             JSON.stringify({
@@ -602,6 +635,7 @@ export default function WorkflowEditor() {
       };
 
       ws.onclose = () => {
+        clearInterval(workflowHeartbeatRef.current);
         rejectPendingWorkflowSubscriptions('workflow socket closed');
         if (wsRef.current === ws) {
           wsRef.current = null;
@@ -622,6 +656,7 @@ export default function WorkflowEditor() {
     return () => {
       workflowSocketDisposedRef.current = true;
       clearTimeout(reconnectTimerRef.current);
+      clearInterval(workflowHeartbeatRef.current);
       rejectPendingWorkflowSubscriptions('workflow socket disposed');
       wsRef.current?.close();
       wsRef.current = null;
@@ -747,17 +782,22 @@ export default function WorkflowEditor() {
     const handler = (e) => {
       if (e.key === 'Delete' || e.key === 'Backspace') {
         if (
-          selectedNode &&
-          document.activeElement?.tagName !== 'INPUT' &&
-          document.activeElement?.tagName !== 'TEXTAREA'
+          document.activeElement?.tagName === 'INPUT' ||
+          document.activeElement?.tagName === 'TEXTAREA'
         ) {
+          return;
+        }
+        if (selectedNode) {
           deleteNode(selectedNode);
+        } else if (selectedEdge) {
+          setEdges((prev) => removeEdge(prev, selectedEdge));
+          setSelectedEdge(null);
         }
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [selectedNode, deleteNode]);
+  }, [selectedNode, selectedEdge, deleteNode]);
 
   const selectedNodeObj = nodes.find((n) => n.id === selectedNode);
   const selectedEdgeObj = edges.find((edge) => edgeMatches(edge, selectedEdge)) || null;

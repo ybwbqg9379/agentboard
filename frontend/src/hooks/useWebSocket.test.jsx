@@ -460,4 +460,72 @@ describe('useWebSocket', () => {
     expect(result.current.status).toBe('idle');
     expect(lastWs.sent).toEqual([]);
   });
+
+  it('MCP health transitions to failed after 3 consecutive errors, not 2 (M3 fix)', () => {
+    const { result } = renderAndConnect();
+    simulateMessage({
+      type: 'system',
+      subtype: 'init',
+      content: { model: 'x', tools: [], mcp_servers: ['test'] },
+    });
+    // Error 1 -> degraded
+    simulateMessage({ type: 'system', subtype: 'tool_failed', content: { tool: 'mcp__test__fn' } });
+    expect(result.current.mcpHealth.test.state).toBe('degraded');
+    // Error 2 -> still degraded
+    simulateMessage({ type: 'system', subtype: 'tool_failed', content: { tool: 'mcp__test__fn' } });
+    expect(result.current.mcpHealth.test.state).toBe('degraded');
+    // Error 3 -> failed
+    simulateMessage({ type: 'system', subtype: 'tool_failed', content: { tool: 'mcp__test__fn' } });
+    expect(result.current.mcpHealth.test.state).toBe('failed');
+  });
+
+  it('loadSession sends WS subscribe when loaded session is running (M5 fix)', async () => {
+    fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        events: [],
+        status: 'running',
+        stats: null,
+      }),
+    });
+    const { result } = renderAndConnect();
+    await act(async () => {
+      await result.current.loadSession('running-sess');
+    });
+    expect(result.current.sessionId).toBe('running-sess');
+    expect(result.current.status).toBe('running');
+    const subscribeSent = lastWs.sent.find((s) => {
+      try {
+        const p = JSON.parse(s);
+        return p.action === 'subscribe' && p.sessionId === 'running-sess';
+      } catch {
+        return false;
+      }
+    });
+    expect(subscribeSent).toBeTruthy();
+  });
+
+  it('loadSession does NOT send subscribe for completed sessions', async () => {
+    fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        events: [],
+        status: 'completed',
+        stats: null,
+      }),
+    });
+    const { result } = renderAndConnect();
+    const sentBefore = lastWs.sent.length;
+    await act(async () => {
+      await result.current.loadSession('done-sess');
+    });
+    const subscribeMsgs = lastWs.sent.slice(sentBefore).filter((s) => {
+      try {
+        return JSON.parse(s).action === 'subscribe';
+      } catch {
+        return false;
+      }
+    });
+    expect(subscribeMsgs).toHaveLength(0);
+  });
 });

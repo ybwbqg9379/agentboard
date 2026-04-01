@@ -145,11 +145,12 @@ export function useWebSocket() {
           setMcpHealth((prev) => {
             const entry = prev[serverName];
             if (!entry) return prev;
+            const newErrorCount = entry.toolErrors + (success ? 0 : 1);
             const updated = {
               ...entry,
               toolCalls: entry.toolCalls + 1,
-              toolErrors: entry.toolErrors + (success ? 0 : 1),
-              state: success ? 'connected' : entry.toolErrors >= 2 ? 'failed' : 'degraded',
+              toolErrors: newErrorCount,
+              state: success ? 'connected' : newErrorCount >= 3 ? 'failed' : 'degraded',
             };
             return { ...prev, [serverName]: updated };
           });
@@ -262,6 +263,10 @@ export function useWebSocket() {
       const finalStatus = data.status || 'completed';
       statusRef.current = finalStatus;
       setStatus(finalStatus);
+      // Subscribe to live events if the session is still running
+      if (finalStatus === 'running') {
+        send({ action: 'subscribe', sessionId: sid });
+      }
       // Restore stats
       if (data.stats) {
         try {

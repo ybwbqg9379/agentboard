@@ -2,6 +2,34 @@
 
 ## Unreleased
 
+### 9 项缺陷修复 (Bug Audit Fix — 1C + 3H + 5M)
+
+#### Fixed — Critical
+
+- **C1** `schemaValidator.js` — Edit tool Zod schema 字段名错误 (`search_string`/`replacement_string` -> `old_string`/`new_string`)，导致所有 agent Edit 调用被拒绝；同步修正 Grep schema (`directory` -> `path`)；修复 Zod v4 `.errors` -> `.issues` 兼容
+
+#### Fixed — High
+
+- **H1** `proxy.js` — 流中断 catch 路径未调用 `transformer.flush()`，SSE 客户端收不到 `message_stop`，agent session 卡在 running 状态
+- **H2** `WorkflowEditor.jsx` — Transform 节点 JSON textarea 每次按键 `JSON.parse` 失败即丢弃输入，手打 JSON 完全不可用；重构为 `JsonTextarea` 组件，本地 string state + onBlur 提交
+- **H3** `WorkflowEditor.jsx` — Workflow WebSocket 缺少 heartbeat，代理/LB 静默断连后工作流运行事件丢失；新增 30s ping 心跳 + onclose/cleanup 清理
+
+#### Fixed — Medium
+
+- **M1** `proxy.js` — 请求体 `body += chunk` 隐式 UTF-8 toString，多字节字符跨 chunk 边界被截断（中文 prompt 受影响）；改为 Buffer 数组 + `Buffer.concat`
+- **M2** `hooks.js` + `agentManager.js` — `sessionLoopState` 仅在 SessionEnd hook 清理，agent 崩溃/abort 时条目泄漏；新增 `cleanupSessionLoopState()` 在 finally 块调用
+- **M3** `useWebSocket.js` — MCP health 状态判定 off-by-one，用旧 `toolErrors` 值检查阈值，实际需 3 次失败才进 `failed`；改为先递增再判断
+- **M4** `WorkflowEditor.jsx` — Delete/Backspace 快捷键仅处理 node 不处理 edge；补充 selectedEdge 删除逻辑
+- **M5** `useWebSocket.js` — `loadSession` 未发送 WS subscribe，加载仍在运行的历史 session 无实时更新；running 状态时自动发送 subscribe
+
+#### Tests
+
+- 新增 `schemaValidator.test.js` (8 tests)
+- `hooks.test.js` 新增 `cleanupSessionLoopState` 测试 (2 tests)
+- `proxy.test.js` 新增 flush 幂等性测试 (1 test)
+- `useWebSocket.test.jsx` 新增 MCP off-by-one、loadSession subscribe 测试 (4 tests)
+- 测试总数: 528 -> 542 (全绿)
+
 ---
 
 ## [0.13.0] - 2026-04-01

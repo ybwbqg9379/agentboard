@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import crypto from 'node:crypto';
 
 vi.mock('./mcpHealth.js', () => ({
   recordToolCall: vi.fn(),
 }));
 
-import { BLOCKED_PATTERNS, isDangerous, buildHooks } from './hooks.js';
+import { BLOCKED_PATTERNS, isDangerous, buildHooks, cleanupSessionLoopState } from './hooks.js';
 import { recordToolCall } from './mcpHealth.js';
 
 // ---------------------------------------------------------------------------
@@ -365,5 +366,23 @@ describe('buildHooks', () => {
       const call = emitter.emit.mock.calls[0];
       expect(call[1].timestamp).toBeTypeOf('number');
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// cleanupSessionLoopState
+// ---------------------------------------------------------------------------
+describe('cleanupSessionLoopState', () => {
+  it('removes loop state created by buildHooks', () => {
+    const emitter = { emit: vi.fn() };
+    const sid = crypto.randomUUID();
+    buildHooks(emitter, sid);
+    // Should not throw even if called multiple times
+    cleanupSessionLoopState(sid);
+    cleanupSessionLoopState(sid);
+  });
+
+  it('does not throw for unknown sessionId', () => {
+    expect(() => cleanupSessionLoopState('nonexistent')).not.toThrow();
   });
 });

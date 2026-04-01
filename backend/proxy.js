@@ -11,6 +11,7 @@
  */
 
 import { createServer } from 'node:http';
+import { Buffer } from 'node:buffer';
 import config from './config.js';
 
 const PROXY_PORT = parseInt(process.env.PROXY_PORT || '4000', 10);
@@ -408,8 +409,8 @@ const server = createServer(async (req, res) => {
     return;
   }
 
-  // 读取请求体（带大小限制）
-  let body = '';
+  // 读取请求体（带大小限制），用 Buffer 数组避免多字节字符跨 chunk 边界被截断
+  const chunks = [];
   let bodyBytes = 0;
   for await (const chunk of req) {
     bodyBytes += chunk.length;
@@ -426,8 +427,9 @@ const server = createServer(async (req, res) => {
       );
       return;
     }
-    body += chunk;
+    chunks.push(chunk);
   }
+  const body = Buffer.concat(chunks).toString('utf-8');
 
   let anthropicReq;
   try {
@@ -483,6 +485,7 @@ const server = createServer(async (req, res) => {
   console.log(
     `[proxy] → ${TARGET_BASE}/chat/completions | model=${openaiReq.model} stream=${isStream} msgs=${openaiReq.messages.length} tools=${openaiReq.tools?.length || 0} size=${(requestBody.length / 1024).toFixed(1)}KB`,
   );
+  let transformer;
   try {
     const targetResp = await fetch(`${TARGET_BASE}/chat/completions`, {
       method: 'POST',
@@ -522,7 +525,7 @@ const server = createServer(async (req, res) => {
       Connection: 'keep-alive',
     });
 
-    const transformer = createStreamTransformer(requestModel);
+    transformer = createStreamTransformer(requestModel);
     res.write(transformer.header() + '\n');
 
     const reader = targetResp.body.getReader();
@@ -577,7 +580,16 @@ const server = createServer(async (req, res) => {
   } catch (err) {
     console.error(`[proxy] fetch error: ${err.message}`);
     if (res.headersSent) {
-      // Headers already written (mid-stream failure) -- send SSE error event and close
+      // Mid-stream failure -- flush pending stop event so SDK receives message_stop,
+      // then send SSE error event and close.
+      try {
+        if (transformer) {
+          const flushed = transformer.flush();
+          if (flushed) res.write(flushed);
+        }
+      } catch {
+        /* ignore flush failure */
+      }
       try {
         res.write(
           `event: error\ndata: ${JSON.stringify({ type: 'error', error: { type: 'stream_error', message: err.message } })}\n\n`,

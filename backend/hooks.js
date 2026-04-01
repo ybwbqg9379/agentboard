@@ -14,6 +14,11 @@ import crypto from 'node:crypto';
 // Loop Hash Detector State Map: sessionId -> { history: [{ tool, hash }], bailoutCount: number }
 const sessionLoopState = new Map();
 
+/** Clean up loop state for a session (call from agentManager on any termination path). */
+export function cleanupSessionLoopState(sessionId) {
+  sessionLoopState.delete(sessionId);
+}
+
 function hashArgs(args) {
   if (!args) return '';
   const str = typeof args === 'string' ? args : JSON.stringify(args);
