@@ -71,17 +71,11 @@
 }
 
 .item {
-  display: block;
-  width: 100%;
-  text-align: left;
-  background: none;
+  display: flex;
+  align-items: stretch;
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
-  padding: var(--space-sm) var(--space-md);
   margin-bottom: 2px;
-  cursor: pointer;
-  color: var(--text-primary);
-  font: inherit;
 }
 
 .item:hover {
@@ -92,6 +86,41 @@
 .item.active {
   background: var(--bg-tertiary);
   border-color: var(--border-accent);
+}
+
+.itemContent {
+  flex: 1;
+  display: block;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: var(--space-sm) var(--space-md);
+  cursor: pointer;
+  color: var(--text-primary);
+  font: inherit;
+  min-width: 0;
+}
+
+.deleteBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0 var(--space-sm);
+  font-size: 14px;
+  opacity: 0;
+  transition: opacity 0.15s;
+  flex-shrink: 0;
+}
+
+.item:hover .deleteBtn {
+  opacity: 0.5;
+}
+
+.deleteBtn:hover {
+  opacity: 1 !important;
 }
 
 .itemHeader {

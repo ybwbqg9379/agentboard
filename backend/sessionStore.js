@@ -61,6 +61,8 @@ const stmts = {
   ),
   getEvents: db.prepare('SELECT * FROM events WHERE session_id = ? ORDER BY timestamp ASC'),
   countEvents: db.prepare('SELECT count(*) as total FROM events WHERE session_id = ?'),
+  deleteEvents: db.prepare('DELETE FROM events WHERE session_id = ?'),
+  deleteSession: db.prepare('DELETE FROM sessions WHERE id = ? AND user_id = ?'),
 };
 
 export function createSession(userId, prompt) {
@@ -166,6 +168,20 @@ export function countEvents(sessionId) {
   } catch (err) {
     console.error(`[sessionStore] countEvents failed: ${err.message}`);
     return 0;
+  }
+}
+
+/**
+ * Delete a session and all its events. Returns true if a session was deleted.
+ */
+export function deleteSession(userId, sessionId) {
+  try {
+    stmts.deleteEvents.run(sessionId);
+    const result = stmts.deleteSession.run(sessionId, userId || 'default');
+    return result.changes > 0;
+  } catch (err) {
+    console.error(`[sessionStore] deleteSession failed: ${err.message}`);
+    return false;
   }
 }
 

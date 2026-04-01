@@ -10,6 +10,7 @@ import {
   getEvents,
   countEvents,
   recoverStaleSessions,
+  deleteSession,
   close as closeDb,
 } from './sessionStore.js';
 import {
@@ -91,6 +92,15 @@ app.get('/api/sessions/:id', (req, res) => {
   const events = getEvents(req.params.id); // Events don't need user_id strictly if session checked
   const eventCount = countEvents(req.params.id);
   res.json({ ...session, events, eventCount });
+});
+
+// Delete a session and its events
+app.delete('/api/sessions/:id', (req, res) => {
+  if (!hasOwnedSession(req.user.id, req.params.id)) {
+    return res.status(404).json({ error: 'session not found' });
+  }
+  const deleted = deleteSession(req.user.id, req.params.id);
+  res.json({ deleted });
 });
 
 app.post('/api/sessions/:id/stop', (req, res) => {

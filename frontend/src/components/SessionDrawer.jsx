@@ -28,6 +28,23 @@ export default function SessionDrawer({ open, onClose, onLoadSession, currentSes
     if (open) fetchSessions();
   }, [open, fetchSessions]);
 
+  async function handleDelete(e, sessionId) {
+    e.stopPropagation();
+    if (!window.confirm('Delete this session and all its events?')) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/sessions/${sessionId}`, {
+        method: 'DELETE',
+        ...withClientAuth(),
+      });
+      if (res.ok) {
+        setSessions((prev) => prev.filter((s) => s.id !== sessionId));
+        setTotal((prev) => prev - 1);
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
   if (!open) return null;
 
   const statusDot = (s) => {
@@ -50,39 +67,50 @@ export default function SessionDrawer({ open, onClose, onLoadSession, currentSes
         <div className={styles.list}>
           {loading && <div className={styles.loading}>Loading...</div>}
           {sessions.map((s) => (
-            <button
+            <div
               key={s.id}
               className={`${styles.item} ${s.id === currentSessionId ? styles.active : ''}`}
-              onClick={() => {
-                onLoadSession(s.id);
-                onClose();
-              }}
             >
-              <div className={styles.itemHeader}>
-                <span className={`dot ${statusDot(s.status)}`} />
-                <span className={styles.itemStatus}>{s.status}</span>
-                <span className={styles.itemTime}>{new Date(s.created_at).toLocaleString()}</span>
-              </div>
-              <div className={styles.itemPrompt}>
-                {(s.prompt || '').slice(0, 80)}
-                {(s.prompt || '').length > 80 ? '...' : ''}
-              </div>
-              {s.stats &&
-                (() => {
-                  try {
-                    const st = typeof s.stats === 'string' ? JSON.parse(s.stats) : s.stats;
-                    const parts = [];
-                    if (st.num_turns) parts.push(`${st.num_turns}t`);
-                    if (st.duration_ms) parts.push(`${(st.duration_ms / 1000).toFixed(0)}s`);
-                    if (st.model) parts.push(st.model);
-                    return parts.length ? (
-                      <div className={styles.itemMeta}>{parts.join(' | ')}</div>
-                    ) : null;
-                  } catch {
-                    return null;
-                  }
-                })()}
-            </button>
+              <button
+                className={styles.itemContent}
+                onClick={() => {
+                  onLoadSession(s.id);
+                  onClose();
+                }}
+              >
+                <div className={styles.itemHeader}>
+                  <span className={`dot ${statusDot(s.status)}`} />
+                  <span className={styles.itemStatus}>{s.status}</span>
+                  <span className={styles.itemTime}>{new Date(s.created_at).toLocaleString()}</span>
+                </div>
+                <div className={styles.itemPrompt}>
+                  {(s.prompt || '').slice(0, 80)}
+                  {(s.prompt || '').length > 80 ? '...' : ''}
+                </div>
+                {s.stats &&
+                  (() => {
+                    try {
+                      const st = typeof s.stats === 'string' ? JSON.parse(s.stats) : s.stats;
+                      const parts = [];
+                      if (st.num_turns) parts.push(`${st.num_turns}t`);
+                      if (st.duration_ms) parts.push(`${(st.duration_ms / 1000).toFixed(0)}s`);
+                      if (st.model) parts.push(st.model);
+                      return parts.length ? (
+                        <div className={styles.itemMeta}>{parts.join(' | ')}</div>
+                      ) : null;
+                    } catch {
+                      return null;
+                    }
+                  })()}
+              </button>
+              <button
+                className={styles.deleteBtn}
+                title="Delete session"
+                onClick={(e) => handleDelete(e, s.id)}
+              >
+                🗑
+              </button>
+            </div>
           ))}
           {!loading && sessions.length === 0 && <div className={styles.empty}>No sessions yet</div>}
         </div>
