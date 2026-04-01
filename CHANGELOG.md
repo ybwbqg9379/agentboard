@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+---
+
+## [0.12.0] - 2026-04-01
+
+### Harness 全自动基座与自愈引擎 (Harness Engineering & Self-Healing)
+
+#### Added
+
+- **本地 Zod 参数自愈网关 (`schemaValidator.js`)**: 拦截所有内置 Tool 的畸形 JSON 调用，本地强制注入闭环修正提示 (`Your JSON payload is strictly invalid...`)，彻底免除向外层计算层/沙盒发起的无用请求耗时。
+- **语义死循环断路器 (`hooks.js` / Semantic Loop Watchdog)**: 监听内存中最近的 Tool 调用，如果连续 3 次的 Hash 指纹完全一致且失败，系统自动向大模型注入 `<harness_override>` 高优系统破壁指令，强制其放弃并切换解题路径；当同一循环达到 5 次失败，将直接引发底层底层断路异常 (`Circuit Breaker`)。
+- **全保真长堆栈透传**: 废除之前为了“节省 Token 成本”而截断报错字符的做法。现在全面采纳“以 Token 换质量”的黑盒原则，即便是长达数百行的 Node.js / Python 堆栈乱码，Harness 也将全保真喂入上下文视窗，提升深层 Bug 排障成功率。
+
 ### 网络搜索与爬取能力增强 (Web Search & Crawling Enhancement)
 
 #### Added

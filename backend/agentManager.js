@@ -63,8 +63,8 @@ function getSessionWorkspace(userId, sessionId) {
 export const PERMISSION_MODES = ['bypassPermissions', 'default', 'acceptEdits', 'plan'];
 
 // Shared system prompt appended to all agent sessions
-const getSystemPromptAppend = (userWorkspace) =>
-  [
+const getSystemPromptAppend = (userWorkspace, needsOnboarding = false) => {
+  const lines = [
     `[SECURITY] You are sandboxed to: ${userWorkspace}`,
     `All file operations MUST stay within this directory.`,
     `NEVER use absolute paths outside ${userWorkspace}.`,
@@ -88,7 +88,19 @@ const getSystemPromptAppend = (userWorkspace) =>
     `  - Avoid redundant searches: do not look up the same information with different tools or rephrased queries.`,
     `  - Most tasks should complete within 20 tool calls. If you have used 30+ tools without a clear result, summarize what you have and deliver it.`,
     `  - When presenting results, be structured and direct. Use tables or bullet points for data-heavy answers.`,
-  ].join('\n');
+  ];
+
+  if (needsOnboarding) {
+    lines.push(
+      ``,
+      `[ONBOARDING TASK]`,
+      `This workspace currently lacks a customized CLAUDE.md architecture rulebook.`,
+      `After fulfilling the user's explicit task, you MUST autonomously locate the package manager configuration (e.g., package.json, requirements.txt), infer the core tech stack, and generate a standardized CLAUDE.md file in the workspace root representing the build commands, lint rules, and codebase conventions for this project.`,
+    );
+  }
+
+  return lines.join('\n');
+};
 
 /**
  * Select which built-in tools to load based on user prompt.
@@ -190,7 +202,10 @@ function buildBaseOptions(sessionId, permMode, prompt, userId) {
     systemPrompt: {
       type: 'preset',
       preset: 'claude_code',
-      append: getSystemPromptAppend(userWorkspace),
+      append: getSystemPromptAppend(
+        userWorkspace,
+        !fs.existsSync(resolve(userWorkspace, 'CLAUDE.md')),
+      ),
     },
     settingSources: [],
     env: buildAgentEnv({

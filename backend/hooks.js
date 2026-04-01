@@ -8,6 +8,17 @@
 
 import { isAbsolute, normalize, resolve, sep } from 'node:path';
 import { recordToolCall } from './mcpHealth.js';
+import { validateToolCallSchema } from './schemaValidator.js';
+import crypto from 'node:crypto';
+
+// Loop Hash Detector State Map: sessionId -> { history: [{ tool, hash }], bailoutCount: number }
+const sessionLoopState = new Map();
+
+function hashArgs(args) {
+  if (!args) return '';
+  const str = typeof args === 'string' ? args : JSON.stringify(args);
+  return crypto.createHash('md5').update(str).digest('hex');
+}
 
 export const BLOCKED_PATTERNS = [
   /rm\s+(-\w*\s+)*-rf\s+[/~]/,
@@ -93,8 +104,95 @@ export function isDangerous(command, workspaceRoot) {
  * @returns {object} hooks config accepted by the Claude Code Agent SDK
  */
 export function buildHooks(emitter, sessionId, workspaceRoot) {
+  if (!sessionLoopState.has(sessionId)) {
+    sessionLoopState.set(sessionId, { history: [], bailoutCount: 0 });
+  }
+
   return {
     PreToolUse: [
+      {
+        // 抓取全量 Tool 进行本地畸形参数自愈与死循环监控 (Phase 1 & Phase 2)
+        hooks: [
+          async (input) => {
+            const toolName = input?.tool_name;
+            const toolInput = input?.tool_input;
+            if (!toolName) return {};
+
+            // 1. Zod Schema Validator 兜底
+            const validation = validateToolCallSchema(toolName, toolInput);
+            if (!validation.valid) {
+              console.warn(
+                `[hooks] Zod validation failed (session=${sessionId}): ${validation.error}`,
+              );
+              emitter.emit('event', {
+                sessionId,
+                type: 'system',
+                subtype: 'hook',
+                content: { message: `Tool Schema Error: ${toolName}` },
+                timestamp: Date.now(),
+              });
+              return {
+                hookSpecificOutput: {
+                  hookEventName: 'PreToolUse',
+                  permissionDecision: 'deny',
+                  permissionDecisionReason: validation.error,
+                },
+              };
+            }
+
+            // 2. Semantic Loop Hash Detector 防呆
+            const state = sessionLoopState.get(sessionId);
+            const callHash = hashArgs(toolInput);
+            const currentCall = { tool: toolName, hash: callHash };
+
+            // 将本次调用推入历史，保持最多 5 条
+            state.history.push(currentCall);
+            if (state.history.length > 5) state.history.shift();
+
+            // 检测连续 3 次调用是否完全一致
+            if (state.history.length >= 3) {
+              const last3 = state.history.slice(-3);
+              const isLoop = last3.every((c) => c.tool === toolName && c.hash === callHash);
+
+              if (isLoop) {
+                state.bailoutCount += 1;
+                console.warn(
+                  `[hooks] Malicious Loop Detected (session=${sessionId}, count=${state.bailoutCount})`,
+                );
+
+                // 终极熔断机制：在破壁指令下达后依然重复，强制退出
+                if (state.bailoutCount >= 3) {
+                  throw new Error(
+                    'FATAL: Agent stuck in an unrecoverable infinite loop. Circuit breaker triggered.',
+                  );
+                }
+
+                // 清空之前的短历史，避免立刻重复触发
+                state.history = [];
+
+                const bailoutMsg = `<harness_override>You have been stuck in an identical execution loop for the past 3 turns. The current strategy is fundamentally flawed. YOU MUST ABANDON this file/approach and attempt a completely different mitigation path to resolve the above error.</harness_override>`;
+
+                emitter.emit('event', {
+                  sessionId,
+                  type: 'system',
+                  subtype: 'hook',
+                  content: { message: 'Semantic Loop Watchdog Triggered => Bailout Injection' },
+                  timestamp: Date.now(),
+                });
+
+                return {
+                  hookSpecificOutput: {
+                    hookEventName: 'PreToolUse',
+                    permissionDecision: 'deny',
+                    permissionDecisionReason: bailoutMsg,
+                  },
+                };
+              }
+            }
+            return {};
+          },
+        ],
+      },
       {
         matcher: 'Bash',
         hooks: [
@@ -367,6 +465,7 @@ export function buildHooks(emitter, sessionId, workspaceRoot) {
                 content: { message: 'Session ended' },
                 timestamp: Date.now(),
               });
+              sessionLoopState.delete(sessionId);
             } catch (err) {
               console.error(`[hooks] SessionEnd error (session=${sessionId}):`, err);
             }
