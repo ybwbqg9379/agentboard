@@ -9,6 +9,8 @@ import {
   updateSessionStatus,
   updateSessionStats,
   insertEvent,
+  getSession,
+  updatePinnedContext,
 } from './sessionStore.js';
 import { routeTools } from './router.js';
 import { getAgentDefs } from './agentDefs.js';
@@ -63,7 +65,7 @@ function getSessionWorkspace(userId, sessionId) {
 export const PERMISSION_MODES = ['bypassPermissions', 'default', 'acceptEdits', 'plan'];
 
 // Shared system prompt appended to all agent sessions
-const getSystemPromptAppend = (userWorkspace, needsOnboarding = false) => {
+const getSystemPromptAppend = (userWorkspace, needsOnboarding = false, pinnedContexts = []) => {
   const lines = [
     `[SECURITY] You are sandboxed to: ${userWorkspace}`,
     `All file operations MUST stay within this directory.`,
@@ -96,6 +98,15 @@ const getSystemPromptAppend = (userWorkspace, needsOnboarding = false) => {
       `[ONBOARDING TASK]`,
       `This workspace currently lacks a customized CLAUDE.md architecture rulebook.`,
       `After fulfilling the user's explicit task, you MUST autonomously locate the package manager configuration (e.g., package.json, requirements.txt), infer the core tech stack, and generate a standardized CLAUDE.md file in the workspace root representing the build commands, lint rules, and codebase conventions for this project.`,
+    );
+  }
+
+  if (Array.isArray(pinnedContexts) && pinnedContexts.length > 0) {
+    lines.push(
+      ``,
+      `[PINNED CONTEXT (CRITICAL MEMORY)]`,
+      `The following architectural constraints and facts MUST NOT be forgotten:`,
+      ...pinnedContexts.map((c) => `--- \n${c}\n---`),
     );
   }
 
@@ -205,6 +216,17 @@ function buildBaseOptions(sessionId, permMode, prompt, userId) {
       append: getSystemPromptAppend(
         userWorkspace,
         !fs.existsSync(resolve(userWorkspace, 'CLAUDE.md')),
+        (function () {
+          const s = getSession(userId, sessionId);
+          if (s && s.pinned_context) {
+            try {
+              return JSON.parse(s.pinned_context);
+            } catch {
+              /* ignore */
+            }
+          }
+          return [];
+        })(),
       ),
     },
     settingSources: [],
@@ -258,6 +280,37 @@ function consumeStream(sessionId, stream, abortController, userId = 'default') {
 
         insertEvent(sessionId, msg.type, msg);
         agentEvents.emit('event', wrapped);
+
+        if (msg.type === 'message' && msg.role === 'assistant') {
+          const text =
+            typeof msg.content === 'string'
+              ? msg.content
+              : Array.isArray(msg.content)
+                ? msg.content
+                    .filter((b) => b.type === 'text')
+                    .map((b) => b.text)
+                    .join('\n')
+                : '';
+          const pinMatches = [...text.matchAll(/<pin_context>([\s\S]*?)<\/pin_context>/g)];
+          if (pinMatches.length > 0) {
+            const sessionInfo = getSession(userId, sessionId);
+            let pinned = [];
+            if (sessionInfo && sessionInfo.pinned_context) {
+              try {
+                pinned = JSON.parse(sessionInfo.pinned_context);
+              } catch {
+                /* ignore */
+              }
+            }
+            for (const m of pinMatches) {
+              const val = m[1].trim();
+              if (val && !pinned.includes(val)) {
+                pinned.push(val);
+              }
+            }
+            if (pinned.length > 0) updatePinnedContext(sessionId, pinned);
+          }
+        }
 
         if (msg.type === 'result') {
           const stats = {

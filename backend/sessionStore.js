@@ -17,6 +17,7 @@ db.exec(`
     prompt    TEXT NOT NULL,
     status    TEXT NOT NULL DEFAULT 'pending',
     stats     TEXT,
+    pinned_context TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
@@ -37,6 +38,9 @@ try {
   if (!tableInfo.some((col) => col.name === 'user_id')) {
     db.exec(`ALTER TABLE sessions ADD COLUMN user_id TEXT NOT NULL DEFAULT 'default'`);
   }
+  if (!tableInfo.some((col) => col.name === 'pinned_context')) {
+    db.exec(`ALTER TABLE sessions ADD COLUMN pinned_context TEXT`);
+  }
 } catch (e) {
   console.error('[sessionStore] Migration failed:', e);
 }
@@ -47,6 +51,7 @@ const stmts = {
   ),
   updateStatus: db.prepare('UPDATE sessions SET status = ? WHERE id = ?'),
   updateStats: db.prepare('UPDATE sessions SET stats = ? WHERE id = ?'),
+  updatePinnedContext: db.prepare('UPDATE sessions SET pinned_context = ? WHERE id = ?'),
   getSession: db.prepare('SELECT * FROM sessions WHERE id = ? AND user_id = ?'),
   listSessions: db.prepare(
     'SELECT * FROM sessions WHERE user_id = ? ORDER BY created_at DESC LIMIT ?',
@@ -89,6 +94,14 @@ export function updateSessionStats(id, stats) {
     stmts.updateStats.run(JSON.stringify(stats), id);
   } catch (err) {
     console.error(`[sessionStore] updateSessionStats failed: ${err.message}`);
+  }
+}
+
+export function updatePinnedContext(id, pinnedContextArray) {
+  try {
+    stmts.updatePinnedContext.run(JSON.stringify(pinnedContextArray), id);
+  } catch (err) {
+    console.error(`[sessionStore] updatePinnedContext failed: ${err.message}`);
   }
 }
 

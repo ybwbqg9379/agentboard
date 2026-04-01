@@ -161,7 +161,7 @@ describe('buildHooks', () => {
       expect(result.hookSpecificOutput).toBeDefined();
       expect(result.hookSpecificOutput.permissionDecision).toBe('deny');
       expect(result.hookSpecificOutput.permissionDecisionReason).toContain(
-        'Blocked dangerous command',
+        '[Harness Oracle blocked operation]',
       );
     });
 

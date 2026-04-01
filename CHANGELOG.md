@@ -4,6 +4,18 @@
 
 ---
 
+## [0.13.0] - 2026-04-01
+
+### Harness 终极架构补强 (Harness Engineering - The Final Leap)
+
+#### Added
+
+- **语义级代码护城河 (LSP Semantic Engine)**: 新增 `LSPTool`（基于 `ts-morph`），通过提供真正的 `find_references` 和 `go_to_definition` 方法，让 Agent 具备 IDE 级别的 AST 感知能力，彻底告别正则文本检索。
+- **“上帝之眼”破坏防御前线 (Destructive Oracle)**: 改造 `PreToolUse` Hook，扩展至细粒度 SQL 保护机制（`DROP TABLE`, `TRUNCATE`），容器层拦截（`docker prune`, `rm -f`），以及禁止高风险版本控制器操作（`git reset --hard`, `git push --force`）。
+- **上下文强锁定防遗忘机制 (Context Pinning Escrow)**: 在引擎会话层及 SQLite (`pinned_context`) 实装，通过让大模型附带 `<pin_context>` 标签实现记忆永驻置顶，杜绝因为超长会话和窗口压缩导致的核心逻辑失忆。
+
+---
+
 ## [0.12.0] - 2026-04-01
 
 ### Harness 全自动基座与自愈引擎 (Harness Engineering & Self-Healing)

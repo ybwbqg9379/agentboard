@@ -7,6 +7,7 @@ import { TaskCreateTool } from './TaskCreateTool.js';
 import { RememberTool, RecallTool } from './RememberTool.js';
 import { BatchTool } from './BatchTool.js';
 import { LoopTool } from './LoopTool.js';
+import { LSPTool } from './LSPTool.js';
 
 /**
  * AgentBoard Native MCP Server
@@ -38,6 +39,7 @@ const activeTools = [
   new RecallTool(),
   new BatchTool(),
   new LoopTool(),
+  new LSPTool(),
 ];
 
 // Register Tool List

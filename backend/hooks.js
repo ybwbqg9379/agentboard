@@ -38,6 +38,18 @@ export const BLOCKED_PATTERNS = [
   /\b(curl|wget)\b.*-d\s/,
   // Block escaping to parent directories beyond workspace
   /\bcd\s+\.\.\//,
+
+  // --- Phase 2: Destructive Oracle (上帝之眼破坏预言机) ---
+  // SQL Disasters
+  /\b(DROP|TRUNCATE|ALTER)\s+(TABLE|DATABASE|SCHEMA|ROLE|USER)\b/i,
+  // Git Disasters
+  /\bgit\s+reset\s+--hard\s+(HEAD~\d+|[A-Fa-f0-9]{5,})\b/,
+  /\bgit\s+push\s+(-f|--force)\b/,
+  /\bgit\s+(branch|tag)\s+-D\b/,
+  // Docker Disasters
+  /\bdocker\s+system\s+prune\s+-a\b/,
+  /\bdocker\s+volume\s+rm\s+all\b/,
+  /\bdocker\s+rm\s+-f\b.*ps\s+-a\s+-q/,
 ];
 
 const ALLOWED_ABSOLUTE_PREFIXES = ['/usr/local/bin', '/usr/bin', '/bin', '/dev', '/tmp'];
@@ -80,7 +92,7 @@ export function getCommandBlockReason(command, workspaceRoot) {
   if (typeof command !== 'string' || command.trim().length === 0) return null;
 
   if (BLOCKED_PATTERNS.some((pattern) => pattern.test(command))) {
-    return `Blocked dangerous command: ${command}`;
+    return `[Harness Oracle blocked operation] Destructive action detected: ${command}. Switch to read-only tools or abort.`;
   }
 
   const violations = getPathFenceViolations(command, workspaceRoot);
