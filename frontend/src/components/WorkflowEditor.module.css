@@ -325,17 +325,51 @@
 }
 
 .workflowItem {
-  padding: var(--space-md);
+  display: flex;
+  align-items: stretch;
   background: var(--bg-tertiary);
   border: 1px solid var(--border-primary);
   border-radius: 6px;
-  cursor: pointer;
   transition: all 0.15s;
 }
 
 .workflowItem:hover {
   border-color: var(--border-accent);
   background: var(--bg-hover);
+}
+
+.workflowItemContent {
+  flex: 1;
+  padding: var(--space-md);
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  min-width: 0;
+}
+
+.workflowDeleteBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0 var(--space-md);
+  font-size: 14px;
+  opacity: 0;
+  transition: opacity 0.15s;
+  flex-shrink: 0;
+}
+
+.workflowItem:hover .workflowDeleteBtn {
+  opacity: 0.5;
+}
+
+.workflowDeleteBtn:hover {
+  opacity: 1 !important;
 }
 
 .workflowItemName {

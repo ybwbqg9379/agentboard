@@ -702,12 +702,35 @@ export default function WorkflowEditor() {
         ) : (
           <div className={styles.workflowList}>
             {workflows.map((wf) => (
-              <div key={wf.id} className={styles.workflowItem} onClick={() => loadWorkflow(wf)}>
-                <div className={styles.workflowItemName}>{wf.name}</div>
-                <div className={styles.workflowItemMeta}>
-                  {wf.definition?.nodes?.length || 0} nodes / {wf.definition?.edges?.length || 0}{' '}
-                  edges
-                </div>
+              <div key={wf.id} className={styles.workflowItem}>
+                <button className={styles.workflowItemContent} onClick={() => loadWorkflow(wf)}>
+                  <div className={styles.workflowItemName}>{wf.name}</div>
+                  <div className={styles.workflowItemMeta}>
+                    {wf.definition?.nodes?.length || 0} nodes / {wf.definition?.edges?.length || 0}{' '}
+                    edges
+                  </div>
+                </button>
+                <button
+                  className={styles.workflowDeleteBtn}
+                  title="Delete workflow"
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    if (!window.confirm(`Delete workflow "${wf.name}"?`)) return;
+                    try {
+                      const res = await fetch(
+                        `${API_BASE}/api/workflows/${wf.id}`,
+                        withClientAuth({ method: 'DELETE' }),
+                      );
+                      if (res.ok) {
+                        setWorkflows((prev) => prev.filter((w) => w.id !== wf.id));
+                      }
+                    } catch {
+                      /* ignore */
+                    }
+                  }}
+                >
+                  🗑
+                </button>
               </div>
             ))}
           </div>

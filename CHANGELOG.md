@@ -9,6 +9,7 @@
 - **Per-session workspace**: 每个 Agent session 现在在独立的 `workspace/sessions/{sessionId}/` 目录中运行，不同 session 创建的文件互不干扰。启动时自动创建目录并从 workspace 根复制 `CLAUDE.md` 行为约束
 - **Session 删除**: 新增 `DELETE /api/sessions/:id` API 和前端删除按钮（hover 显示垃圾桶图标），删除 session 及其所有事件
 - **Cmd/Ctrl+Enter 提交**: ChatInput 从 Enter 提交改为 Cmd+Enter (Mac) / Ctrl+Enter (Windows)，纯 Enter 现在插入换行，支持多行输入
+- **Workflow 删除**: Workflow 列表每项新增 hover 删除按钮，调用已有的 `DELETE /api/workflows/:id` API
 
 ### Agent 生命周期修复与第三方 LLM 适配
 
