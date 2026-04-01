@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Session 级工作空间隔离
+
+#### Changed
+
+- **Per-session workspace**: 每个 Agent session 现在在独立的 `workspace/sessions/{sessionId}/` 目录中运行，不同 session 创建的文件互不干扰。启动时自动创建目录并从 workspace 根复制 `CLAUDE.md` 行为约束
+
 ### Agent 生命周期修复与第三方 LLM 适配
 
 #### Fixed

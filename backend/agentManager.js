@@ -2,6 +2,7 @@ import { query } from '@anthropic-ai/claude-agent-sdk';
 import { EventEmitter } from 'node:events';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import fs from 'node:fs';
 import config from './config.js';
 import {
   createSession,
@@ -26,11 +27,35 @@ const __dirname = dirname(__filename);
 const PLUGINS_DIR = resolve(config.pluginsDir);
 
 function getUserWorkspace(userId) {
-  // If SaaS mode is strictly enforcing isolation, we append userId.
-  // For backwards compat locally without a token, we might just append 'default' or use root.
-  // Using a subfolder per tenant is safest.
+  // User-level workspace root (SaaS: per-tenant, local: root workspace)
   if (!userId || userId === 'default') return resolve(config.workspaceDir);
   return resolve(config.workspaceDir, userId);
+}
+
+/**
+ * Get or create a session-scoped workspace directory.
+ * Each session gets its own isolated directory under the user workspace.
+ * If a CLAUDE.md exists in the user workspace root, it's copied into the session dir.
+ *
+ * @param {string} userId
+ * @param {string} sessionId
+ * @returns {string} Absolute path to the session workspace
+ */
+function getSessionWorkspace(userId, sessionId) {
+  const userRoot = getUserWorkspace(userId);
+  const sessionDir = resolve(userRoot, 'sessions', sessionId);
+
+  if (!fs.existsSync(sessionDir)) {
+    fs.mkdirSync(sessionDir, { recursive: true });
+
+    // Propagate CLAUDE.md rules into the session workspace
+    const claudeMd = resolve(userRoot, 'CLAUDE.md');
+    if (fs.existsSync(claudeMd)) {
+      fs.copyFileSync(claudeMd, resolve(sessionDir, 'CLAUDE.md'));
+    }
+  }
+
+  return sessionDir;
 }
 
 // Valid permission modes exposed to the frontend
@@ -132,7 +157,7 @@ export function selectBuiltinTools(prompt) {
  */
 function buildBaseOptions(sessionId, permMode, prompt, userId) {
   const needsSkip = permMode === 'bypassPermissions';
-  const userWorkspace = getUserWorkspace(userId);
+  const userWorkspace = getSessionWorkspace(userId, sessionId);
 
   // Conditionally route tools and MCPs based on user intent
   const { uniqueAllowedTools, selectedMcpServers } = routeTools(
