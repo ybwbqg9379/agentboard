@@ -328,3 +328,23 @@ describe('unknown routes', () => {
     expect(res.status).toBe(404);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Batch delete limits (H3 fix)
+// ---------------------------------------------------------------------------
+
+describe('batch delete limits', () => {
+  it('rejects session batch-delete with more than 100 ids', async () => {
+    const ids = Array.from({ length: 101 }, (_, i) => `id-${i}`);
+    const res = await request(app).post('/api/sessions/batch-delete').send({ ids });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/max 100/);
+  });
+
+  it('rejects workflow batch-delete with more than 100 ids', async () => {
+    const ids = Array.from({ length: 101 }, (_, i) => `id-${i}`);
+    const res = await request(app).post('/api/workflows/batch-delete').send({ ids });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/max 100/);
+  });
+});

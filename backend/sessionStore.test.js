@@ -24,6 +24,7 @@ const {
   countSessions,
   countEvents,
   recoverStaleSessions,
+  deleteSession,
   close,
 } = await import('./sessionStore.js');
 
@@ -329,6 +330,34 @@ describe('recoverStaleSessions', () => {
 // ---------------------------------------------------------------------------
 // close
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Atomic delete (C1 fix)
+// ---------------------------------------------------------------------------
+
+describe('deleteSession', () => {
+  it('atomically deletes session and all its events', () => {
+    const sid = createSession('del-user', 'to be deleted');
+    insertEvent(sid, 'user', { text: 'hello' });
+    insertEvent(sid, 'assistant', { text: 'world' });
+    expect(getEvents(sid)).toHaveLength(2);
+
+    const result = deleteSession('del-user', sid);
+    expect(result).toBe(true);
+    expect(getSession('del-user', sid)).toBeFalsy();
+    expect(getEvents(sid)).toHaveLength(0);
+  });
+
+  it('returns false for non-existent session', () => {
+    expect(deleteSession('del-user', '00000000-0000-0000-0000-000000000000')).toBe(false);
+  });
+
+  it('enforces user ownership', () => {
+    const sid = createSession('owner', 'my session');
+    expect(deleteSession('other-user', sid)).toBe(false);
+    expect(getSession('owner', sid)).not.toBeNull();
+  });
+});
 
 describe('close', () => {
   it('does not throw', () => {

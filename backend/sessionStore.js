@@ -172,13 +172,18 @@ export function countEvents(sessionId) {
 }
 
 /**
- * Delete a session and all its events. Returns true if a session was deleted.
+ * Delete a session and all its events atomically.
+ * Returns true if a session was deleted.
  */
+const deleteSessionTx = db.transaction((userId, sessionId) => {
+  stmts.deleteEvents.run(sessionId);
+  const result = stmts.deleteSession.run(sessionId, userId || 'default');
+  return result.changes > 0;
+});
+
 export function deleteSession(userId, sessionId) {
   try {
-    stmts.deleteEvents.run(sessionId);
-    const result = stmts.deleteSession.run(sessionId, userId || 'default');
-    return result.changes > 0;
+    return deleteSessionTx(userId, sessionId);
   } catch (err) {
     console.error(`[sessionStore] deleteSession failed: ${err.message}`);
     return false;

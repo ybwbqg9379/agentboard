@@ -134,6 +134,12 @@ export async function executeInSandbox(userWorkspace, code, language = 'bash', t
         });
     });
 
+    // Wait for log streams to fully drain before reading collected output
+    await Promise.all([
+      new Promise((r) => stdoutStream.on('end', r)),
+      new Promise((r) => stderrStream.on('end', r)),
+    ]);
+
     return {
       stdout: stdoutData,
       stderr: stderrData,

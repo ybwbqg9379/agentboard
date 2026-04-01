@@ -175,6 +175,64 @@ describe('Workflow Runs', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Tenant isolation: deleteWorkflow only deletes owned runs (C2 fix)
+// ---------------------------------------------------------------------------
+
+describe('Tenant isolation on delete', () => {
+  it('deleteWorkflow does not delete runs belonging to other users', () => {
+    const wfIdA = createWorkflow('user-a', 'WF-A', '', {
+      nodes: [
+        { id: 'in', type: 'input' },
+        { id: 'out', type: 'output' },
+      ],
+      edges: [{ from: 'in', to: 'out' }],
+    });
+    const runIdA = createWorkflowRun('user-a', wfIdA, { from: 'a' });
+
+    // user-b creates a workflow with a run
+    const wfIdB = createWorkflow('user-b', 'WF-B', '', {
+      nodes: [
+        { id: 'in', type: 'input' },
+        { id: 'out', type: 'output' },
+      ],
+      edges: [{ from: 'in', to: 'out' }],
+    });
+    const runIdB = createWorkflowRun('user-b', wfIdB, { from: 'b' });
+
+    // user-a deletes their workflow
+    expect(deleteWorkflow('user-a', wfIdA)).toBe(true);
+    expect(getWorkflowRun('user-a', runIdA)).toBeNull();
+
+    // user-b's run must still exist
+    expect(getWorkflowRun('user-b', runIdB)).not.toBeNull();
+
+    // user-a cannot delete user-b's workflow
+    expect(deleteWorkflow('user-a', wfIdB)).toBe(false);
+    expect(getWorkflow('user-b', wfIdB)).not.toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Atomic delete (C1 fix) -- transaction wrapping
+// ---------------------------------------------------------------------------
+
+describe('Atomic delete', () => {
+  it('deleteWorkflow is atomic -- both runs and workflow are deleted together', () => {
+    const wfId = createWorkflow('atom-user', 'Atomic WF', '', {
+      nodes: [
+        { id: 'in', type: 'input' },
+        { id: 'out', type: 'output' },
+      ],
+      edges: [{ from: 'in', to: 'out' }],
+    });
+    const runId = createWorkflowRun('atom-user', wfId, {});
+    expect(deleteWorkflow('atom-user', wfId)).toBe(true);
+    expect(getWorkflow('atom-user', wfId)).toBeNull();
+    expect(getWorkflowRun('atom-user', runId)).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Error handling regression (B-M2)
 // ---------------------------------------------------------------------------
 

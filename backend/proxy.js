@@ -376,9 +376,15 @@ export function createStreamTransformer(requestModel) {
 
 // --- HTTP Server ---
 
+// Max request body size: 10MB (prevents memory exhaustion from oversized payloads)
+const MAX_BODY_BYTES = 10 * 1024 * 1024;
+
 const server = createServer(async (req, res) => {
-  // CORS
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  // CORS -- restrict to localhost only (proxy is internal, not browser-facing)
+  const origin = req.headers.origin || '';
+  const allowedOrigin =
+    origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:') ? origin : '';
+  res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
   res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', '*');
 
@@ -402,9 +408,26 @@ const server = createServer(async (req, res) => {
     return;
   }
 
-  // 读取请求体
+  // 读取请求体（带大小限制）
   let body = '';
-  for await (const chunk of req) body += chunk;
+  let bodyBytes = 0;
+  for await (const chunk of req) {
+    bodyBytes += chunk.length;
+    if (bodyBytes > MAX_BODY_BYTES) {
+      res.writeHead(413, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          type: 'error',
+          error: {
+            type: 'request_too_large',
+            message: `Request body exceeds ${MAX_BODY_BYTES / 1024 / 1024}MB limit`,
+          },
+        }),
+      );
+      return;
+    }
+    body += chunk;
+  }
 
   let anthropicReq;
   try {

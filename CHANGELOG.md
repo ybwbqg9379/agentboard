@@ -2,6 +2,42 @@
 
 ## Unreleased
 
+### 深度代码审计修复 (Deep Code Audit Fix) -- 4 Critical + 8 High + 7 Medium
+
+#### Critical 数据完整性与安全修复
+
+- **[C1] Session 删除非原子操作**: `deleteSession` 的 events 删除与 session 删除未包裹事务，进程在两步之间崩溃会导致数据孤立。现已用 `db.transaction()` 包裹为原子操作
+- **[C2] Workflow 删除绕过租户隔离**: `deleteWorkflowRuns` SQL 语句无 `user_id` 过滤条件，攻击者猜到 workflowId 可删除其他租户的全部运行历史。现已加 `user_id` 过滤并用事务包裹
+- **[C3] Session 批量删除缺失 Content-Type header**: `SessionDrawer` 批量删除时 `withClientAuth({ body: ... })` 未传递 `Content-Type: application/json`，导致后端 JSON 解析失败。现已正确传递 headers
+- **[C4] 工作流编辑器画边初始坐标未减 pan 偏移**: `handleOutputPortMouseDown` 初始化坐标未考虑画布平移量，导致平移后画边第一帧从错误位置跳跃。现已在初始化时减去 `pan.x/pan.y`
+
+#### High 级别修复
+
+- **[H1] `continueAgent` TOCTOU 占位无 AbortController**: 占位 entry 缺少 `abortController`，窗口期内调用 `stopAgent` 被静默吞掉且后续 `consumeStream` 覆盖时丢失 `stopped` 标志。现已在占位时即创建 AbortController，并在 `consumeStream` 中保留已有 `stopped` 状态
+- **[H2] 工作流 Agent 节点事件监听器竞态**: `agentEvents.on` 在 `startAgent` 之后注册，极速完成的 agent 可能错过 done 事件导致 Promise 永不 settle。现已将监听器注册移至 `startAgent` 调用之前
+- **[H3] 批量删除无上限**: `batch-delete` 端点对 `ids` 数组无长度限制，万级 ids 同步 SQLite 循环阻塞主线程。现已限制为最多 100 条
+- **[H4] 节点拖拽与画布平移状态无互斥**: `handleNodeMouseDown` 未清除 `isPanning` 状态，触控板双指操作可能同时触发拖拽和平移。现已在拖拽开始时设置 `setIsPanning(false)`
+- **[H5] Edge 唯一标识仅靠 from+to**: 同一目标节点的 true/false 条件边无法区分，选择/删除/更新时互相影响。现已为每条 edge 添加唯一 `id` 字段，`edgeMatches` 优先使用 id 匹配
+- **[H6] WebSocket 重连定时器卸载后泄漏**: 组件卸载后 `onclose` 仍可触发重连 timer，创建孤立 WebSocket 连接。现已添加 `unmountedRef` 守卫
+- **[H7] ConfirmDialog Enter 键误触发**: document 级 Enter 键监听在 textarea/input 聚焦时也触发 `onConfirm`，导致编辑 prompt 时按 Enter 意外确认删除。现已添加 `e.target.tagName` 守卫
+- **[H8] Docker 沙箱输出截断**: `container.wait()` 后未等待 stdout/stderr stream drain，日志可能未完全刷入。现已在 wait 后 await 两个 PassThrough stream 的 `end` 事件
+
+#### Medium 级别修复
+
+- **[M1] WebSocket 无心跳**: 无主动 ping 机制，NAT/防火墙可能静默断开长连接。现已添加 30 秒间隔心跳 ping
+- **[M2] Proxy CORS 全放通**: `Access-Control-Allow-Origin: *` 与主后端 localhost-only 策略不一致。现已限制为 localhost 来源
+- **[M3] Proxy 无请求体大小限制**: 恶意客户端可发送巨大 payload 耗尽内存。现已添加 10MB 上限
+- **[M4] EventEmitter maxListeners 警告**: `agentEvents` 和 `workflowEvents` 未设置上限，10+ 并发工作流触发 Node.js 警告。现已设置 `setMaxListeners(50)`
+- **[M5] 工作流引擎 definition null guard**: 数据库存储的 JSON 畸形时 `executeWorkflow` 抛出 TypeError。现已添加前置校验并标记运行失败
+- **[M6] SessionDrawer 删除计数不准**: 部分删除失败时 `total` 仍减去全部 ids 数量。现已改为基于实际剩余列表计算，失败时刷新列表
+- **[M7] Timeline 动画延迟无上限**: `animationDelay` 使用渲染位置索引，大列表时延迟过长。现已 clamp 到最多 20 项
+
+#### Tests
+
+- 测试总数从 `509` 增至 `519`
+- 后端新增 sessionStore 原子删除测试、租户隔离删除测试、批量删除上限测试
+- 前端新增 edge id 唯一标识测试、`ensureEdgeIds`/`syncEdgeIdCounter` 测试、id 匹配优先级测试
+
 ### Session 级工作空间隔离
 
 #### Changed

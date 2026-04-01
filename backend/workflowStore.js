@@ -81,7 +81,7 @@ const stmts = {
   listRuns: db.prepare(
     'SELECT * FROM workflow_runs WHERE workflow_id = ? AND user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?',
   ),
-  deleteWorkflowRuns: db.prepare('DELETE FROM workflow_runs WHERE workflow_id = ?'),
+  deleteWorkflowRuns: db.prepare('DELETE FROM workflow_runs WHERE workflow_id = ? AND user_id = ?'),
 };
 
 // --- Workflow CRUD ---
@@ -134,12 +134,15 @@ export function countWorkflows(userId) {
   return stmts.countWorkflows.get(userId || 'default')?.total || 0;
 }
 
+const deleteWorkflowTx = db.transaction((userId, id) => {
+  stmts.deleteWorkflowRuns.run(id, userId || 'default');
+  const result = stmts.deleteWorkflow.run(id, userId || 'default');
+  return result.changes > 0;
+});
+
 export function deleteWorkflow(userId, id) {
   try {
-    // Cascade: delete all runs referencing this workflow first
-    stmts.deleteWorkflowRuns.run(id);
-    const result = stmts.deleteWorkflow.run(id, userId || 'default');
-    return result.changes > 0;
+    return deleteWorkflowTx(userId, id);
   } catch (err) {
     console.error(`[workflowStore] deleteWorkflow failed: ${err.message}`);
     throw err;

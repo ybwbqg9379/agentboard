@@ -24,6 +24,7 @@ import { startAgent, stopAgent, agentEvents } from './agentManager.js';
 import { createWorkflowRun, updateWorkflowRun, completeWorkflowRun } from './workflowStore.js';
 
 export const workflowEvents = new EventEmitter();
+workflowEvents.setMaxListeners(50);
 
 // Active workflow runs: Map<runId, { aborted, currentAgentSessionId, currentAgentListener }>
 const activeRuns = new Map();
@@ -245,15 +246,8 @@ const AGENT_NODE_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
 function runAgentNode(prompt, nodeConfig, runId, workflowId, nodeId, userId) {
   return new Promise((resolve, reject) => {
     let settled = false;
-    const sessionId = startAgent(prompt, {
-      userId,
-      permissionMode: nodeConfig.permissionMode || 'bypassPermissions',
-      maxTurns: nodeConfig.maxTurns || 30,
-    });
-
-    workflowEvents.emit('agent_started', { runId, workflowId, nodeId, sessionId });
-
     let resultText = '';
+    let capturedSessionId = null;
 
     const timeoutId = setTimeout(() => {
       if (!settled) {
@@ -266,7 +260,7 @@ function runAgentNode(prompt, nodeConfig, runId, workflowId, nodeId, userId) {
     }, AGENT_NODE_TIMEOUT_MS);
 
     function onEvent(event) {
-      if (event.sessionId !== sessionId) return;
+      if (!capturedSessionId || event.sessionId !== capturedSessionId) return;
 
       if (event.type === 'result') {
         resultText = event.content?.result || event.content?.last_assistant_message || '';
@@ -278,7 +272,7 @@ function runAgentNode(prompt, nodeConfig, runId, workflowId, nodeId, userId) {
         cleanup();
         const status = event.content?.status || 'completed';
         if (status === 'completed') {
-          resolve({ sessionId, status, output: resultText });
+          resolve({ sessionId: capturedSessionId, status, output: resultText });
         } else {
           reject(new Error(`Agent node "${nodeId}" ended with status: ${status}`));
         }
@@ -295,14 +289,24 @@ function runAgentNode(prompt, nodeConfig, runId, workflowId, nodeId, userId) {
       }
     }
 
+    // Register listener BEFORE startAgent to prevent missing fast-completing done events
+    agentEvents.on('event', onEvent);
+
+    const sessionId = startAgent(prompt, {
+      userId,
+      permissionMode: nodeConfig.permissionMode || 'bypassPermissions',
+      maxTurns: nodeConfig.maxTurns || 30,
+    });
+    capturedSessionId = sessionId;
+
+    workflowEvents.emit('agent_started', { runId, workflowId, nodeId, sessionId });
+
     // Register with activeRuns so abort can stop this agent
     const entry = activeRuns.get(runId);
     if (entry) {
       entry.currentAgentSessionId = sessionId;
       entry.currentAgentListener = onEvent;
     }
-
-    agentEvents.on('event', onEvent);
   });
 }
 
@@ -323,6 +327,14 @@ export async function executeWorkflow(
   userId = 'default',
 ) {
   const runId = preCreatedRunId || createWorkflowRun(userId, workflowId, inputContext);
+
+  if (!definition || !Array.isArray(definition.nodes) || !Array.isArray(definition.edges)) {
+    const errorMsg = 'Invalid workflow definition: missing nodes or edges';
+    completeWorkflowRun(runId, { status: 'failed', nodeResults: {}, error: errorMsg });
+    workflowEvents.emit('run_complete', { runId, workflowId, status: 'failed', error: errorMsg });
+    return { runId, status: 'failed', nodeResults: {}, context: inputContext, error: errorMsg };
+  }
+
   const { nodes, edges } = definition;
 
   activeRuns.set(runId, { aborted: false, userId });

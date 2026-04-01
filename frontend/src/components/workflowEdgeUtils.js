@@ -4,6 +4,27 @@ export const EDGE_CONDITION_OPTIONS = [
   { value: 'false', label: 'False Branch' },
 ];
 
+let nextEdgeId = 1;
+
+export function genEdgeId() {
+  return `edge_${nextEdgeId++}`;
+}
+
+export function syncEdgeIdCounter(edges) {
+  let max = 0;
+  for (const e of edges) {
+    if (e.id) {
+      const match = e.id.match(/^edge_(\d+)$/);
+      if (match) max = Math.max(max, parseInt(match[1], 10));
+    }
+  }
+  nextEdgeId = max + 1;
+}
+
+export function ensureEdgeIds(edges) {
+  return edges.map((e) => (e.id ? e : { ...e, id: genEdgeId() }));
+}
+
 export function isConditionEdgeSource(sourceNode) {
   return sourceNode?.type === 'condition';
 }
@@ -24,7 +45,7 @@ export function getDefaultEdgeCondition(sourceNode, edges) {
 }
 
 export function createEdge(fromId, toId, sourceNode, edges) {
-  const edge = { from: fromId, to: toId };
+  const edge = { id: genEdgeId(), from: fromId, to: toId };
   const defaultCondition = getDefaultEdgeCondition(sourceNode, edges);
   if (defaultCondition) {
     edge.condition = defaultCondition;
@@ -34,6 +55,8 @@ export function createEdge(fromId, toId, sourceNode, edges) {
 
 export function edgeMatches(edge, selectedEdge) {
   if (!selectedEdge) return false;
+  // Match by unique id when available, fall back to from+to for legacy edges
+  if (edge.id && selectedEdge.id) return edge.id === selectedEdge.id;
   return edge.from === selectedEdge.from && edge.to === selectedEdge.to;
 }
 

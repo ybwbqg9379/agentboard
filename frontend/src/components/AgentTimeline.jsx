@@ -187,7 +187,10 @@ function TimelineItem({ item, index }) {
   const useMarkdown = MARKDOWN_LABELS.has(item.label);
 
   return (
-    <div className={`${styles.event} animate-in`} style={{ animationDelay: `${index * 30}ms` }}>
+    <div
+      className={`${styles.event} animate-in`}
+      style={{ animationDelay: `${Math.min(index, 20) * 30}ms` }}
+    >
       <div className={styles.eventGutter}>
         <span className={`dot dot-${item.dot}`} />
         <span className={styles.eventLine} />

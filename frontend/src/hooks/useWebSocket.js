@@ -4,6 +4,7 @@ import { buildWsUrl, withClientAuth } from '../lib/clientAuth.js';
 const API_BASE = '';
 const RECONNECT_INTERVAL = 3000;
 const MAX_EVENTS = 5000;
+const HEARTBEAT_INTERVAL = 30000; // 30s ping to detect silent disconnects
 
 export function useWebSocket() {
   const [connected, setConnected] = useState(false);
@@ -15,18 +16,32 @@ export function useWebSocket() {
   const [subtasks, setSubtasks] = useState({});
   const wsRef = useRef(null);
   const reconnectTimer = useRef(null);
+  const heartbeatTimer = useRef(null);
   const sessionIdRef = useRef(null);
   const statusRef = useRef('idle');
+  const unmountedRef = useRef(false);
 
   const connect = useCallback(() => {
+    if (unmountedRef.current) return;
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
 
     const ws = new WebSocket(buildWsUrl('/ws'));
     wsRef.current = ws;
 
     ws.onopen = () => {
+      if (unmountedRef.current) {
+        ws.close();
+        return;
+      }
       setConnected(true);
       clearTimeout(reconnectTimer.current);
+      // Heartbeat: send ping every 30s to detect silent disconnects
+      clearInterval(heartbeatTimer.current);
+      heartbeatTimer.current = setInterval(() => {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send('ping');
+        }
+      }, HEARTBEAT_INTERVAL);
       // Re-subscribe to the active session after reconnect
       const sid = sessionIdRef.current;
       if (sid && statusRef.current === 'running') {
@@ -36,7 +51,10 @@ export function useWebSocket() {
 
     ws.onclose = () => {
       setConnected(false);
-      reconnectTimer.current = setTimeout(connect, RECONNECT_INTERVAL);
+      clearInterval(heartbeatTimer.current);
+      if (!unmountedRef.current) {
+        reconnectTimer.current = setTimeout(connect, RECONNECT_INTERVAL);
+      }
     };
 
     ws.onerror = () => {
@@ -177,9 +195,12 @@ export function useWebSocket() {
   }, []);
 
   useEffect(() => {
+    unmountedRef.current = false;
     connect();
     return () => {
+      unmountedRef.current = true;
       clearTimeout(reconnectTimer.current);
+      clearInterval(heartbeatTimer.current);
       wsRef.current?.close();
     };
   }, [connect]);

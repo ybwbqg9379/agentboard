@@ -74,26 +74,31 @@ export default function SessionDrawer({ open, onClose, onLoadSession, currentSes
     setConfirmState(null);
     try {
       if (ids.length === 1) {
-        await fetch(`${API_BASE}/api/sessions/${ids[0]}`, {
-          method: 'DELETE',
-          ...withClientAuth(),
-        });
+        await fetch(`${API_BASE}/api/sessions/${ids[0]}`, withClientAuth({ method: 'DELETE' }));
       } else {
-        await fetch(`${API_BASE}/api/sessions/batch-delete`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          ...withClientAuth({ body: JSON.stringify({ ids }) }),
-        });
+        await fetch(
+          `${API_BASE}/api/sessions/batch-delete`,
+          withClientAuth({
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids }),
+          }),
+        );
       }
-      setSessions((prev) => prev.filter((s) => !ids.includes(s.id)));
-      setTotal((prev) => prev - ids.length);
+      const deletedIds = new Set(ids);
+      setSessions((prev) => {
+        const remaining = prev.filter((s) => !deletedIds.has(s.id));
+        setTotal(remaining.length);
+        return remaining;
+      });
       setSelected((prev) => {
         const next = new Set(prev);
         ids.forEach((id) => next.delete(id));
         return next;
       });
     } catch {
-      /* ignore */
+      // Refresh list to get accurate counts after partial failure
+      fetchSessions();
     }
   }
 

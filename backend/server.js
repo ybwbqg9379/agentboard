@@ -109,6 +109,9 @@ app.post('/api/sessions/batch-delete', (req, res) => {
   if (!Array.isArray(ids) || ids.length === 0) {
     return res.status(400).json({ error: 'ids array required' });
   }
+  if (ids.length > 100) {
+    return res.status(400).json({ error: 'max 100 ids per batch' });
+  }
   let count = 0;
   for (const id of ids) {
     if (hasOwnedSession(req.user.id, id)) {
@@ -240,6 +243,9 @@ app.post('/api/workflows/batch-delete', (req, res) => {
   const { ids } = req.body;
   if (!Array.isArray(ids) || ids.length === 0) {
     return res.status(400).json({ error: 'ids array required' });
+  }
+  if (ids.length > 100) {
+    return res.status(400).json({ error: 'max 100 ids per batch' });
   }
   let count = 0;
   for (const id of ids) {

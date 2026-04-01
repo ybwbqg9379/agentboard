@@ -9,6 +9,9 @@ import {
   edgeMatches,
   isConditionEdgeSource,
   updateEdge,
+  ensureEdgeIds,
+  syncEdgeIdCounter,
+  getDefaultEdgeCondition,
 } from './workflowEdgeUtils.js';
 
 const API_BASE = '';
@@ -253,8 +256,9 @@ export default function WorkflowEditor() {
     setCurrentWorkflow(wf.id);
     setWorkflowName(wf.name);
     const loadedNodes = wf.definition.nodes || [];
+    const loadedEdges = ensureEdgeIds(wf.definition.edges || []);
     setNodes(loadedNodes);
-    setEdges(wf.definition.edges || []);
+    setEdges(loadedEdges);
     setSelectedNode(null);
     setSelectedEdge(null);
     setRunStatus(null);
@@ -267,6 +271,7 @@ export default function WorkflowEditor() {
       if (match) maxNum = Math.max(maxNum, parseInt(match[1], 10));
     }
     nextId = maxNum + 1;
+    syncEdgeIdCounter(loadedEdges);
   }, []);
 
   // Create new workflow
@@ -288,7 +293,7 @@ export default function WorkflowEditor() {
     setCurrentWorkflow(null);
     setWorkflowName('New Workflow');
     setNodes([inputNode, outputNode]);
-    setEdges([{ from: inputNode.id, to: outputNode.id }]);
+    setEdges([createEdge(inputNode.id, outputNode.id, inputNode, [])]);
     setSelectedNode(null);
     setSelectedEdge(null);
     setRunStatus(null);
@@ -570,6 +575,7 @@ export default function WorkflowEditor() {
       const node = nodes.find((n) => n.id === nodeId);
       if (!node) return;
       setDraggingNode(nodeId);
+      setIsPanning(false); // Mutual exclusion: drag takes priority over pan
       setSelectedNode(nodeId);
       setSelectedEdge(null);
       const pos = node.position || { x: 0, y: 0 };
@@ -629,12 +635,19 @@ export default function WorkflowEditor() {
           return Math.hypot(mx - px, my - py) < 15;
         });
         if (target && target.id !== drawingEdge.fromId) {
-          const exists = edges.some((e) => e.from === drawingEdge.fromId && e.to === target.id);
+          const sourceNode = nodes.find((node) => node.id === drawingEdge.fromId);
+          // Allow multiple edges from condition nodes to the same target (true/false branches)
+          const isCondition = sourceNode?.type === 'condition';
+          const exists = edges.some(
+            (e) =>
+              e.from === drawingEdge.fromId &&
+              e.to === target.id &&
+              (!isCondition || e.condition === getDefaultEdgeCondition(sourceNode, edges)),
+          );
           if (!exists) {
-            const sourceNode = nodes.find((node) => node.id === drawingEdge.fromId);
             const nextEdge = createEdge(drawingEdge.fromId, target.id, sourceNode, edges);
             setEdges((prev) => [...prev, nextEdge]);
-            setSelectedEdge({ from: nextEdge.from, to: nextEdge.to });
+            setSelectedEdge({ id: nextEdge.id, from: nextEdge.from, to: nextEdge.to });
             setSelectedNode(null);
           }
         }
@@ -647,15 +660,18 @@ export default function WorkflowEditor() {
   );
 
   // Port click to start drawing edge
-  const handleOutputPortMouseDown = useCallback((e, nodeId) => {
-    e.stopPropagation();
-    const rect = svgRef.current.getBoundingClientRect();
-    setDrawingEdge({
-      fromId: nodeId,
-      mx: e.clientX - rect.left,
-      my: e.clientY - rect.top,
-    });
-  }, []);
+  const handleOutputPortMouseDown = useCallback(
+    (e, nodeId) => {
+      e.stopPropagation();
+      const rect = svgRef.current.getBoundingClientRect();
+      setDrawingEdge({
+        fromId: nodeId,
+        mx: e.clientX - rect.left - pan.x,
+        my: e.clientY - rect.top - pan.y,
+      });
+    },
+    [pan],
+  );
 
   // Delete edge on double-click
   const handleEdgeDoubleClick = useCallback((fromId, toId) => {

@@ -27,7 +27,11 @@ export default function ConfirmDialog({
   const handleKeyDown = useCallback(
     (e) => {
       if (e.key === 'Escape') onCancel();
-      if (e.key === 'Enter') onConfirm();
+      // Only confirm on Enter when not focused on a text input (prevents accidental deletion)
+      const tag = e.target?.tagName;
+      if (e.key === 'Enter' && tag !== 'TEXTAREA' && tag !== 'INPUT') {
+        onConfirm();
+      }
     },
     [onConfirm, onCancel],
   );

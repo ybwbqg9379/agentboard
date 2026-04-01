@@ -20,6 +20,7 @@ import { buildAgentEnv, getSdkExecutablePath } from './sdkRuntime.js';
 const activeAgents = new Map();
 
 export const agentEvents = new EventEmitter();
+agentEvents.setMaxListeners(50);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -217,7 +218,10 @@ function consumeStream(sessionId, stream, abortController, userId = 'default') {
     }
   }, config.agentTimeout);
 
-  activeAgents.set(sessionId, { stream, timeoutId, abortController, stopped: false, userId });
+  // Preserve stopped flag from placeholder entry (set by stopAgent during setup window)
+  const existingEntry = activeAgents.get(sessionId);
+  const wasStopped = existingEntry?.stopped || false;
+  activeAgents.set(sessionId, { stream, timeoutId, abortController, stopped: wasStopped, userId });
 
   (async () => {
     let finalStatus = 'completed';
@@ -325,10 +329,14 @@ export function continueAgent(sessionId, prompt, opts = {}) {
   if (activeAgents.has(sessionId)) {
     return false;
   }
+  // Create AbortController early so stopAgent works even during setup
+  const abortController = new AbortController();
+
   // Claim the slot immediately to block concurrent follow_up calls
   activeAgents.set(sessionId, {
     stream: null,
     timeoutId: null,
+    abortController,
     stopped: false,
     userId: opts.userId || 'default',
   });
@@ -341,7 +349,6 @@ export function continueAgent(sessionId, prompt, opts = {}) {
   updateSessionStatus(sessionId, 'running');
   insertEvent(sessionId, 'user', { type: 'user', text: prompt, timestamp: Date.now() });
 
-  const abortController = new AbortController();
   const baseOpts = buildBaseOptions(sessionId, permMode, prompt, opts.userId);
   const stream = query({
     prompt,
