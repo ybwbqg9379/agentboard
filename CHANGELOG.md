@@ -42,6 +42,7 @@
 
 - **Fetch MCP 包名修正**: `@anthropic/mcp-server-fetch`（Python/uvx 生态，npm 不存在）→ `mcp-fetch-server`（npm 可用）
 - **Brave Search MCP 包名修正**: `@anthropic/mcp-server-brave-search`（npm 不存在）→ `@modelcontextprotocol/server-brave-search`（npm v0.6.2）
+- **Prettier 格式修正**: `ARCHITECTURE.md` 和 `registry.js` 的代码格式与 Prettier 规则对齐
 
 #### Tests
 

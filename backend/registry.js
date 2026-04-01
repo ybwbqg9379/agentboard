@@ -227,7 +227,8 @@ export function getMcpCapabilities(mcpServersObj) {
       ],
     },
     'exa-search': {
-      description: 'Neural semantic search engine — finds high-quality, relevant web content and similar pages.',
+      description:
+        'Neural semantic search engine — finds high-quality, relevant web content and similar pages.',
       whenToUse:
         'User needs deep research, academic/documentation search, finding similar resources, or semantic content discovery.',
       category: 'search',
@@ -303,7 +304,8 @@ export function getMcpCapabilities(mcpServersObj) {
       ],
     },
     fetch: {
-      description: 'Simple HTTP fetch and HTML-to-Markdown conversion for any URL. No API key required.',
+      description:
+        'Simple HTTP fetch and HTML-to-Markdown conversion for any URL. No API key required.',
       whenToUse:
         'User provides a specific URL to read, or wants to quickly fetch and convert a single web page to text.',
       category: 'crawl',
@@ -354,7 +356,12 @@ export function getMcpCapabilities(mcpServersObj) {
 
   const capabilities = [];
   for (const [name] of Object.entries(mcpServersObj)) {
-    const meta = metaMap[name] || { description: 'Generic MCP', whenToUse: '', category: 'core', keywords: [] };
+    const meta = metaMap[name] || {
+      description: 'Generic MCP',
+      whenToUse: '',
+      category: 'core',
+      keywords: [],
+    };
     capabilities.push({
       id: name,
       type: 'mcp',
