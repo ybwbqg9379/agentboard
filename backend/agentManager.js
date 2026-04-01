@@ -65,6 +65,69 @@ const getSystemPromptAppend = (userWorkspace) =>
   ].join('\n');
 
 /**
+ * Select which built-in tools to load based on user prompt.
+ * Core tools are always loaded; optional groups are added when keywords match.
+ * Using explicit tool names instead of the 'claude_code' preset avoids sending
+ * all ~24 tool schemas for every request, saving ~15-20KB per call.
+ *
+ * @param {string} prompt - User's message
+ * @returns {string[]} List of built-in tool names to enable
+ */
+const CORE_TOOLS = [
+  'Bash',
+  'Read',
+  'Write',
+  'Edit',
+  'Grep',
+  'Glob',
+  'WebSearch',
+  'WebFetch',
+  'Task',
+  'AgentTool',
+  'TodoWrite',
+];
+
+const OPTIONAL_TOOL_GROUPS = [
+  {
+    tools: ['NotebookEdit'],
+    keywords: ['notebook', 'jupyter', 'ipynb', '笔记本'],
+  },
+  {
+    tools: ['CronCreate', 'CronDelete', 'CronList'],
+    keywords: ['cron', 'schedule', '定时', '调度'],
+  },
+  {
+    tools: ['EnterWorktree', 'ExitWorktree'],
+    keywords: ['worktree', 'branch', '分支'],
+  },
+  {
+    tools: ['EnterPlanMode', 'ExitPlanMode'],
+    keywords: ['plan', '计划', '方案', '规划'],
+  },
+  {
+    tools: ['RemoteTrigger'],
+    keywords: ['remote', 'trigger', 'webhook', '远程'],
+  },
+  {
+    tools: ['Skill', 'TaskOutput', 'TaskStop'],
+    keywords: ['skill', 'task', '技能'],
+  },
+];
+
+export function selectBuiltinTools(prompt) {
+  const promptLower = prompt.toLowerCase();
+  const selected = [...CORE_TOOLS];
+
+  for (const group of OPTIONAL_TOOL_GROUPS) {
+    if (group.keywords.some((kw) => promptLower.includes(kw.toLowerCase()))) {
+      selected.push(...group.tools);
+    }
+  }
+
+  return [...new Set(selected)];
+}
+
+/**
  * Build the base options shared between startAgent and continueAgent.
  */
 function buildBaseOptions(sessionId, permMode, prompt, userId) {
@@ -96,6 +159,7 @@ function buildBaseOptions(sessionId, permMode, prompt, userId) {
     allowDangerouslySkipPermissions: needsSkip,
     executable: getSdkExecutablePath(),
     model: config.llm.model,
+    tools: selectBuiltinTools(prompt),
     systemPrompt: {
       type: 'preset',
       preset: 'claude_code',

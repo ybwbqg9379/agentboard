@@ -40,20 +40,15 @@ function isCapabilityRequired(prompt, capability, workspaceDir) {
     }
   }
 
-  // 3. Fallback check description/whenToUse matches
-  if (capability.whenToUse) {
-    // basic heuristic: if the prompt is very long, assume everything might be needed
-    // if short, only those that intersect heavily.
-    // We'll just safely include it if no restrictions were matched but it has no strong restrictions.
-  }
-
-  // If a capability has no restrictions, or we just couldn't definitely rule it out
-  // for safety, we return true for skills without restrictive 'paths' or 'keywords'.
-  if (
-    (!capability.keywords || capability.keywords.length === 0) &&
-    (!capability.paths || capability.paths.length === 0)
-  ) {
-    return true;
+  // 3. Skills without any restrictions are always loaded (global skills)
+  //    BUT MCP servers without keywords are NOT auto-loaded (to save tokens)
+  if (capability.type === 'skill') {
+    if (
+      (!capability.keywords || capability.keywords.length === 0) &&
+      (!capability.paths || capability.paths.length === 0)
+    ) {
+      return true;
+    }
   }
 
   return false;

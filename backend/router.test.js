@@ -70,6 +70,39 @@ describe('router.js - Context Router Integration', () => {
     expect(result.uniqueAllowedTools).toContain('Think');
   });
 
+  it('should NOT include MCP servers without keyword match (strict mode)', () => {
+    const mockMcp = { filesystem: {}, browser: {} };
+    mcpConfigModule.getMcpServers.mockReturnValue(mockMcp);
+    registryModule.buildRegistry.mockReturnValue([
+      { id: 'filesystem', type: 'mcp', toolPrefix: 'mcp__filesystem__*', keywords: ['file'] },
+      { id: 'browser', type: 'mcp', toolPrefix: 'mcp__browser__*', keywords: ['web'] },
+      { id: 'no-keywords-mcp', type: 'mcp', toolPrefix: 'mcp__noop__*', keywords: [] },
+    ]);
+
+    // MCP without keywords should NOT be included
+    const result = routeTools('hello', '/fake', '/fake');
+    expect(result.uniqueAllowedTools).not.toContain('mcp__noop__*');
+    // Filesystem fallback should still be there
+    expect(result.selectedMcpServers).toHaveProperty('filesystem');
+  });
+
+  it('should match Chinese keywords for MCP routing', () => {
+    const mockMcp = { browser: {} };
+    mcpConfigModule.getMcpServers.mockReturnValue(mockMcp);
+    registryModule.buildRegistry.mockReturnValue([
+      {
+        id: 'browser',
+        type: 'mcp',
+        toolPrefix: 'mcp__browser__*',
+        keywords: ['web', '浏览器', '网页'],
+      },
+    ]);
+
+    const result = routeTools('打开浏览器看看新闻', '/fake', '/fake');
+    expect(result.selectedMcpServers).toHaveProperty('browser');
+    expect(result.uniqueAllowedTools).toContain('mcp__browser__*');
+  });
+
   it('should match path glob extensions by checking the workspace root automatically', () => {
     mcpConfigModule.getMcpServers.mockReturnValue({ filesystem: {} });
     registryModule.buildRegistry.mockReturnValue([

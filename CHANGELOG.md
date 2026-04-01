@@ -11,6 +11,18 @@
 - **Proxy 诊断日志**: 为 Anthropic→OpenAI 翻译代理新增请求级日志，输出 model、stream、消息数、tools 数量及 payload 大小，便于定位第三方 API 超时/错误
 - **ESLint `AbortController` 全局声明**: 补充 Node.js 18+ 内置全局 `AbortController` 到 ESLint globals，消除误报
 
+### Context Payload 瘦身（减少第三方 API Token 消耗）
+
+#### Changed
+
+- **精确内置工具选择**: 从 `preset: 'claude_code'`（全部 ~24 个内置工具）切换为 `tools: string[]` 模式，核心工具 11 个始终加载，6 个可选工具组（notebook、cron、worktree、plan、remote、skill）按 prompt 关键词动态挂载
+- **严格 MCP 路由**: 无关键词匹配的 MCP server 不再默认挂载，只在 prompt 命中关键词时加载；MCP 关键词列表扩展为中英双语覆盖
+
+#### Tests
+
+- 测试总数从 `320` 增至 `322`
+- 新增 MCP 严格路由模式测试、中文关键词匹配测试
+
 ### 多租户鉴权透传与 Workflow 分支闭环修复
 
 #### Fixed
