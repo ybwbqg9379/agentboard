@@ -6,6 +6,7 @@
 
 #### Fixed
 
+- **GitHub Actions / npm ci 恢复**: 修复后端依赖锁定到 npm registry 不可下载版本 `@anthropic-ai/claude-agent-sdk@0.2.88` 导致 CI 在 `backend/npm ci` 阶段 404 失败的问题；现已将后端依赖和锁文件切回 registry 可用的稳定版本 `0.2.87`
 - **前后端鉴权透传补齐**: 新增前端 `clientAuth` 协议层，统一为 REST 请求注入 `Authorization` / `x-user-id`，并为 WebSocket 自动附加 `token` / `user_id` 查询参数；修复设置 `AGENTBOARD_API_KEY` 后前端历史加载、workflow CRUD、workflow run 与 session 恢复链路失效的问题
 - **Session / Workflow ownership 校验**: 后端在 REST 和 WebSocket 两侧为 `subscribe`、`follow_up`、`stop`、`control`、`abort`、`subscribe_workflow` 增加 tenant 归属校验，阻断跨用户操作他人 session/run 的漏洞；`/api/status` 与 `/api/workflow-status` 仅返回当前用户的活跃资源
 - **`x-user-id` / `user_id` 输入清洗**: 新增统一的 user id 规范化逻辑，拒绝非法 tenant 标识，避免路径逃逸样式的用户 ID 落入运行态或数据库查询
