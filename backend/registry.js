@@ -98,9 +98,11 @@ export function loadLocalSkills(pluginsDir) {
  */
 export function getMcpCapabilities(mcpServersObj) {
   const metaMap = {
+    // ── Core MCP Servers ──────────────────────────
     filesystem: {
       description: 'Read and write files, directories, search local codebase.',
       whenToUse: 'Any task involving reading, editing, or exploring local files.',
+      category: 'core',
       keywords: [
         'file',
         'directory',
@@ -121,6 +123,7 @@ export function getMcpCapabilities(mcpServersObj) {
     memory: {
       description: 'Store persistent knowledge graph memory.',
       whenToUse: 'Task requires remembering context, entities, and relations across long sessions.',
+      category: 'core',
       keywords: [
         'remember',
         'memory',
@@ -137,6 +140,7 @@ export function getMcpCapabilities(mcpServersObj) {
       description: 'Control a headless browser to navigate, scrape, and interact with the web.',
       whenToUse:
         'Task mentions visiting URLs, scraping, web search, logging into websites, capturing screenshots.',
+      category: 'browser',
       keywords: [
         'web',
         'browser',
@@ -161,12 +165,14 @@ export function getMcpCapabilities(mcpServersObj) {
     github: {
       description: 'Interact with GitHub APIs (issues, PRs, repos).',
       whenToUse: 'Task involves checking out PRs, reviewing github issues, push/pull from github.',
+      category: 'core',
       keywords: ['github', 'pr', 'issue', 'branch', 'commit', 'repo', 'pull request'],
     },
     'sequential-thinking': {
       description: 'Perform structured step-by-step thinking for complex logic problems.',
       whenToUse:
         'The user gives a complex puzzle, math problem, or architectural question requiring deep thought.',
+      category: 'core',
       keywords: [
         'think',
         'puzzle',
@@ -181,11 +187,174 @@ export function getMcpCapabilities(mcpServersObj) {
         '架构',
       ],
     },
+
+    // ── Search MCP Servers ────────────────────────
+    'tavily-search': {
+      description: 'AI-optimised web search engine with content extraction and filtering.',
+      whenToUse:
+        'User needs real-time web information, news, research data, market trends, or competitive intelligence.',
+      category: 'search',
+      keywords: [
+        'search',
+        'find',
+        'lookup',
+        'google',
+        'news',
+        'research',
+        'latest',
+        'current',
+        'recent',
+        'trend',
+        'market',
+        'data',
+        'information',
+        'what is',
+        'who is',
+        'how to',
+        '搜索',
+        '查找',
+        '查询',
+        '新闻',
+        '研究',
+        '最新',
+        '趋势',
+        '数据',
+        '市场',
+        '信息',
+        '什么是',
+        '怎么',
+        '如何',
+      ],
+    },
+    'exa-search': {
+      description: 'Neural semantic search engine — finds high-quality, relevant web content and similar pages.',
+      whenToUse:
+        'User needs deep research, academic/documentation search, finding similar resources, or semantic content discovery.',
+      category: 'search',
+      keywords: [
+        'research',
+        'academic',
+        'paper',
+        'documentation',
+        'similar',
+        'semantic',
+        'find like',
+        'related',
+        'citation',
+        'reference',
+        '论文',
+        '文献',
+        '学术',
+        '类似',
+        '相关',
+        '参考',
+        '引用',
+      ],
+    },
+    'brave-search': {
+      description: 'Privacy-first web search with AI summaries, image, video, and news search.',
+      whenToUse:
+        'User requests a general web search, image search, video search, or privacy-conscious lookup.',
+      category: 'search',
+      keywords: [
+        'search',
+        'brave',
+        'image search',
+        'video search',
+        'news search',
+        'privacy',
+        '图片搜索',
+        '视频搜索',
+      ],
+    },
+
+    // ── Crawling MCP Servers ──────────────────────
+    firecrawl: {
+      description:
+        'Production-grade web scraping & crawling — single-page scrape, batch processing, site mapping, and structured data extraction.',
+      whenToUse:
+        'User wants to scrape websites, extract structured data from pages, crawl entire sites, batch-process URLs, or build datasets.',
+      category: 'crawl',
+      keywords: [
+        'scrape',
+        'crawl',
+        'extract',
+        'website',
+        'page',
+        'content',
+        'data',
+        'batch',
+        'sitemap',
+        'parse',
+        'dataset',
+        'table',
+        'structured',
+        '爬取',
+        '抓取',
+        '提取',
+        '网站',
+        '页面',
+        '内容',
+        '数据',
+        '批量',
+        '结构化',
+        '表格',
+        '数据集',
+      ],
+    },
+    fetch: {
+      description: 'Simple HTTP fetch and HTML-to-Markdown conversion for any URL. No API key required.',
+      whenToUse:
+        'User provides a specific URL to read, or wants to quickly fetch and convert a single web page to text.',
+      category: 'crawl',
+      keywords: [
+        'fetch',
+        'url',
+        'read',
+        'page',
+        'link',
+        'http',
+        'website',
+        'open',
+        'visit',
+        '获取',
+        '读取',
+        '链接',
+        '网址',
+        '打开',
+        '访问',
+      ],
+    },
+    'jina-reader': {
+      description:
+        'High-efficiency URL-to-Markdown reader and grounded web search. Best-in-class token efficiency for LLM content extraction.',
+      whenToUse:
+        'User wants to read a web page with minimal token usage, convert URL to clean markdown, or perform a grounded search with citations.',
+      category: 'crawl',
+      keywords: [
+        'read',
+        'url',
+        'markdown',
+        'convert',
+        'extract',
+        'reader',
+        'jina',
+        'content',
+        'article',
+        'blog',
+        'document',
+        '阅读',
+        '转换',
+        '文章',
+        '博客',
+        '文档',
+      ],
+    },
   };
 
   const capabilities = [];
   for (const [name] of Object.entries(mcpServersObj)) {
-    const meta = metaMap[name] || { description: 'Generic MCP', whenToUse: '', keywords: [] };
+    const meta = metaMap[name] || { description: 'Generic MCP', whenToUse: '', category: 'core', keywords: [] };
     capabilities.push({
       id: name,
       type: 'mcp',

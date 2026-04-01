@@ -2,6 +2,51 @@
 
 ## Unreleased
 
+### 网络搜索与爬取能力增强 (Web Search & Crawling Enhancement)
+
+#### Added
+
+- **6 个新 MCP Server 集成** (`mcpConfig.js`):
+  - `fetch` — 轻量级 HTTP URL 读取与 HTML→Markdown 转换（无需 API Key，始终可用）
+  - `tavily-search` — AI 优化搜索引擎，支持实时 Web 搜索与内容提取（免费 1K 次/月, [tavily.com](https://tavily.com)）
+  - `firecrawl` — 生产级网页爬取，支持单页抓取、批量处理、站点地图与结构化数据提取（免费 500 页/月, [firecrawl.dev](https://firecrawl.dev)）
+  - `jina-reader` — 高效 URL→Markdown Reader，token 效率最优（SSE 远程传输, [jina.ai](https://jina.ai)）
+  - `exa-search` — 神经语义搜索引擎，擅长学术/文档/深度研究（[exa.ai](https://exa.ai)）
+  - `brave-search` — 隐私优先 Web 搜索，支持图片/视频/新闻搜索（免费 2K 次/月, [brave.com/search/api](https://brave.com/search/api)）
+- **条件加载机制**: 所有需 API Key 的 MCP Server 仅在对应环境变量存在时激活，避免无效子进程
+- **Jina Reader 双传输**: 默认通过 SSE 连接 `https://mcp.jina.ai/v1`，可通过 `JINA_MCP_ENDPOINT` 覆盖
+- **`getAllowedTools()` 动态化**: 自动从当前激活的 MCP 服务器列表生成工具模式，不再硬编码
+
+#### Added — 编排 Skill
+
+- **`web-research` Skill** (`plugins/agentboard-skills/skills/web-research/SKILL.md`):
+  四阶段编排流水线 **搜索 → 爬取 → 分析 → 持久化**；内置工具选择矩阵（按意图自动选择最佳搜索/爬取工具）、3-5 页精选抓取策略、强制引用来源、错误恢复表
+- **`data-extraction` Skill** (`plugins/agentboard-skills/skills/data-extraction/SKILL.md`):
+  四阶段编排流水线 **定位 → 提取 → 验证 → 导出**；Schema-first 提取范式、类型校验 + 去重 + 异常值检测、多格式导出（JSON/CSV/Markdown）、多页分页提取模式
+
+#### Changed — 意图路由引擎
+
+- **`router.js` 双通路由重构**: 从单一关键词匹配升级为两阶段意图分类系统：
+  - **Pass 1 — 意图分类**: 4 个正则意图模式（`web-research`、`web-scraping`、`url-reading`、`data-analysis`）对 prompt 进行多命中评分
+  - **Pass 2 — 类别共激活**: 命中的意图自动批量激活其所属 MCP 类别组（`search`、`crawl`、`browser`、`memory`），取代逐个关键词命中单个 MCP 的脆弱模式
+  - 可选类别（如 `memory`）在多意图交叉时自动激活
+  - 返回值新增 `detectedIntents[]` 字段用于调试可观测性（向后兼容，现有调用方忽略此字段）
+- **`registry.js` 元数据扩展**: 所有 MCP 能力项新增 `category` 字段（`core`/`search`/`crawl`/`browser`），支持路由引擎的类别级批量激活；6 个新 Server 配置 15-30 条中英双语关键词
+
+#### Changed — 环境配置
+
+- `.env.example` 新增 5 个 API Key 文档条目（含注册链接与免费额度说明）
+- `.env.local` 新增空占位符：`TAVILY_API_KEY`, `FIRECRAWL_API_KEY`, `JINA_API_KEY`, `EXA_API_KEY`, `BRAVE_API_KEY`
+
+#### Fixed
+
+- **Fetch MCP 包名修正**: `@anthropic/mcp-server-fetch`（Python/uvx 生态，npm 不存在）→ `mcp-fetch-server`（npm 可用）
+- **Brave Search MCP 包名修正**: `@anthropic/mcp-server-brave-search`（npm 不存在）→ `@modelcontextprotocol/server-brave-search`（npm v0.6.2）
+
+#### Tests
+
+- 全部 **330** 后端测试通过，零回归
+
 ### 连接稳定性与工作流编辑器修复 (Connection Stability & Workflow Editor Fixes)
 
 #### Fixed

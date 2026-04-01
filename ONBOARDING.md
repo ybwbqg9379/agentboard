@@ -63,6 +63,25 @@ AgentBoard 会通过项目内置的智能拦截层 `proxy.js` 与各类大语言
    LLM_MODEL=gpt-4o-mini
    ```
 
+   **[可选] Web 搜索与爬取能力：** 填写以下 API Key 后，对应的 MCP Server 会自动激活，不填则跳过：
+
+   ```env
+   # AI 搜索 — https://tavily.com (免费 1K 次/月)
+   TAVILY_API_KEY=tvly-your-key
+
+   # 网页爬取 — https://firecrawl.dev (免费 500 页/月)
+   FIRECRAWL_API_KEY=fc-your-key
+
+   # URL→Markdown — https://jina.ai (免费基础额度)
+   JINA_API_KEY=jina_your-key
+
+   # 语义搜索 — https://exa.ai
+   EXA_API_KEY=your-exa-key
+
+   # 隐私搜索 — https://brave.com/search/api (免费 2K 次/月)
+   BRAVE_API_KEY=your-brave-key
+   ```
+
 > [!IMPORTANT]  
 > **安全警示 (`AGENTBOARD_API_KEY`)**
 > 如果您打算将该项目部署至公网环境提供服务，您 **必须** 在 `.env.local` 中设置 `AGENTBOARD_API_KEY` 变量。设定后，它将立即拉起一堵强力的 Bearer Token 协议防火墙，保护 REST 接口与 WebSocket ，彻底拦截未经授权的远端命令执行（RCE）渗透尝试。
@@ -112,7 +131,7 @@ npm run dev
 
 大功告成，您现在已经完全掌握了项目结构！如果您打算在底层做修改或提交 PR，我们为您准备了以下路标文档：
 
-- **内部架构透视**: 好奇 `workflowEngine.js` 如何调度工作流？WebSocket 的 5 种状态机是如何流转的？请参阅位于根目录的 [`ARCHITECTURE.md`](ARCHITECTURE.md)。
-- **代码规范与自动化测试**: 我们对于入库的代码执行极严标准并保持着 400+ 个 Vitest 自动化测试的体量。提交代码或发起 PR 之前，不要忘记看一眼 [`CONTRIBUTING.md`](CONTRIBUTING.md) 以了解如何运行 `npm run check` 拦截关卡。
+- **内部架构透视**: 好奇 `workflowEngine.js` 如何调度工作流？WebSocket 的 5 种状态机是如何流转的？搜索/爬取 MCP 是如何分层激活的？请参阅位于根目录的 [`ARCHITECTURE.md`](ARCHITECTURE.md)。
+- **代码规范与自动化测试**: 我们对于入库的代码执行极严标准并保持着 528+ 个 Vitest 自动化测试的体量。提交代码或发起 PR 之前，不要忘记看一眼 [`CONTRIBUTING.md`](CONTRIBUTING.md) 以了解如何运行 `npm run check` 拦截关卡。
 
 开心编程，尽情打造您的超级 Agent 平台！🚀
