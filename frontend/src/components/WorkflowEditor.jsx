@@ -1,6 +1,14 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import styles from './WorkflowEditor.module.css';
 import Dropdown from './Dropdown';
+import { buildWsUrl, withClientAuth } from '../lib/clientAuth.js';
+import {
+  EDGE_CONDITION_OPTIONS,
+  createEdge,
+  edgeMatches,
+  isConditionEdgeSource,
+  updateEdge,
+} from './workflowEdgeUtils.js';
 
 const API_BASE = '';
 
@@ -150,6 +158,55 @@ function NodeConfigPanel({ node, onUpdate, onDelete, onClose }) {
   );
 }
 
+function EdgeConfigPanel({ edge, sourceNode, targetNode, onUpdate, onDelete, onClose }) {
+  if (!edge) return null;
+
+  const sourceLabel = sourceNode?.label || edge.from;
+  const targetLabel = targetNode?.label || edge.to;
+  const canConfigureBranch = isConditionEdgeSource(sourceNode);
+
+  return (
+    <div className={styles.configPanel}>
+      <div className={styles.configHeader}>
+        <span className={styles.configTitle}>
+          EDGE: {sourceLabel} {'->'} {targetLabel}
+        </span>
+        <button className={styles.configClose} onClick={onClose}>
+          x
+        </button>
+      </div>
+      <div className={styles.configBody}>
+        <div className={styles.configField}>
+          <label>From</label>
+          <input value={sourceLabel} readOnly />
+        </div>
+        <div className={styles.configField}>
+          <label>To</label>
+          <input value={targetLabel} readOnly />
+        </div>
+        {canConfigureBranch ? (
+          <div className={styles.configField}>
+            <label>Branch</label>
+            <Dropdown
+              options={EDGE_CONDITION_OPTIONS}
+              value={edge.condition || ''}
+              onChange={(value) => onUpdate({ condition: value })}
+              direction="down"
+            />
+          </div>
+        ) : (
+          <div className={styles.edgeHint}>
+            Only edges leaving a condition node can be tagged as `true` or `false`.
+          </div>
+        )}
+        <button className={styles.deleteBtn} onClick={onDelete}>
+          Delete Edge
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // --- Main Editor ---
 
 export default function WorkflowEditor() {
@@ -159,6 +216,7 @@ export default function WorkflowEditor() {
   const [edges, setEdges] = useState([]);
   const [workflowName, setWorkflowName] = useState('New Workflow');
   const [selectedNode, setSelectedNode] = useState(null);
+  const [selectedEdge, setSelectedEdge] = useState(null);
   const [draggingNode, setDraggingNode] = useState(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [drawingEdge, setDrawingEdge] = useState(null); // { fromId, mx, my }
@@ -173,7 +231,7 @@ export default function WorkflowEditor() {
   // Fetch workflow list
   const fetchWorkflows = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/workflows`);
+      const res = await fetch(`${API_BASE}/api/workflows`, withClientAuth());
       if (res.ok) {
         const data = await res.json();
         setWorkflows(data.workflows || []);
@@ -195,6 +253,7 @@ export default function WorkflowEditor() {
     setNodes(loadedNodes);
     setEdges(wf.definition.edges || []);
     setSelectedNode(null);
+    setSelectedEdge(null);
     setRunStatus(null);
     setActiveNodes(new Set());
     setIsEditing(true);
@@ -228,6 +287,7 @@ export default function WorkflowEditor() {
     setNodes([inputNode, outputNode]);
     setEdges([{ from: inputNode.id, to: outputNode.id }]);
     setSelectedNode(null);
+    setSelectedEdge(null);
     setRunStatus(null);
     setActiveNodes(new Set());
     setIsEditing(true);
@@ -246,6 +306,7 @@ export default function WorkflowEditor() {
       };
       setNodes((prev) => [...prev, node]);
       setSelectedNode(id);
+      setSelectedEdge(null);
     },
     [pan],
   );
@@ -261,29 +322,51 @@ export default function WorkflowEditor() {
       setNodes((prev) => prev.filter((n) => n.id !== id));
       setEdges((prev) => prev.filter((e) => e.from !== id && e.to !== id));
       if (selectedNode === id) setSelectedNode(null);
+      if (selectedEdge && (selectedEdge.from === id || selectedEdge.to === id)) {
+        setSelectedEdge(null);
+      }
     },
-    [selectedNode],
+    [selectedEdge, selectedNode],
   );
+
+  const updateSelectedEdge = useCallback(
+    (updates) => {
+      setEdges((prev) => updateEdge(prev, selectedEdge, updates));
+    },
+    [selectedEdge],
+  );
+
+  const deleteSelectedEdge = useCallback(() => {
+    if (!selectedEdge) return;
+    setEdges((prev) => prev.filter((edge) => !edgeMatches(edge, selectedEdge)));
+    setSelectedEdge(null);
+  }, [selectedEdge]);
 
   // Save workflow -- returns the workflow id
   const saveWorkflow = useCallback(async () => {
     const definition = { nodes, edges };
     try {
       if (currentWorkflow) {
-        const putRes = await fetch(`${API_BASE}/api/workflows/${currentWorkflow}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: workflowName, description: '', definition }),
-        });
+        const putRes = await fetch(
+          `${API_BASE}/api/workflows/${currentWorkflow}`,
+          withClientAuth({
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: workflowName, description: '', definition }),
+          }),
+        );
         if (!putRes.ok) return null;
         fetchWorkflows();
         return currentWorkflow;
       } else {
-        const res = await fetch(`${API_BASE}/api/workflows`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: workflowName, description: '', definition }),
-        });
+        const res = await fetch(
+          `${API_BASE}/api/workflows`,
+          withClientAuth({
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: workflowName, description: '', definition }),
+          }),
+        );
         if (res.ok) {
           const data = await res.json();
           setCurrentWorkflow(data.id);
@@ -352,7 +435,7 @@ export default function WorkflowEditor() {
   }, []);
 
   const subscribeWorkflowRun = useCallback(
-    async (runId) => {
+    async (workflowId, runId) => {
       const ws = await waitForWorkflowSocket();
       await new Promise((resolve, reject) => {
         const timeoutId = window.setTimeout(() => {
@@ -365,7 +448,7 @@ export default function WorkflowEditor() {
           reject,
           timeoutId,
         });
-        ws.send(JSON.stringify({ action: 'subscribe_workflow', runId }));
+        ws.send(JSON.stringify({ action: 'subscribe_workflow', workflowId, runId }));
       });
     },
     [waitForWorkflowSocket],
@@ -385,12 +468,15 @@ export default function WorkflowEditor() {
       });
 
     try {
-      await subscribeWorkflowRun(runId);
-      const res = await fetch(`${API_BASE}/api/workflows/${wfId}/run`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ context: {}, runId }),
-      });
+      await subscribeWorkflowRun(wfId, runId);
+      const res = await fetch(
+        `${API_BASE}/api/workflows/${wfId}/run`,
+        withClientAuth({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ context: {}, runId }),
+        }),
+      );
       if (!res.ok) {
         throw new Error(`workflow start failed: ${res.status}`);
       }
@@ -405,14 +491,7 @@ export default function WorkflowEditor() {
   // Listen for workflow events via WebSocket and subscribe to concrete runIds
   // before triggering execution to avoid missing early events.
   useEffect(() => {
-    const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    let wsUrl = `${proto}//${window.location.host}/ws`;
-    const token =
-      new URLSearchParams(window.location.search).get('token') ||
-      localStorage.getItem('agentboard_api_key') ||
-      '';
-    if (token) wsUrl += `?token=${encodeURIComponent(token)}`;
-    const ws = new WebSocket(wsUrl);
+    const ws = new WebSocket(buildWsUrl('/ws'));
     wsRef.current = ws;
 
     ws.onmessage = (e) => {
@@ -489,6 +568,7 @@ export default function WorkflowEditor() {
       if (!node) return;
       setDraggingNode(nodeId);
       setSelectedNode(nodeId);
+      setSelectedEdge(null);
       const pos = node.position || { x: 0, y: 0 };
       setDragOffset({
         x: e.clientX - pos.x - pan.x,
@@ -504,6 +584,7 @@ export default function WorkflowEditor() {
         setIsPanning(true);
         setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
         setSelectedNode(null);
+        setSelectedEdge(null);
       }
     },
     [pan],
@@ -547,7 +628,11 @@ export default function WorkflowEditor() {
         if (target && target.id !== drawingEdge.fromId) {
           const exists = edges.some((e) => e.from === drawingEdge.fromId && e.to === target.id);
           if (!exists) {
-            setEdges((prev) => [...prev, { from: drawingEdge.fromId, to: target.id }]);
+            const sourceNode = nodes.find((node) => node.id === drawingEdge.fromId);
+            const nextEdge = createEdge(drawingEdge.fromId, target.id, sourceNode, edges);
+            setEdges((prev) => [...prev, nextEdge]);
+            setSelectedEdge({ from: nextEdge.from, to: nextEdge.to });
+            setSelectedNode(null);
           }
         }
         setDrawingEdge(null);
@@ -572,6 +657,7 @@ export default function WorkflowEditor() {
   // Delete edge on double-click
   const handleEdgeDoubleClick = useCallback((fromId, toId) => {
     setEdges((prev) => prev.filter((e) => !(e.from === fromId && e.to === toId)));
+    setSelectedEdge((prev) => (prev && prev.from === fromId && prev.to === toId ? null : prev));
   }, []);
 
   // Keyboard shortcuts
@@ -592,6 +678,13 @@ export default function WorkflowEditor() {
   }, [selectedNode, deleteNode]);
 
   const selectedNodeObj = nodes.find((n) => n.id === selectedNode);
+  const selectedEdgeObj = edges.find((edge) => edgeMatches(edge, selectedEdge)) || null;
+  const selectedEdgeSource = selectedEdgeObj
+    ? nodes.find((node) => node.id === selectedEdgeObj.from) || null
+    : null;
+  const selectedEdgeTarget = selectedEdgeObj
+    ? nodes.find((node) => node.id === selectedEdgeObj.to) || null
+    : null;
 
   // --- Workflow list view when no workflow is open ---
   if (!isEditing) {
@@ -631,6 +724,8 @@ export default function WorkflowEditor() {
             setNodes([]);
             setEdges([]);
             setCurrentWorkflow(null);
+            setSelectedNode(null);
+            setSelectedEdge(null);
             setIsEditing(false);
           }}
         >
@@ -706,11 +801,17 @@ export default function WorkflowEditor() {
               const x2 = toPos.x;
               const y2 = toPos.y + NODE_H / 2;
               const isActive = activeNodes.has(edge.from) || activeNodes.has(edge.to);
+              const isSelected = edgeMatches(edge, selectedEdge);
               return (
                 <g key={`${edge.from}-${edge.to}`}>
                   <path
                     d={edgePath(x1, y1, x2, y2)}
-                    className={`${styles.edge} ${isActive ? styles.edgeActive : ''}`}
+                    className={`${styles.edge} ${isActive ? styles.edgeActive : ''} ${isSelected ? styles.edgeSelected : ''}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedNode(null);
+                      setSelectedEdge({ from: edge.from, to: edge.to });
+                    }}
                     onDoubleClick={() => handleEdgeDoubleClick(edge.from, edge.to)}
                     style={{ cursor: 'pointer' }}
                   />
@@ -754,6 +855,7 @@ export default function WorkflowEditor() {
                   onClick={(e) => {
                     e.stopPropagation();
                     setSelectedNode(node.id);
+                    setSelectedEdge(null);
                   }}
                 >
                   <rect
@@ -810,13 +912,23 @@ export default function WorkflowEditor() {
           </g>
         </svg>
 
-        {/* Node config panel */}
-        <NodeConfigPanel
-          node={selectedNodeObj}
-          onUpdate={updateNode}
-          onDelete={deleteNode}
-          onClose={() => setSelectedNode(null)}
-        />
+        {selectedEdgeObj ? (
+          <EdgeConfigPanel
+            edge={selectedEdgeObj}
+            sourceNode={selectedEdgeSource}
+            targetNode={selectedEdgeTarget}
+            onUpdate={updateSelectedEdge}
+            onDelete={deleteSelectedEdge}
+            onClose={() => setSelectedEdge(null)}
+          />
+        ) : (
+          <NodeConfigPanel
+            node={selectedNodeObj}
+            onUpdate={updateNode}
+            onDelete={deleteNode}
+            onClose={() => setSelectedNode(null)}
+          />
+        )}
       </div>
     </div>
   );

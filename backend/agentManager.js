@@ -120,14 +120,14 @@ function buildBaseOptions(sessionId, permMode, prompt, userId) {
 /**
  * Consume the SDK event stream, persist events, and broadcast via WebSocket.
  */
-function consumeStream(sessionId, stream) {
+function consumeStream(sessionId, stream, userId = 'default') {
   const timeoutId = setTimeout(() => {
     if (activeAgents.has(sessionId)) {
       stopAgent(sessionId);
     }
   }, config.agentTimeout);
 
-  activeAgents.set(sessionId, { stream, timeoutId, stopped: false });
+  activeAgents.set(sessionId, { stream, timeoutId, stopped: false, userId });
 
   (async () => {
     let finalStatus = 'completed';
@@ -216,7 +216,7 @@ export function startAgent(prompt, opts = {}) {
     },
   });
 
-  consumeStream(sessionId, stream);
+  consumeStream(sessionId, stream, opts.userId);
   return sessionId;
 }
 
@@ -234,7 +234,12 @@ export function continueAgent(sessionId, prompt, opts = {}) {
     return false;
   }
   // Claim the slot immediately to block concurrent follow_up calls
-  activeAgents.set(sessionId, { stream: null, timeoutId: null, stopped: false });
+  activeAgents.set(sessionId, {
+    stream: null,
+    timeoutId: null,
+    stopped: false,
+    userId: opts.userId || 'default',
+  });
 
   const permMode = PERMISSION_MODES.includes(opts.permissionMode)
     ? opts.permissionMode
@@ -255,7 +260,7 @@ export function continueAgent(sessionId, prompt, opts = {}) {
   });
 
   // consumeStream will overwrite the activeAgents entry with the real stream/timeout
-  consumeStream(sessionId, stream);
+  consumeStream(sessionId, stream, opts.userId);
   return true;
 }
 
@@ -279,8 +284,11 @@ export function stopAgent(sessionId) {
 /**
  * 获取活跃 Agent 列表
  */
-export function getActiveAgents() {
-  return [...activeAgents.keys()];
+export function getActiveAgents(userId) {
+  if (!userId) return [...activeAgents.keys()];
+  return [...activeAgents.entries()]
+    .filter(([, entry]) => entry.userId === userId)
+    .map(([sessionId]) => sessionId);
 }
 
 /**

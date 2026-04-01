@@ -74,6 +74,13 @@ export function validateWorkflow(definition) {
     if (!nodeIds.has(edge.to)) {
       errors.push(`Edge references unknown target node: ${edge.to}`);
     }
+    if (edge.condition && !['true', 'false'].includes(edge.condition)) {
+      errors.push(`Edge "${edge.from}" -> "${edge.to}" has invalid condition: ${edge.condition}`);
+    }
+    const sourceNode = nodes.find((node) => node.id === edge.from);
+    if (edge.condition && sourceNode && sourceNode.type !== 'condition') {
+      errors.push(`Only condition nodes can use edge conditions: ${edge.from} -> ${edge.to}`);
+    }
   }
 
   // Check for cycles via topological sort
@@ -318,7 +325,7 @@ export async function executeWorkflow(
   const runId = preCreatedRunId || createWorkflowRun(userId, workflowId, inputContext);
   const { nodes, edges } = definition;
 
-  activeRuns.set(runId, { aborted: false });
+  activeRuns.set(runId, { aborted: false, userId });
   workflowEvents.emit('run_start', { runId, workflowId });
 
   const nodeMap = new Map(nodes.map((n) => [n.id, n]));
@@ -459,6 +466,9 @@ export function abortWorkflow(runId) {
 /**
  * Get IDs of currently running workflows.
  */
-export function getActiveWorkflowRuns() {
-  return [...activeRuns.keys()];
+export function getActiveWorkflowRuns(userId) {
+  if (!userId) return [...activeRuns.keys()];
+  return [...activeRuns.entries()]
+    .filter(([, entry]) => entry.userId === userId)
+    .map(([runId]) => runId);
 }

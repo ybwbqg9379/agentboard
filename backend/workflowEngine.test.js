@@ -134,6 +134,38 @@ describe('validateWorkflow', () => {
     });
     expect(result.valid).toBe(true);
   });
+
+  it('rejects conditional edges on non-condition nodes', () => {
+    const result = validateWorkflow({
+      nodes: [
+        { id: 'in', type: 'input' },
+        { id: 'a1', type: 'agent', config: { prompt: 'task 1' } },
+        { id: 'out', type: 'output' },
+      ],
+      edges: [
+        { from: 'in', to: 'a1' },
+        { from: 'a1', to: 'out', condition: 'true' },
+      ],
+    });
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.includes('Only condition nodes'))).toBe(true);
+  });
+
+  it('rejects unknown edge condition tags', () => {
+    const result = validateWorkflow({
+      nodes: [
+        { id: 'in', type: 'input' },
+        { id: 'cond', type: 'condition', config: { expression: 'status == "ok"' } },
+        { id: 'out', type: 'output' },
+      ],
+      edges: [
+        { from: 'in', to: 'cond' },
+        { from: 'cond', to: 'out', condition: 'maybe' },
+      ],
+    });
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.includes('invalid condition'))).toBe(true);
+  });
 });
 
 // ---------------------------------------------------------------------------

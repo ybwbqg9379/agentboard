@@ -13,6 +13,8 @@ import {
   controlActionSchema,
   sessionsQuerySchema,
   workflowSchema,
+  workflowRunRequestSchema,
+  normalizeUserId,
   validate,
   validateQuery,
 } from './middleware.js';
@@ -40,8 +42,10 @@ describe('authMiddleware - no key configured', () => {
   it('calls next() when AGENTBOARD_API_KEY is unset', async () => {
     const { authMiddleware } = await import('./middleware.js');
     const next = vi.fn();
-    authMiddleware({ headers: {} }, mockRes(), next);
+    const req = { headers: {} };
+    authMiddleware(req, mockRes(), next);
     expect(next).toHaveBeenCalledOnce();
+    expect(req.user.id).toBe('default');
   });
 
   it('calls next() when AGENTBOARD_API_KEY is empty string', async () => {
@@ -49,8 +53,19 @@ describe('authMiddleware - no key configured', () => {
     vi.resetModules();
     const { authMiddleware } = await import('./middleware.js');
     const next = vi.fn();
-    authMiddleware({ headers: {} }, mockRes(), next);
+    const req = { headers: {} };
+    authMiddleware(req, mockRes(), next);
     expect(next).toHaveBeenCalledOnce();
+    expect(req.user.id).toBe('default');
+  });
+
+  it('normalizes x-user-id when provided', async () => {
+    const { authMiddleware } = await import('./middleware.js');
+    const next = vi.fn();
+    const req = { headers: { 'x-user-id': 'tenant-42' } };
+    authMiddleware(req, mockRes(), next);
+    expect(next).toHaveBeenCalledOnce();
+    expect(req.user.id).toBe('tenant-42');
   });
 });
 
@@ -107,6 +122,22 @@ describe('authMiddleware - with key configured', () => {
     expect(next).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(401);
   });
+
+  it('returns 400 when x-user-id format is invalid', async () => {
+    const { authMiddleware } = await import('./middleware.js');
+    const next = vi.fn();
+    const res = mockRes();
+    const req = {
+      headers: {
+        authorization: 'Bearer test-secret',
+        'x-user-id': '../escape',
+      },
+    };
+    authMiddleware(req, res, next);
+    expect(next).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({ error: 'invalid x-user-id' });
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -122,10 +153,11 @@ describe('wsAuth - no key configured', () => {
   it('returns true for allowed localhost origin when no API key is set', async () => {
     const { wsAuth } = await import('./middleware.js');
     const req = {
-      url: '/ws',
+      url: '/ws?user_id=tenant-1',
       headers: { host: 'localhost:3001', origin: 'http://localhost:5173' },
     };
     expect(wsAuth(req)).toBe(true);
+    expect(req.userId).toBe('tenant-1');
   });
 
   it('returns false when origin header is missing', async () => {
@@ -153,10 +185,11 @@ describe('wsAuth - with key configured', () => {
   it('returns true with correct token in query param', async () => {
     const { wsAuth } = await import('./middleware.js');
     const req = {
-      url: '/ws?token=ws-secret',
+      url: '/ws?token=ws-secret&user_id=tenant-2',
       headers: { host: 'localhost:3001', origin: 'http://localhost:5173' },
     };
     expect(wsAuth(req)).toBe(true);
+    expect(req.userId).toBe('tenant-2');
   });
 
   it('returns false with wrong token', async () => {
@@ -184,6 +217,28 @@ describe('wsAuth - with key configured', () => {
       headers: { host: 'localhost:3001', origin: 'https://evil.example' },
     };
     expect(wsAuth(req)).toBe(false);
+  });
+
+  it('returns false for invalid user_id in query string', async () => {
+    const { wsAuth } = await import('./middleware.js');
+    const req = {
+      url: '/ws?token=ws-secret&user_id=../../bad',
+      headers: { host: 'localhost:3001', origin: 'http://localhost:5173' },
+    };
+    expect(wsAuth(req)).toBe(false);
+  });
+});
+
+describe('normalizeUserId', () => {
+  it('accepts simple tenant IDs', () => {
+    expect(normalizeUserId('tenant-1')).toBe('tenant-1');
+    expect(normalizeUserId('user.alpha:01')).toBe('user.alpha:01');
+  });
+
+  it('rejects invalid values', () => {
+    expect(normalizeUserId('')).toBeNull();
+    expect(normalizeUserId('  ')).toBeNull();
+    expect(normalizeUserId('../bad')).toBeNull();
   });
 });
 
@@ -309,6 +364,16 @@ describe('wsMessageSchema', () => {
       const result = wsMessageSchema.safeParse({ action: 'subscribe_workflow', runId });
       expect(result.success).toBe(true);
       expect(result.data.runId).toBe(runId);
+    });
+
+    it('accepts subscribe_workflow with optional workflowId for pre-subscribe', () => {
+      const result = wsMessageSchema.safeParse({
+        action: 'subscribe_workflow',
+        runId: '550e8400-e29b-41d4-a716-446655440000',
+        workflowId: '123e4567-e89b-12d3-a456-426614174000',
+      });
+      expect(result.success).toBe(true);
+      expect(result.data.workflowId).toBe('123e4567-e89b-12d3-a456-426614174000');
     });
 
     it('accepts unsubscribe_workflow with optional runId', () => {
@@ -677,5 +742,45 @@ describe('workflowSchema', () => {
       },
     });
     expect(result.success).toBe(true);
+  });
+
+  it('rejects invalid edge condition value', () => {
+    const result = workflowSchema.safeParse({
+      name: 'Bad',
+      definition: {
+        nodes: [
+          { id: 'in', type: 'input' },
+          { id: 'cond', type: 'condition', config: { expression: 'x == "y"' } },
+          { id: 'out', type: 'output' },
+        ],
+        edges: [
+          { from: 'in', to: 'cond' },
+          { from: 'cond', to: 'out', condition: 'maybe' },
+        ],
+      },
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('workflowRunRequestSchema', () => {
+  it('accepts empty body', () => {
+    expect(workflowRunRequestSchema.safeParse({}).success).toBe(true);
+  });
+
+  it('accepts context with arbitrary values and UUID runId', () => {
+    const result = workflowRunRequestSchema.safeParse({
+      context: { answer: 42, nested: { ok: true } },
+      runId: '550e8400-e29b-41d4-a716-446655440000',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects non-UUID runId', () => {
+    expect(
+      workflowRunRequestSchema.safeParse({
+        runId: 'not-a-uuid',
+      }).success,
+    ).toBe(false);
   });
 });

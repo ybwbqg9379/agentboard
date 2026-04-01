@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import styles from './SessionDrawer.module.css';
+import { withClientAuth } from '../lib/clientAuth.js';
 
 const API_BASE = '';
 
@@ -11,7 +12,7 @@ export default function SessionDrawer({ open, onClose, onLoadSession, currentSes
   const fetchSessions = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/sessions?limit=30`);
+      const res = await fetch(`${API_BASE}/api/sessions?limit=30`, withClientAuth());
       if (!res.ok) return;
       const data = await res.json();
       setSessions(data.sessions || []);

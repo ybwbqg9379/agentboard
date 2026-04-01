@@ -50,6 +50,7 @@ import {
   controlActionSchema,
   sessionsQuerySchema,
   workflowSchema,
+  workflowRunRequestSchema,
   validate,
   validateQuery,
 } from './middleware.js';
@@ -66,6 +67,14 @@ app.use(
 );
 app.use(express.json());
 app.use(authMiddleware);
+
+function hasOwnedSession(userId, sessionId) {
+  return Boolean(sessionId && getSession(userId, sessionId));
+}
+
+function hasOwnedWorkflowRun(userId, runId) {
+  return Boolean(runId && getWorkflowRun(userId, runId));
+}
 
 // --- REST API ---
 
@@ -85,6 +94,9 @@ app.get('/api/sessions/:id', (req, res) => {
 });
 
 app.post('/api/sessions/:id/stop', (req, res) => {
+  if (!hasOwnedSession(req.user.id, req.params.id)) {
+    return res.status(404).json({ error: 'session not found' });
+  }
   const stopped = stopAgent(req.params.id);
   if (!stopped) {
     res.status(404).json({ error: 'session not found or not active', stopped });
@@ -95,7 +107,7 @@ app.post('/api/sessions/:id/stop', (req, res) => {
 
 app.get('/api/status', (_req, res) => {
   res.json({
-    activeAgents: getActiveAgents(),
+    activeAgents: getActiveAgents(_req.user.id),
     uptime: process.uptime(),
   });
 });
@@ -111,6 +123,9 @@ app.get('/api/config/permissions', (_req, res) => {
 // Stream control -- dispatch actions to a running agent's stream
 app.post('/api/sessions/:id/control', validate(controlActionSchema), async (req, res) => {
   const { action } = req.body;
+  if (!hasOwnedSession(req.user.id, req.params.id)) {
+    return res.status(404).json({ error: 'session not found' });
+  }
   const stream = getAgentStream(req.params.id);
   if (!stream) {
     return res.status(404).json({ error: 'session not active' });
@@ -195,11 +210,11 @@ app.delete('/api/workflows/:id', (req, res) => {
   res.json({ deleted: true });
 });
 
-app.post('/api/workflows/:id/run', async (req, res) => {
+app.post('/api/workflows/:id/run', validate(workflowRunRequestSchema), async (req, res) => {
   const workflow = getWorkflow(req.user.id, req.params.id);
   if (!workflow) return res.status(404).json({ error: 'workflow not found' });
-  const inputContext = req.body?.context || {};
-  const requestedRunId = req.body?.runId;
+  const inputContext = req.body.context || {};
+  const requestedRunId = req.body.runId;
   const runId = createWorkflowRun(req.user.id, req.params.id, inputContext, requestedRunId);
   res.status(202).json({ message: 'workflow started', workflowId: req.params.id, runId });
   executeWorkflow(req.params.id, workflow.definition, inputContext, runId, req.user.id).catch(
@@ -210,6 +225,9 @@ app.post('/api/workflows/:id/run', async (req, res) => {
 });
 
 app.post('/api/workflow-runs/:id/abort', (req, res) => {
+  if (!hasOwnedWorkflowRun(req.user.id, req.params.id)) {
+    return res.status(404).json({ error: 'run not found' });
+  }
   const aborted = abortWorkflow(req.params.id);
   if (!aborted) return res.status(404).json({ error: 'run not found or not active' });
   res.json({ aborted: true });
@@ -229,7 +247,7 @@ app.get('/api/workflow-runs/:id', (req, res) => {
 });
 
 app.get('/api/workflow-status', (_req, res) => {
-  res.json({ activeRuns: getActiveWorkflowRuns() });
+  res.json({ activeRuns: getActiveWorkflowRuns(_req.user.id) });
 });
 
 // --- Error Handler (Express 5 auto-forwards rejected promises) ---
@@ -293,6 +311,10 @@ wss.on('connection', (ws, req) => {
           ws.send(JSON.stringify({ error: 'sessionId is required' }));
           return;
         }
+        if (!hasOwnedSession(ws.userId, msg.sessionId)) {
+          ws.send(JSON.stringify({ error: 'session not found' }));
+          return;
+        }
         subscriptions.set(ws, msg.sessionId);
         ws.send(JSON.stringify({ type: 'subscribed', sessionId: msg.sessionId }));
         break;
@@ -306,6 +328,10 @@ wss.on('connection', (ws, req) => {
         const targetSid = msg.sessionId || subscriptions.get(ws);
         if (!targetSid) {
           ws.send(JSON.stringify({ error: 'no active session to continue' }));
+          return;
+        }
+        if (!hasOwnedSession(ws.userId, targetSid)) {
+          ws.send(JSON.stringify({ error: 'session not found' }));
           return;
         }
         const resumed = continueAgent(targetSid, msg.prompt, {
@@ -324,7 +350,13 @@ wss.on('connection', (ws, req) => {
 
       case 'stop': {
         const sid = msg.sessionId || subscriptions.get(ws);
-        if (sid) stopAgent(sid);
+        if (sid) {
+          if (!hasOwnedSession(ws.userId, sid)) {
+            ws.send(JSON.stringify({ error: 'session not found' }));
+            return;
+          }
+          stopAgent(sid);
+        }
         break;
       }
 
@@ -335,6 +367,14 @@ wss.on('connection', (ws, req) => {
       }
 
       case 'subscribe_workflow': {
+        const hasExistingRun = hasOwnedWorkflowRun(ws.userId, msg.runId);
+        const hasOwnedWorkflow = msg.workflowId
+          ? Boolean(getWorkflow(ws.userId, msg.workflowId))
+          : false;
+        if (!hasExistingRun && !hasOwnedWorkflow) {
+          ws.send(JSON.stringify({ error: 'run not found' }));
+          return;
+        }
         if (!workflowSubs.has(ws)) workflowSubs.set(ws, new Set());
         workflowSubs.get(ws).add(msg.runId);
         ws.send(JSON.stringify({ type: 'workflow_subscribed', runId: msg.runId }));

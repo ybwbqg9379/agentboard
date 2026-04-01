@@ -7,6 +7,7 @@ import { z } from 'zod';
 // --- API Key Auth ---
 
 const API_KEY = process.env.AGENTBOARD_API_KEY || '';
+const USER_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$/;
 
 const ALLOWED_ORIGINS = new Set([
   'http://localhost:5173',
@@ -37,13 +38,35 @@ export function isAllowedWebSocketOrigin(origin) {
   return typeof origin === 'string' && ALLOWED_ORIGINS.has(origin);
 }
 
+function getFirstHeaderValue(value) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+export function normalizeUserId(rawUserId) {
+  if (typeof rawUserId !== 'string') return null;
+  const userId = rawUserId.trim();
+  if (!userId) return null;
+  return USER_ID_PATTERN.test(userId) ? userId : null;
+}
+
+function getRequestUserId(req) {
+  return getFirstHeaderValue(req.headers['x-user-id']);
+}
+
 /**
  * Bearer token authentication middleware.
  * Skipped when AGENTBOARD_API_KEY is not set (development mode).
  */
 export function authMiddleware(req, res, next) {
+  const requestedUserId = getRequestUserId(req);
+  const normalizedUserId = requestedUserId ? normalizeUserId(requestedUserId) : null;
+
+  if (requestedUserId && !normalizedUserId) {
+    return res.status(400).json({ error: 'invalid x-user-id' });
+  }
+
   // Always initialize req.user
-  req.user = { id: req.headers['x-user-id'] || 'default' };
+  req.user = { id: normalizedUserId || 'default' };
 
   if (!API_KEY) return next(); // no key configured = open access
 
@@ -64,10 +87,17 @@ export function wsAuth(req) {
   const origin = req.headers.origin;
   if (!isAllowedWebSocketOrigin(origin)) return false;
 
-  req.userId = req.headers['x-user-id'] || 'default';
+  const url = new URL(req.url, `http://${req.headers.host}`);
+  const requestedUserId =
+    url.searchParams.get('user_id') ||
+    url.searchParams.get('userId') ||
+    getRequestUserId(req) ||
+    null;
+  const normalizedUserId = requestedUserId ? normalizeUserId(requestedUserId) : null;
+  if (requestedUserId && !normalizedUserId) return false;
+  req.userId = normalizedUserId || 'default';
 
   if (!API_KEY) return true;
-  const url = new URL(req.url, `http://${req.headers.host}`);
   return url.searchParams.get('token') === API_KEY;
 }
 
@@ -101,6 +131,7 @@ export const wsMessageSchema = z.discriminatedUnion('action', [
   z.object({
     action: z.literal('subscribe_workflow'),
     runId: z.string().uuid(),
+    workflowId: z.string().uuid().optional(),
   }),
   z.object({
     action: z.literal('unsubscribe_workflow'),
@@ -118,7 +149,7 @@ const nodeSchema = z.object({
   id: z.string().min(1),
   type: z.enum(['agent', 'condition', 'transform', 'input', 'output']),
   label: z.string().optional(),
-  config: z.record(z.unknown()).optional(),
+  config: z.record(z.string(), z.unknown()).optional(),
   position: z
     .object({
       x: z.number(),
@@ -130,7 +161,7 @@ const nodeSchema = z.object({
 const edgeSchema = z.object({
   from: z.string().min(1),
   to: z.string().min(1),
-  condition: z.string().optional(),
+  condition: z.enum(['true', 'false']).optional(),
 });
 
 export const workflowSchema = z.object({
@@ -141,6 +172,13 @@ export const workflowSchema = z.object({
     edges: z.array(edgeSchema),
   }),
 });
+
+export const workflowRunRequestSchema = z
+  .object({
+    context: z.record(z.string(), z.unknown()).optional(),
+    runId: z.string().uuid().optional(),
+  })
+  .default({});
 
 export const sessionsQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20),

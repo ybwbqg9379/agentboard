@@ -1,21 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { buildWsUrl, withClientAuth } from '../lib/clientAuth.js';
 
 const API_BASE = '';
 const RECONNECT_INTERVAL = 3000;
 const MAX_EVENTS = 5000;
-
-function getAuthToken() {
-  // Check URL query param first, then localStorage
-  const params = new URLSearchParams(window.location.search);
-  return params.get('token') || localStorage.getItem('agentboard_api_key') || '';
-}
-
-function getWsUrl() {
-  const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const base = `${proto}//${window.location.host}/ws`;
-  const token = getAuthToken();
-  return token ? `${base}?token=${encodeURIComponent(token)}` : base;
-}
 
 export function useWebSocket() {
   const [connected, setConnected] = useState(false);
@@ -33,7 +21,7 @@ export function useWebSocket() {
   const connect = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
 
-    const ws = new WebSocket(getWsUrl());
+    const ws = new WebSocket(buildWsUrl('/ws'));
     wsRef.current = ws;
 
     ws.onopen = () => {
@@ -226,7 +214,7 @@ export function useWebSocket() {
   // Load a past session from REST API into the current view
   const loadSession = useCallback(async (sid) => {
     try {
-      const res = await fetch(`${API_BASE}/api/sessions/${sid}`);
+      const res = await fetch(`${API_BASE}/api/sessions/${sid}`, withClientAuth());
       if (!res.ok) return;
       const data = await res.json();
       sessionIdRef.current = sid;

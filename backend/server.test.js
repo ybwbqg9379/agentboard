@@ -54,6 +54,11 @@ const mockSession = {
   created_at: '2024-01-01 00:00:00',
 };
 
+const sessionOwners = new Map([
+  ['default', new Set(['valid-id', 'active-id'])],
+  ['tenant-a', new Set(['tenant-a-session'])],
+]);
+
 const mockEvent = {
   id: 1,
   session_id: 'valid-id',
@@ -68,7 +73,11 @@ vi.mock('./sessionStore.js', () => ({
     return [];
   }),
   countSessions: vi.fn((_userId) => 1),
-  getSession: vi.fn((_userId, id) => (id === 'valid-id' ? { ...mockSession } : undefined)),
+  getSession: vi.fn((userId, id) => {
+    const ownedSessions = sessionOwners.get(userId || 'default');
+    if (!ownedSessions?.has(id)) return undefined;
+    return { ...mockSession, id, user_id: userId || 'default' };
+  }),
   getEvents: vi.fn((sessionId) => (sessionId === 'valid-id' ? [{ ...mockEvent }] : [])),
   countEvents: vi.fn((sessionId) => (sessionId === 'valid-id' ? 1 : 0)),
   recoverStaleSessions: vi.fn(() => 0),
@@ -173,6 +182,14 @@ describe('POST /api/sessions/:id/stop', () => {
     expect(res.body.stopped).toBe(true);
   });
 
+  it('returns 404 when the session is not owned by the current user', async () => {
+    const res = await request(app)
+      .post('/api/sessions/active-id/stop')
+      .set('x-user-id', 'tenant-a');
+    expect(res.status).toBe(404);
+    expect(res.body.error).toBe('session not found');
+  });
+
   it('returns 404 when session is not active', async () => {
     const res = await request(app).post('/api/sessions/unknown-id/stop');
     expect(res.status).toBe(404);
@@ -243,7 +260,16 @@ describe('POST /api/sessions/:id/control', () => {
       .post('/api/sessions/nonexistent-id/control')
       .send({ action: 'get_context_usage' });
     expect(res.status).toBe(404);
-    expect(res.body.error).toBe('session not active');
+    expect(res.body.error).toBe('session not found');
+  });
+
+  it('returns 404 when the session is not owned by the current user', async () => {
+    const res = await request(app)
+      .post('/api/sessions/active-id/control')
+      .set('x-user-id', 'tenant-a')
+      .send({ action: 'get_context_usage' });
+    expect(res.status).toBe(404);
+    expect(res.body.error).toBe('session not found');
   });
 
   it('executes get_context_usage on active session', async () => {
