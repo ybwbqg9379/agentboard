@@ -81,6 +81,7 @@ const stmts = {
   listRuns: db.prepare(
     'SELECT * FROM workflow_runs WHERE workflow_id = ? AND user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?',
   ),
+  deleteWorkflowRuns: db.prepare('DELETE FROM workflow_runs WHERE workflow_id = ?'),
 };
 
 // --- Workflow CRUD ---
@@ -135,6 +136,8 @@ export function countWorkflows(userId) {
 
 export function deleteWorkflow(userId, id) {
   try {
+    // Cascade: delete all runs referencing this workflow first
+    stmts.deleteWorkflowRuns.run(id);
     const result = stmts.deleteWorkflow.run(id, userId || 'default');
     return result.changes > 0;
   } catch (err) {
