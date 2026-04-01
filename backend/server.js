@@ -355,7 +355,13 @@ wss.on('connection', (ws, req) => {
             ws.send(JSON.stringify({ error: 'session not found' }));
             return;
           }
-          stopAgent(sid);
+          const stopped = stopAgent(sid);
+          // Immediately notify the frontend so it can transition out of 'running'
+          ws.send(JSON.stringify({ type: 'done', content: { status: 'stopped' }, sessionId: sid }));
+          if (!stopped) {
+            // Agent wasn't active -- still tell the frontend
+            ws.send(JSON.stringify({ error: 'session not active' }));
+          }
         }
         break;
       }

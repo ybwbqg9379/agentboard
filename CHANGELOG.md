@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Agent 生命周期修复与第三方 LLM 适配
+
+#### Fixed
+
+- **Agent Stop 按钮失效**: `stopAgent()` 使用 `stream.return()` 无法中断 SDK 内部 API 重试循环，导致点击 Stop 后 Agent 始终显示 "Agent is working"；改用 `AbortController.abort()` 实现可靠中止，同时在 WebSocket stop handler 中立即向前端发送 `{ type: 'done', status: 'stopped' }` 确认消息
+- **第三方模型名不匹配**: `buildBaseOptions()` 未向 SDK 传递 `model` 参数，SDK 使用内置默认模型名（如 `claude-sonnet-4-20250514`），与第三方代理注册的模型名不一致导致 API 报错无限重试；现已从 `config.llm.model` 读取并传入
+- **Proxy 诊断日志**: 为 Anthropic→OpenAI 翻译代理新增请求级日志，输出 model、stream、消息数、tools 数量及 payload 大小，便于定位第三方 API 超时/错误
+- **ESLint `AbortController` 全局声明**: 补充 Node.js 18+ 内置全局 `AbortController` 到 ESLint globals，消除误报
+
 ### 多租户鉴权透传与 Workflow 分支闭环修复
 
 #### Fixed

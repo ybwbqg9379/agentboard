@@ -16,6 +16,7 @@ export default [
         setTimeout: 'readonly',
         clearTimeout: 'readonly',
         fetch: 'readonly',
+        AbortController: 'readonly',
         URL: 'readonly',
         WebSocket: 'readonly',
         TextDecoder: 'readonly',

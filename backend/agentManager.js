@@ -15,7 +15,7 @@ import { buildHooks } from './hooks.js';
 import { initMcpHealth } from './mcpHealth.js';
 import { buildAgentEnv, getSdkExecutablePath } from './sdkRuntime.js';
 
-// 活跃的 Agent Query Map<sessionId, { stream, timeoutId }>
+// 活跃的 Agent Query Map<sessionId, { stream, timeoutId, abortController }>
 const activeAgents = new Map();
 
 export const agentEvents = new EventEmitter();
@@ -95,6 +95,7 @@ function buildBaseOptions(sessionId, permMode, prompt, userId) {
     permissionMode: permMode,
     allowDangerouslySkipPermissions: needsSkip,
     executable: getSdkExecutablePath(),
+    model: config.llm.model,
     systemPrompt: {
       type: 'preset',
       preset: 'claude_code',
@@ -119,14 +120,14 @@ function buildBaseOptions(sessionId, permMode, prompt, userId) {
 /**
  * Consume the SDK event stream, persist events, and broadcast via WebSocket.
  */
-function consumeStream(sessionId, stream, userId = 'default') {
+function consumeStream(sessionId, stream, abortController, userId = 'default') {
   const timeoutId = setTimeout(() => {
     if (activeAgents.has(sessionId)) {
       stopAgent(sessionId);
     }
   }, config.agentTimeout);
 
-  activeAgents.set(sessionId, { stream, timeoutId, stopped: false, userId });
+  activeAgents.set(sessionId, { stream, timeoutId, abortController, stopped: false, userId });
 
   (async () => {
     let finalStatus = 'completed';
@@ -205,6 +206,7 @@ export function startAgent(prompt, opts = {}) {
     ? opts.permissionMode
     : 'bypassPermissions';
 
+  const abortController = new AbortController();
   const baseOpts = buildBaseOptions(sessionId, permMode, prompt, opts.userId);
   const stream = query({
     prompt,
@@ -212,10 +214,11 @@ export function startAgent(prompt, opts = {}) {
       ...baseOpts,
       maxTurns: opts.maxTurns || 50,
       sessionId,
+      abortController,
     },
   });
 
-  consumeStream(sessionId, stream, opts.userId);
+  consumeStream(sessionId, stream, abortController, opts.userId);
   return sessionId;
 }
 
@@ -248,6 +251,7 @@ export function continueAgent(sessionId, prompt, opts = {}) {
   updateSessionStatus(sessionId, 'running');
   insertEvent(sessionId, 'user', { type: 'user', text: prompt, timestamp: Date.now() });
 
+  const abortController = new AbortController();
   const baseOpts = buildBaseOptions(sessionId, permMode, prompt, opts.userId);
   const stream = query({
     prompt,
@@ -255,11 +259,12 @@ export function continueAgent(sessionId, prompt, opts = {}) {
       ...baseOpts,
       maxTurns: opts.maxTurns || 50,
       resume: sessionId,
+      abortController,
     },
   });
 
   // consumeStream will overwrite the activeAgents entry with the real stream/timeout
-  consumeStream(sessionId, stream, opts.userId);
+  consumeStream(sessionId, stream, abortController, opts.userId);
   return true;
 }
 
@@ -272,10 +277,22 @@ export function stopAgent(sessionId) {
 
   entry.stopped = true;
   clearTimeout(entry.timeoutId);
+
+  // Use AbortController for reliable cancellation -- this interrupts SDK
+  // internal retry sleeps, HTTP requests, and the async generator loop.
+  if (entry.abortController) {
+    try {
+      entry.abortController.abort();
+    } catch (err) {
+      console.warn(`[agentManager] abortController.abort() error: ${err.message}`);
+    }
+  }
+
+  // Fallback: also call stream.return() for belt-and-suspenders safety
   try {
-    entry.stream.return();
-  } catch (err) {
-    console.warn(`[agentManager] stream.return() error: ${err.message}`);
+    entry.stream?.return?.();
+  } catch {
+    /* ignore */
   }
   return true;
 }

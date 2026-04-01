@@ -377,7 +377,11 @@ const server = createServer(async (req, res) => {
     openaiReq.stream_options = { include_usage: true };
   }
 
-  // 转发到 Minimax
+  // 转发到目标 LLM
+  const requestBody = JSON.stringify(openaiReq);
+  console.log(
+    `[proxy] → ${TARGET_BASE}/chat/completions | model=${openaiReq.model} stream=${isStream} msgs=${openaiReq.messages.length} tools=${openaiReq.tools?.length || 0} size=${(requestBody.length / 1024).toFixed(1)}KB`,
+  );
   try {
     const targetResp = await fetch(`${TARGET_BASE}/chat/completions`, {
       method: 'POST',
@@ -385,7 +389,7 @@ const server = createServer(async (req, res) => {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${API_KEY}`,
       },
-      body: JSON.stringify(openaiReq),
+      body: requestBody,
     });
 
     if (!targetResp.ok) {
