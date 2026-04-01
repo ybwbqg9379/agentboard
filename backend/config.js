@@ -21,6 +21,8 @@ const config = {
     baseUrl: process.env.LLM_BASE_URL || 'https://api.openai.com/v1',
     model: process.env.LLM_MODEL || 'gpt-4o-mini',
     apiKey: process.env.LLM_API_KEY || '',
+    effort: process.env.LLM_EFFORT || undefined, // low | medium | high
+    compressSystemPrompt: process.env.COMPRESS_SYSTEM_PROMPT !== 'false', // 默认开启
   },
 
   // Agent 工作目录（隔离）

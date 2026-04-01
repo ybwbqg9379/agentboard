@@ -5,7 +5,14 @@ vi.mock('node:http', () => ({
   createServer: vi.fn(() => ({ listen: vi.fn() })),
 }));
 vi.mock('./config.js', () => ({
-  default: { llm: { baseUrl: 'http://test', model: 'test-model', apiKey: 'key' } },
+  default: {
+    llm: {
+      baseUrl: 'http://test',
+      model: 'test-model',
+      apiKey: 'key',
+      compressSystemPrompt: false,
+    },
+  },
 }));
 
 let convertMessages, convertTools, convertResponse, createStreamTransformer;
@@ -46,14 +53,15 @@ describe('convertMessages', () => {
     expect(result).toEqual([{ role: 'user', content: 'line one\nline two' }]);
   });
 
-  it('converts thinking blocks with [Thinking] prefix', () => {
+  it('strips thinking blocks to save context tokens (P0)', () => {
     const result = convertMessages([
       {
         role: 'assistant',
         content: [{ type: 'thinking', thinking: 'let me think...' }],
       },
     ]);
-    expect(result).toEqual([{ role: 'assistant', content: '[Thinking] let me think...' }]);
+    // Thinking blocks should be dropped — third-party APIs don't support them
+    expect(result).toEqual([]);
   });
 
   it('converts tool_use blocks to tool_calls array', () => {

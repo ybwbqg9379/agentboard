@@ -17,6 +17,10 @@ const PROXY_PORT = parseInt(process.env.PROXY_PORT || '4000', 10);
 const TARGET_BASE = config.llm.baseUrl;
 const TARGET_MODEL = config.llm.model;
 const API_KEY = config.llm.apiKey;
+const COMPRESS_PROMPT = config.llm.compressSystemPrompt;
+
+// Max characters for tool descriptions (P3: Tool Schema Compression)
+const MAX_TOOL_DESC_LENGTH = 300;
 
 // --- Anthropic → OpenAI message 转换 ---
 
@@ -39,7 +43,8 @@ export function convertMessages(anthropicMessages) {
           if (block.type === 'text') {
             parts.push(block.text);
           } else if (block.type === 'thinking') {
-            parts.push(`[Thinking] ${block.thinking}`);
+            // P0: Don't forward thinking blocks to third-party — saves context tokens
+            // The third-party API doesn't support thinking; forwarding wastes tokens
           } else if (block.type === 'tool_use') {
             toolCalls.push({
               id: block.id,
@@ -88,6 +93,75 @@ export function convertTools(anthropicTools) {
       parameters: tool.input_schema || { type: 'object', properties: {} },
     },
   }));
+}
+
+// --- P2: System Prompt 动态压缩 ---
+
+/**
+ * Extract AgentBoard-specific instructions from the SDK's system prompt.
+ * The SDK appends our custom instructions via `systemPrompt.append`.
+ * We preserve those and replace the SDK's ~60KB boilerplate with a compact version.
+ */
+function compressSystemPrompt(fullPrompt) {
+  // Markers added by AgentBoard's getSystemPromptAppend()
+  const markers = ['[SECURITY]', '[WEB ACCESS]', '[EFFICIENCY]'];
+
+  // Extract the AgentBoard-appended section
+  let agentBoardSection = '';
+  for (const marker of markers) {
+    const idx = fullPrompt.indexOf(marker);
+    if (idx !== -1) {
+      agentBoardSection = fullPrompt.slice(idx);
+      break;
+    }
+  }
+
+  const compactBase = [
+    'You are a highly capable AI coding assistant. You help users with programming tasks, debugging, research, and general questions.',
+    '',
+    'Key behaviors:',
+    '- Write clean, well-structured code with proper error handling',
+    '- Use tools to read, write, and edit files when working on code',
+    '- Use Bash to run commands, tests, and explore the filesystem',
+    '- Use WebSearch/WebFetch for information not in your training data',
+    '- Be concise and direct in responses',
+    '- When editing files, make targeted changes rather than rewriting entire files',
+    '- Always verify your changes compile/work by running relevant commands',
+    '',
+    'Tool usage guidelines:',
+    '- Read files before editing to understand context',
+    '- Use Grep/Glob to find relevant files before making changes',
+    '- Run tests after making code changes to verify correctness',
+    '- Use AgentTool to delegate complex sub-tasks',
+    '',
+  ].join('\n');
+
+  const result = agentBoardSection ? `${compactBase}\n${agentBoardSection}` : compactBase;
+
+  const saved = fullPrompt.length - result.length;
+  if (saved > 1000) {
+    console.log(
+      `[proxy] system prompt compressed: ${(fullPrompt.length / 1024).toFixed(1)}KB → ${(result.length / 1024).toFixed(1)}KB (-${(saved / 1024).toFixed(1)}KB)`,
+    );
+  }
+
+  return result;
+}
+
+// --- P3: Tool Schema 压缩 ---
+
+/**
+ * Truncate oversized tool descriptions to reduce payload.
+ * Models work well with concise descriptions; the full schema parameters
+ * already provide the structural information needed for tool selection.
+ */
+function compressToolSchemas(tools) {
+  for (const tool of tools) {
+    const desc = tool.function?.description;
+    if (desc && desc.length > MAX_TOOL_DESC_LENGTH) {
+      tool.function.description = desc.slice(0, MAX_TOOL_DESC_LENGTH) + '…';
+    }
+  }
 }
 
 // --- OpenAI response → Anthropic response ---
@@ -351,12 +425,13 @@ const server = createServer(async (req, res) => {
     stream: isStream,
   };
 
-  // system prompt
+  // system prompt — P2: 动态压缩 SDK 巨型 system prompt
   if (anthropicReq.system) {
-    const systemText =
+    const rawText =
       typeof anthropicReq.system === 'string'
         ? anthropicReq.system
         : anthropicReq.system.map((s) => s.text || '').join('\n');
+    const systemText = COMPRESS_PROMPT ? compressSystemPrompt(rawText) : rawText;
     openaiReq.messages.push({ role: 'system', content: systemText });
   }
 
@@ -368,9 +443,12 @@ const server = createServer(async (req, res) => {
   if (anthropicReq.temperature != null) openaiReq.temperature = anthropicReq.temperature;
   if (anthropicReq.top_p != null) openaiReq.top_p = anthropicReq.top_p;
 
-  // tools
+  // tools — P3: 压缩过长的 tool descriptions
   const tools = convertTools(anthropicReq.tools);
-  if (tools) openaiReq.tools = tools;
+  if (tools) {
+    compressToolSchemas(tools);
+    openaiReq.tools = tools;
+  }
 
   // stream_options for token usage in streaming
   if (isStream) {

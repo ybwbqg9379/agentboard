@@ -11,17 +11,22 @@
 - **Proxy 诊断日志**: 为 Anthropic→OpenAI 翻译代理新增请求级日志，输出 model、stream、消息数、tools 数量及 payload 大小，便于定位第三方 API 超时/错误
 - **ESLint `AbortController` 全局声明**: 补充 Node.js 18+ 内置全局 `AbortController` 到 ESLint globals，消除误报
 
-### Context Payload 瘦身（减少第三方 API Token 消耗）
+### Context Payload 深度优化（减少第三方 API Token 消耗）
 
 #### Changed
 
 - **精确内置工具选择**: 从 `preset: 'claude_code'`（全部 ~24 个内置工具）切换为 `tools: string[]` 模式，核心工具 11 个始终加载，6 个可选工具组（notebook、cron、worktree、plan、remote、skill）按 prompt 关键词动态挂载
 - **严格 MCP 路由**: 无关键词匹配的 MCP server 不再默认挂载，只在 prompt 命中关键词时加载；MCP 关键词列表扩展为中英双语覆盖
+- **System Prompt 动态压缩（Proxy 层）**: 拦截 SDK 内置的 ~60KB system prompt，提取 AgentBoard 追加的安全/效率/Web 访问指令，与精简基础 prompt 组合，压缩至 ~2KB；通过 `COMPRESS_SYSTEM_PROMPT` 环境变量控制开关（默认开启）
+- **Thinking Block 剥离**: 停止将 SDK 的 thinking 块转发到第三方 API，节省每轮 500-2000 context tokens
+- **Tool Schema 压缩**: Proxy 层截断超过 300 字符的 tool description，减少 ~3-5KB payload
+- **Effort Level 控制**: 新增 `LLM_EFFORT` 环境变量（low/medium/high），控制模型思考深度与输出 token 消耗
 
 #### Tests
 
 - 测试总数从 `320` 增至 `322`
 - 新增 MCP 严格路由模式测试、中文关键词匹配测试
+- 更新 thinking block 测试为 strip 验证
 
 ### 多租户鉴权透传与 Workflow 分支闭环修复
 

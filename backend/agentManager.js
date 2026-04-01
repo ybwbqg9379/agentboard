@@ -160,6 +160,7 @@ function buildBaseOptions(sessionId, permMode, prompt, userId) {
     executable: getSdkExecutablePath(),
     model: config.llm.model,
     tools: selectBuiltinTools(prompt),
+    ...(config.llm.effort && { effort: config.llm.effort }),
     systemPrompt: {
       type: 'preset',
       preset: 'claude_code',
