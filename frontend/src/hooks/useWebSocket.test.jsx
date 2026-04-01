@@ -10,7 +10,7 @@ let lastWs;
 class MockWebSocket {
   constructor(url) {
     this.url = url;
-    this.readyState = MockWebSocket.OPEN;
+    this.readyState = MockWebSocket.CONNECTING;
     this.onopen = null;
     this.onclose = null;
     this.onmessage = null;
@@ -25,6 +25,7 @@ class MockWebSocket {
     this.readyState = MockWebSocket.CLOSED;
   }
 }
+MockWebSocket.CONNECTING = 0;
 MockWebSocket.OPEN = 1;
 MockWebSocket.CLOSED = 3;
 
@@ -48,6 +49,7 @@ function renderAndConnect() {
   const result = renderHook(() => useWebSocket());
   // Trigger onopen to simulate connection
   act(() => {
+    lastWs.readyState = MockWebSocket.OPEN;
     lastWs.onopen();
   });
   return result;
@@ -293,6 +295,12 @@ describe('useWebSocket', () => {
     expect(result.current.events).toEqual([]);
   });
 
+  it('pong heartbeat replies are ignored', () => {
+    const { result } = renderAndConnect();
+    simulateMessage({ type: 'pong' });
+    expect(result.current.events).toEqual([]);
+  });
+
   it('unsubscribed message is handled silently', () => {
     const { result } = renderAndConnect();
     simulateMessage({ type: 'session_started', sessionId: 'sess-1' });
@@ -378,6 +386,7 @@ describe('useWebSocket', () => {
     const { result } = renderAndConnect();
     expect(result.current.connected).toBe(true);
     act(() => {
+      lastWs.readyState = MockWebSocket.CLOSED;
       lastWs.onclose();
     });
     expect(result.current.connected).toBe(false);
@@ -441,5 +450,14 @@ describe('useWebSocket', () => {
   it('getWsUrl appends token from localStorage when available', () => {
     // Verify the localStorage mock is in place and getItem returns null by default
     expect(localStorage.getItem('agentboard_api_key')).toBeNull();
+  });
+
+  it('does not enter running state when startAgent is called before socket opens', () => {
+    const { result } = renderHook(() => useWebSocket());
+    act(() => {
+      result.current.startAgent('task before connect');
+    });
+    expect(result.current.status).toBe('idle');
+    expect(lastWs.sent).toEqual([]);
   });
 });

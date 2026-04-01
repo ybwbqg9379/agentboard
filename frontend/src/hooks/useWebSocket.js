@@ -99,6 +99,10 @@ export function useWebSocket() {
         return;
       }
 
+      if (msg.type === 'pong') {
+        return;
+      }
+
       if (msg.type === 'done') {
         const finalStatus = msg.content?.status || 'completed';
         statusRef.current = finalStatus;
@@ -208,26 +212,32 @@ export function useWebSocket() {
   const send = useCallback((data) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify(data));
+      return true;
     }
+    return false;
   }, []);
 
   const startAgent = useCallback(
     (prompt, opts = {}) => {
-      setStatus('running');
-      send({ action: 'start', prompt, permissionMode: opts.permissionMode });
+      if (send({ action: 'start', prompt, permissionMode: opts.permissionMode })) {
+        setStatus('running');
+      }
     },
     [send],
   );
 
   const followUp = useCallback(
     (prompt, opts = {}) => {
-      setStatus('running');
-      send({
-        action: 'follow_up',
-        prompt,
-        sessionId: sessionIdRef.current,
-        permissionMode: opts.permissionMode,
-      });
+      if (
+        send({
+          action: 'follow_up',
+          prompt,
+          sessionId: sessionIdRef.current,
+          permissionMode: opts.permissionMode,
+        })
+      ) {
+        setStatus('running');
+      }
     },
     [send],
   );

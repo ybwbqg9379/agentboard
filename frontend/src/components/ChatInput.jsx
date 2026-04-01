@@ -12,17 +12,18 @@ const PERMISSION_MODES = [
 // Statuses that allow sending a follow-up message
 const CONTINUABLE = new Set(['completed', 'failed', 'stopped']);
 
-export default function ChatInput({ onSend, onFollowUp, onStop, status, sessionId }) {
+export default function ChatInput({ onSend, onFollowUp, onStop, status, sessionId, connected }) {
   const [value, setValue] = useState('');
   const [permissionMode, setPermissionMode] = useState('bypassPermissions');
   const inputRef = useRef(null);
   const isRunning = status === 'running';
   const canFollowUp = sessionId && CONTINUABLE.has(status);
+  const canSubmit = connected && !isRunning && Boolean(value.trim());
 
   function handleSubmit(e) {
     e.preventDefault();
     const text = value.trim();
-    if (!text || isRunning) return;
+    if (!text || isRunning || !connected) return;
     if (canFollowUp) {
       onFollowUp(text, { permissionMode });
     } else {
@@ -39,7 +40,11 @@ export default function ChatInput({ onSend, onFollowUp, onStop, status, sessionI
     }
   }
 
-  const placeholder = canFollowUp ? 'Send a follow-up message...' : 'Enter a task for the agent...';
+  const placeholder = connected
+    ? canFollowUp
+      ? 'Send a follow-up message...'
+      : 'Enter a task for the agent...'
+    : 'Waiting for connection...';
 
   const buttonLabel = canFollowUp ? 'Continue' : 'Run';
 
@@ -51,7 +56,7 @@ export default function ChatInput({ onSend, onFollowUp, onStop, status, sessionI
           options={PERMISSION_MODES}
           value={permissionMode}
           onChange={setPermissionMode}
-          disabled={isRunning}
+          disabled={isRunning || !connected}
           title="Permission mode"
           direction="up"
         />
@@ -66,14 +71,14 @@ export default function ChatInput({ onSend, onFollowUp, onStop, status, sessionI
           disabled={isRunning}
         />
         {isRunning ? (
-          <button type="button" className={styles.stopBtn} onClick={onStop}>
+          <button type="button" className={styles.stopBtn} onClick={onStop} disabled={!connected}>
             Stop
           </button>
         ) : (
           <button
             type="submit"
             className={canFollowUp ? styles.continueBtn : styles.sendBtn}
-            disabled={!value.trim()}
+            disabled={!canSubmit}
           >
             {buttonLabel}
           </button>

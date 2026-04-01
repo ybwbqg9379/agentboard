@@ -323,6 +323,11 @@ wss.on('connection', (ws, req) => {
   ws.userId = req.userId;
 
   ws.on('message', (raw) => {
+    if (raw.toString() === 'ping') {
+      ws.send(JSON.stringify({ type: 'pong' }));
+      return;
+    }
+
     let msg;
     try {
       msg = JSON.parse(raw.toString());

@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+### 连接稳定性与工作流编辑器修复 (Connection Stability & Workflow Editor Fixes)
+
+#### Fixed
+
+- **Agent WebSocket 心跳协议修复**: 后端现在原生接受前端发送的 `ping` 心跳并返回 `pong`，避免把保活流量误判成 `invalid JSON`
+- **断线误进入 running 状态修复**: Agent 面板在 WebSocket 未连接时不再允许发送 `Run/Continue`，避免消息被静默丢弃后 UI 仍锁死在 `running`
+- **Workflow Socket 自动重连**: Workflow 编辑器的专用 WebSocket 断开后会自动重连，恢复后可继续订阅当前运行中的 workflow run，而不必手动刷新页面
+- **条件分支重复边唯一性修复**: workflow edge 渲染、选择、双击删除全部切换为优先使用 `edge.id`，解决同一目标节点上的 true/false 边互相串扰
+- **Session History 总数刷新修复**: 删除 session 后改为重新拉取列表和总数，避免只看当前 30 条时把 `total` 错算成可见条数
+
+#### Tests
+
+- 新增后端 WebSocket 心跳回归测试，覆盖 `ping -> pong`
+- 新增前端断线提交保护测试、workflow socket 重连测试、session 删除后总数刷新测试
+- 前端测试总数提升至 `198`，后端测试总数提升至 `330`，总计 `528`
+
 ### 深度代码审计修复 (Deep Code Audit Fix) -- 4 Critical + 8 High + 7 Medium
 
 #### Critical 数据完整性与安全修复

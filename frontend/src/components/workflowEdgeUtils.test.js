@@ -2,7 +2,9 @@ import { describe, it, expect } from 'vitest';
 import {
   createEdge,
   edgeMatches,
+  getEdgeKey,
   getDefaultEdgeCondition,
+  removeEdge,
   updateEdge,
   ensureEdgeIds,
   syncEdgeIdCounter,
@@ -68,5 +70,20 @@ describe('workflowEdgeUtils', () => {
     const edge = createEdge('a', 'b', agentNode, []);
     const num = parseInt(edge.id.replace('edge_', ''), 10);
     expect(num).toBeGreaterThan(10);
+  });
+
+  it('getEdgeKey prefers edge ids for duplicate from/to pairs', () => {
+    expect(getEdgeKey({ id: 'edge_1', from: 'cond', to: 'out' })).toBe('edge_1');
+    expect(getEdgeKey({ from: 'cond', to: 'out' })).toBe('cond-out');
+  });
+
+  it('removeEdge only removes the matching edge id when endpoints are duplicated', () => {
+    const edges = [
+      { id: 'edge_true', from: 'cond', to: 'out', condition: 'true' },
+      { id: 'edge_false', from: 'cond', to: 'out', condition: 'false' },
+    ];
+    expect(removeEdge(edges, { id: 'edge_true', from: 'cond', to: 'out' })).toEqual([
+      { id: 'edge_false', from: 'cond', to: 'out', condition: 'false' },
+    ]);
   });
 });

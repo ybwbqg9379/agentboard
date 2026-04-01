@@ -7,7 +7,9 @@ import {
   EDGE_CONDITION_OPTIONS,
   createEdge,
   edgeMatches,
+  getEdgeKey,
   isConditionEdgeSource,
+  removeEdge,
   updateEdge,
   ensureEdgeIds,
   syncEdgeIdCounter,
@@ -346,7 +348,7 @@ export default function WorkflowEditor() {
 
   const deleteSelectedEdge = useCallback(() => {
     if (!selectedEdge) return;
-    setEdges((prev) => prev.filter((edge) => !edgeMatches(edge, selectedEdge)));
+    setEdges((prev) => removeEdge(prev, selectedEdge));
     setSelectedEdge(null);
   }, [selectedEdge]);
 
@@ -391,6 +393,11 @@ export default function WorkflowEditor() {
   // Dedicated workflow event socket for run-scoped subscriptions.
   const wsRef = useRef(null);
   const pendingWorkflowSubscriptionsRef = useRef(new Map());
+  const reconnectTimerRef = useRef(null);
+  const workflowSocketDisposedRef = useRef(false);
+  const connectWorkflowSocketRef = useRef(() => null);
+  const activeRunIdRef = useRef(null);
+  const activeWorkflowIdRef = useRef(null);
 
   const rejectPendingWorkflowSubscriptions = useCallback((message) => {
     for (const [runId, pending] of pendingWorkflowSubscriptionsRef.current) {
@@ -401,7 +408,10 @@ export default function WorkflowEditor() {
   }, []);
 
   const waitForWorkflowSocket = useCallback(() => {
-    const ws = wsRef.current;
+    let ws = wsRef.current;
+    if (!ws || ws.readyState === WebSocket.CLOSED) {
+      ws = connectWorkflowSocketRef.current();
+    }
     if (!ws) {
       return Promise.reject(new Error('workflow socket not initialized'));
     }
@@ -476,6 +486,8 @@ export default function WorkflowEditor() {
       });
 
     try {
+      activeWorkflowIdRef.current = wfId;
+      activeRunIdRef.current = runId;
       await subscribeWorkflowRun(wfId, runId);
       const res = await fetch(
         `${API_BASE}/api/workflows/${wfId}/run`,
@@ -489,6 +501,8 @@ export default function WorkflowEditor() {
         throw new Error(`workflow start failed: ${res.status}`);
       }
     } catch {
+      activeRunIdRef.current = null;
+      activeWorkflowIdRef.current = null;
       if (wsRef.current?.readyState === WebSocket.OPEN) {
         wsRef.current.send(JSON.stringify({ action: 'unsubscribe_workflow', runId }));
       }
@@ -499,70 +513,119 @@ export default function WorkflowEditor() {
   // Listen for workflow events via WebSocket and subscribe to concrete runIds
   // before triggering execution to avoid missing early events.
   useEffect(() => {
-    const ws = new WebSocket(buildWsUrl('/ws'));
-    wsRef.current = ws;
+    workflowSocketDisposedRef.current = false;
 
-    ws.onmessage = (e) => {
-      try {
-        const msg = JSON.parse(e.data);
-        if (msg.type === 'workflow_subscribed' && msg.runId) {
-          const pending = pendingWorkflowSubscriptionsRef.current.get(msg.runId);
-          if (pending) {
-            clearTimeout(pending.timeoutId);
-            pendingWorkflowSubscriptionsRef.current.delete(msg.runId);
-            pending.resolve();
+    function scheduleReconnect() {
+      if (workflowSocketDisposedRef.current) return;
+      clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = window.setTimeout(() => {
+        connectWorkflowSocketRef.current();
+      }, 3000);
+    }
+
+    function connectWorkflowSocket() {
+      const existing = wsRef.current;
+      if (
+        existing &&
+        (existing.readyState === WebSocket.OPEN || existing.readyState === WebSocket.CONNECTING)
+      ) {
+        return existing;
+      }
+      if (workflowSocketDisposedRef.current) {
+        return null;
+      }
+
+      const ws = new WebSocket(buildWsUrl('/ws'));
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        clearTimeout(reconnectTimerRef.current);
+        if (activeRunIdRef.current && activeWorkflowIdRef.current) {
+          ws.send(
+            JSON.stringify({
+              action: 'subscribe_workflow',
+              workflowId: activeWorkflowIdRef.current,
+              runId: activeRunIdRef.current,
+            }),
+          );
+        }
+      };
+
+      ws.onmessage = (e) => {
+        try {
+          const msg = JSON.parse(e.data);
+          if (msg.type === 'workflow_subscribed' && msg.runId) {
+            const pending = pendingWorkflowSubscriptionsRef.current.get(msg.runId);
+            if (pending) {
+              clearTimeout(pending.timeoutId);
+              pendingWorkflowSubscriptionsRef.current.delete(msg.runId);
+              pending.resolve();
+            }
+            return;
           }
-          return;
-        }
-        if (msg.type === 'workflow_unsubscribed') {
-          return;
-        }
-        if (msg.type !== 'workflow') return;
-        const { subtype, content } = msg;
-        if (subtype === 'run_start') {
-          setRunStatus('running');
-          setActiveNodes(new Set());
-        }
-        if (subtype === 'agent_started') {
-          // agent_started carries sessionId for cross-reference; track the node as active
-          if (content.nodeId) {
+          if (msg.type === 'workflow_unsubscribed') {
+            return;
+          }
+          if (msg.type !== 'workflow') return;
+          const { subtype, content } = msg;
+          if (subtype === 'run_start') {
+            setRunStatus('running');
+            setActiveNodes(new Set());
+          }
+          if (subtype === 'agent_started') {
+            if (content.nodeId) {
+              setActiveNodes((prev) => new Set([...prev, content.nodeId]));
+            }
+          }
+          if (subtype === 'node_start') {
             setActiveNodes((prev) => new Set([...prev, content.nodeId]));
           }
-        }
-        if (subtype === 'node_start') {
-          setActiveNodes((prev) => new Set([...prev, content.nodeId]));
-        }
-        if (subtype === 'node_complete') {
-          setActiveNodes((prev) => {
-            const next = new Set(prev);
-            next.delete(content.nodeId);
-            return next;
-          });
-        }
-        if (subtype === 'run_complete') {
-          setRunStatus(content.status || 'completed');
-          setActiveNodes(new Set());
-          if (content.runId && ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ action: 'unsubscribe_workflow', runId: content.runId }));
+          if (subtype === 'node_complete') {
+            setActiveNodes((prev) => {
+              const next = new Set(prev);
+              next.delete(content.nodeId);
+              return next;
+            });
           }
+          if (subtype === 'run_complete') {
+            setRunStatus(content.status || 'completed');
+            setActiveNodes(new Set());
+            activeRunIdRef.current = null;
+            activeWorkflowIdRef.current = null;
+            if (content.runId && ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({ action: 'unsubscribe_workflow', runId: content.runId }));
+            }
+          }
+        } catch {
+          /* ignore */
         }
-      } catch {
-        /* ignore */
-      }
-    };
+      };
 
-    ws.onclose = () => {
-      rejectPendingWorkflowSubscriptions('workflow socket closed');
-    };
+      ws.onclose = () => {
+        rejectPendingWorkflowSubscriptions('workflow socket closed');
+        if (wsRef.current === ws) {
+          wsRef.current = null;
+        }
+        scheduleReconnect();
+      };
 
-    ws.onerror = () => {
-      rejectPendingWorkflowSubscriptions('workflow socket error');
-    };
+      ws.onerror = () => {
+        rejectPendingWorkflowSubscriptions('workflow socket error');
+      };
+
+      return ws;
+    }
+
+    connectWorkflowSocketRef.current = connectWorkflowSocket;
+    connectWorkflowSocket();
 
     return () => {
+      workflowSocketDisposedRef.current = true;
+      clearTimeout(reconnectTimerRef.current);
       rejectPendingWorkflowSubscriptions('workflow socket disposed');
-      ws.close();
+      wsRef.current?.close();
       wsRef.current = null;
+      connectWorkflowSocketRef.current = () => null;
     };
   }, [rejectPendingWorkflowSubscriptions]);
 
@@ -674,9 +737,9 @@ export default function WorkflowEditor() {
   );
 
   // Delete edge on double-click
-  const handleEdgeDoubleClick = useCallback((fromId, toId) => {
-    setEdges((prev) => prev.filter((e) => !(e.from === fromId && e.to === toId)));
-    setSelectedEdge((prev) => (prev && prev.from === fromId && prev.to === toId ? null : prev));
+  const handleEdgeDoubleClick = useCallback((edge) => {
+    setEdges((prev) => removeEdge(prev, edge));
+    setSelectedEdge((prev) => (edgeMatches(edge, prev) ? null : prev));
   }, []);
 
   // Keyboard shortcuts
@@ -923,16 +986,16 @@ export default function WorkflowEditor() {
               const isActive = activeNodes.has(edge.from) || activeNodes.has(edge.to);
               const isSelected = edgeMatches(edge, selectedEdge);
               return (
-                <g key={`${edge.from}-${edge.to}`}>
+                <g key={getEdgeKey(edge)}>
                   <path
                     d={edgePath(x1, y1, x2, y2)}
                     className={`${styles.edge} ${isActive ? styles.edgeActive : ''} ${isSelected ? styles.edgeSelected : ''}`}
                     onClick={(e) => {
                       e.stopPropagation();
                       setSelectedNode(null);
-                      setSelectedEdge({ from: edge.from, to: edge.to });
+                      setSelectedEdge({ id: edge.id, from: edge.from, to: edge.to });
                     }}
-                    onDoubleClick={() => handleEdgeDoubleClick(edge.from, edge.to)}
+                    onDoubleClick={() => handleEdgeDoubleClick(edge)}
                     style={{ cursor: 'pointer' }}
                   />
                   {edge.condition && (

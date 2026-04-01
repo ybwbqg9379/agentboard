@@ -103,6 +103,7 @@ const { app, server } = await import('./server.js');
 // afterAll to release the port.
 
 const { default: request } = await import('supertest');
+const { WebSocket: WSClient } = await import('ws');
 
 afterAll(() => {
   server.close();
@@ -346,5 +347,35 @@ describe('batch delete limits', () => {
     const res = await request(app).post('/api/workflows/batch-delete').send({ ids });
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/max 100/);
+  });
+});
+
+describe('WebSocket heartbeat handling', () => {
+  it('accepts raw ping heartbeats and replies with pong', async () => {
+    const port = server.address().port;
+    const ws = new WSClient(`ws://127.0.0.1:${port}/ws`, {
+      headers: { Origin: 'http://localhost:5173' },
+    });
+
+    await new Promise((resolve, reject) => {
+      ws.once('open', resolve);
+      ws.once('error', reject);
+    });
+
+    const message = await new Promise((resolve, reject) => {
+      const timeoutId = setTimeout(() => reject(new Error('pong timeout')), 1000);
+      ws.once('message', (data) => {
+        clearTimeout(timeoutId);
+        resolve(JSON.parse(data.toString()));
+      });
+      ws.once('error', (err) => {
+        clearTimeout(timeoutId);
+        reject(err);
+      });
+      ws.send('ping');
+    });
+
+    expect(message).toEqual({ type: 'pong' });
+    ws.close();
   });
 });

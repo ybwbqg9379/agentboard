@@ -66,6 +66,7 @@ export default function App() {
                 onStop={stopAgent}
                 status={status}
                 sessionId={sessionId}
+                connected={connected}
               />
             </div>
             <RightPanel events={events} sessionStats={sessionStats} />

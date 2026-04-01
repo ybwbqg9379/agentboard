@@ -60,6 +60,10 @@ export function edgeMatches(edge, selectedEdge) {
   return edge.from === selectedEdge.from && edge.to === selectedEdge.to;
 }
 
+export function getEdgeKey(edge) {
+  return edge.id || `${edge.from}-${edge.to}`;
+}
+
 export function updateEdge(edges, selectedEdge, updates) {
   return edges.map((edge) => {
     if (!edgeMatches(edge, selectedEdge)) return edge;
@@ -74,4 +78,8 @@ export function updateEdge(edges, selectedEdge, updates) {
     }
     return nextEdge;
   });
+}
+
+export function removeEdge(edges, selectedEdge) {
+  return edges.filter((edge) => !edgeMatches(edge, selectedEdge));
 }

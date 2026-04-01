@@ -73,10 +73,14 @@ export default function SessionDrawer({ open, onClose, onLoadSession, currentSes
     const { ids } = confirmState;
     setConfirmState(null);
     try {
+      let res;
       if (ids.length === 1) {
-        await fetch(`${API_BASE}/api/sessions/${ids[0]}`, withClientAuth({ method: 'DELETE' }));
+        res = await fetch(
+          `${API_BASE}/api/sessions/${ids[0]}`,
+          withClientAuth({ method: 'DELETE' }),
+        );
       } else {
-        await fetch(
+        res = await fetch(
           `${API_BASE}/api/sessions/batch-delete`,
           withClientAuth({
             method: 'POST',
@@ -85,12 +89,10 @@ export default function SessionDrawer({ open, onClose, onLoadSession, currentSes
           }),
         );
       }
-      const deletedIds = new Set(ids);
-      setSessions((prev) => {
-        const remaining = prev.filter((s) => !deletedIds.has(s.id));
-        setTotal(remaining.length);
-        return remaining;
-      });
+      if (!res.ok) {
+        throw new Error('delete request failed');
+      }
+      await fetchSessions();
       setSelected((prev) => {
         const next = new Set(prev);
         ids.forEach((id) => next.delete(id));
