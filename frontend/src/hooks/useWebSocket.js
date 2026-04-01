@@ -5,6 +5,7 @@ const API_BASE = '';
 const RECONNECT_INTERVAL = 3000;
 const MAX_EVENTS = 5000;
 const HEARTBEAT_INTERVAL = 30000; // 30s ping to detect silent disconnects
+const PONG_TIMEOUT = 45000; // consider connection dead if no message for 45s
 
 export function useWebSocket() {
   const [connected, setConnected] = useState(false);
@@ -20,6 +21,7 @@ export function useWebSocket() {
   const sessionIdRef = useRef(null);
   const statusRef = useRef('idle');
   const unmountedRef = useRef(false);
+  const lastMessageTimeRef = useRef(Date.now());
 
   const connect = useCallback(() => {
     if (unmountedRef.current) return;
@@ -35,10 +37,16 @@ export function useWebSocket() {
       }
       setConnected(true);
       clearTimeout(reconnectTimer.current);
-      // Heartbeat: send ping every 30s to detect silent disconnects
+      // Heartbeat: send ping every 30s; force-close if no message received within PONG_TIMEOUT
       clearInterval(heartbeatTimer.current);
+      lastMessageTimeRef.current = Date.now();
       heartbeatTimer.current = setInterval(() => {
         if (ws.readyState === WebSocket.OPEN) {
+          if (Date.now() - lastMessageTimeRef.current > PONG_TIMEOUT) {
+            console.warn('[ws] pong timeout, forcing reconnect');
+            ws.close();
+            return;
+          }
           ws.send('ping');
         }
       }, HEARTBEAT_INTERVAL);
@@ -62,6 +70,7 @@ export function useWebSocket() {
     };
 
     ws.onmessage = (e) => {
+      lastMessageTimeRef.current = Date.now();
       let msg;
       try {
         msg = JSON.parse(e.data);

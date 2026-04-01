@@ -370,16 +370,30 @@ export function startAgent(prompt, opts = {}) {
     : 'bypassPermissions';
 
   const abortController = new AbortController();
-  const baseOpts = buildBaseOptions(sessionId, permMode, prompt, opts.userId);
-  const stream = query({
-    prompt,
-    options: {
-      ...baseOpts,
-      maxTurns: opts.maxTurns || 50,
+  let stream;
+  try {
+    const baseOpts = buildBaseOptions(sessionId, permMode, prompt, opts.userId);
+    stream = query({
+      prompt,
+      options: {
+        ...baseOpts,
+        maxTurns: opts.maxTurns || 50,
+        sessionId,
+        abortController,
+      },
+    });
+  } catch (err) {
+    console.error(`[agentManager] startAgent sync failure: ${err.message}`);
+    updateSessionStatus(sessionId, 'failed');
+    cleanupSessionLoopState(sessionId);
+    agentEvents.emit('event', {
       sessionId,
-      abortController,
-    },
-  });
+      type: 'done',
+      content: { status: 'failed', error: err.message },
+      timestamp: Date.now(),
+    });
+    throw err;
+  }
 
   consumeStream(sessionId, stream, abortController, opts.userId);
   return sessionId;
@@ -418,16 +432,30 @@ export function continueAgent(sessionId, prompt, opts = {}) {
   updateSessionStatus(sessionId, 'running');
   insertEvent(sessionId, 'user', { type: 'user', text: prompt, timestamp: Date.now() });
 
-  const baseOpts = buildBaseOptions(sessionId, permMode, prompt, opts.userId);
-  const stream = query({
-    prompt,
-    options: {
-      ...baseOpts,
-      maxTurns: opts.maxTurns || 50,
-      resume: sessionId,
-      abortController,
-    },
-  });
+  let stream;
+  try {
+    const baseOpts = buildBaseOptions(sessionId, permMode, prompt, opts.userId);
+    stream = query({
+      prompt,
+      options: {
+        ...baseOpts,
+        maxTurns: opts.maxTurns || 50,
+        resume: sessionId,
+        abortController,
+      },
+    });
+  } catch (err) {
+    activeAgents.delete(sessionId);
+    updateSessionStatus(sessionId, 'failed');
+    cleanupSessionLoopState(sessionId);
+    agentEvents.emit('event', {
+      sessionId,
+      type: 'done',
+      content: { status: 'failed', error: err.message },
+      timestamp: Date.now(),
+    });
+    return false;
+  }
 
   // consumeStream will overwrite the activeAgents entry with the real stream/timeout
   consumeStream(sessionId, stream, abortController, opts.userId);

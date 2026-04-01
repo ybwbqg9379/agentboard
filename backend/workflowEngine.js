@@ -292,11 +292,21 @@ function runAgentNode(prompt, nodeConfig, runId, workflowId, nodeId, userId) {
     // Register listener BEFORE startAgent to prevent missing fast-completing done events
     agentEvents.on('event', onEvent);
 
-    const sessionId = startAgent(prompt, {
-      userId,
-      permissionMode: nodeConfig.permissionMode || 'bypassPermissions',
-      maxTurns: nodeConfig.maxTurns || 30,
-    });
+    let sessionId;
+    try {
+      sessionId = startAgent(prompt, {
+        userId,
+        permissionMode: nodeConfig.permissionMode || 'bypassPermissions',
+        maxTurns: nodeConfig.maxTurns || 30,
+      });
+    } catch (err) {
+      if (!settled) {
+        settled = true;
+        cleanup();
+        reject(new Error(`Agent node "${nodeId}" failed to start: ${err.message}`));
+      }
+      return;
+    }
     capturedSessionId = sessionId;
 
     workflowEvents.emit('agent_started', { runId, workflowId, nodeId, sessionId });

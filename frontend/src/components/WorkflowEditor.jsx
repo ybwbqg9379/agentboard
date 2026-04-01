@@ -423,6 +423,7 @@ export default function WorkflowEditor() {
   const pendingWorkflowSubscriptionsRef = useRef(new Map());
   const reconnectTimerRef = useRef(null);
   const workflowHeartbeatRef = useRef(null);
+  const wfLastMessageRef = useRef(Date.now());
   const workflowSocketDisposedRef = useRef(false);
   const connectWorkflowSocketRef = useRef(() => null);
   const activeRunIdRef = useRef(null);
@@ -517,7 +518,10 @@ export default function WorkflowEditor() {
     try {
       activeWorkflowIdRef.current = wfId;
       activeRunIdRef.current = runId;
-      await subscribeWorkflowRun(wfId, runId);
+      // Best-effort subscribe -- do not block execution on WS ack
+      subscribeWorkflowRun(wfId, runId).catch(() => {
+        /* WS subscribe failed; run still executes, just no live events */
+      });
       const res = await fetch(
         `${API_BASE}/api/workflows/${wfId}/run`,
         withClientAuth({
@@ -570,8 +574,15 @@ export default function WorkflowEditor() {
       ws.onopen = () => {
         clearTimeout(reconnectTimerRef.current);
         clearInterval(workflowHeartbeatRef.current);
+        wfLastMessageRef.current = Date.now();
         workflowHeartbeatRef.current = setInterval(() => {
-          if (ws.readyState === WebSocket.OPEN) ws.send('ping');
+          if (ws.readyState === WebSocket.OPEN) {
+            if (Date.now() - wfLastMessageRef.current > 45_000) {
+              ws.close();
+              return;
+            }
+            ws.send('ping');
+          }
         }, 30_000);
         if (activeRunIdRef.current && activeWorkflowIdRef.current) {
           ws.send(
@@ -585,6 +596,7 @@ export default function WorkflowEditor() {
       };
 
       ws.onmessage = (e) => {
+        wfLastMessageRef.current = Date.now();
         try {
           const msg = JSON.parse(e.data);
           if (msg.type === 'workflow_subscribed' && msg.runId) {

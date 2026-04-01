@@ -94,11 +94,12 @@ app.get('/api/sessions/:id', (req, res) => {
   res.json({ ...session, events, eventCount });
 });
 
-// Delete a session and its events
+// Delete a session and its events (stops running agent first)
 app.delete('/api/sessions/:id', (req, res) => {
   if (!hasOwnedSession(req.user.id, req.params.id)) {
     return res.status(404).json({ error: 'session not found' });
   }
+  stopAgent(req.params.id);
   const deleted = deleteSession(req.user.id, req.params.id);
   res.json({ deleted });
 });
@@ -115,6 +116,7 @@ app.post('/api/sessions/batch-delete', (req, res) => {
   let count = 0;
   for (const id of ids) {
     if (hasOwnedSession(req.user.id, id)) {
+      stopAgent(id);
       if (deleteSession(req.user.id, id)) count++;
     }
   }
@@ -233,6 +235,14 @@ app.put('/api/workflows/:id', validate(workflowSchema), (req, res) => {
 });
 
 app.delete('/api/workflows/:id', (req, res) => {
+  // Abort any active runs for this workflow before deleting
+  const activeRuns = getActiveWorkflowRuns(req.user.id);
+  const runs = listWorkflowRuns(req.user.id, req.params.id, 100, 0);
+  for (const run of runs) {
+    if (activeRuns.includes(run.id)) {
+      abortWorkflow(run.id);
+    }
+  }
   const deleted = deleteWorkflow(req.user.id, req.params.id);
   if (!deleted) return res.status(404).json({ error: 'workflow not found' });
   res.json({ deleted: true });
@@ -247,9 +257,14 @@ app.post('/api/workflows/batch-delete', (req, res) => {
   if (ids.length > 100) {
     return res.status(400).json({ error: 'max 100 ids per batch' });
   }
+  const activeRuns = getActiveWorkflowRuns(req.user.id);
   let count = 0;
   for (const id of ids) {
     try {
+      const runs = listWorkflowRuns(req.user.id, id, 100, 0);
+      for (const run of runs) {
+        if (activeRuns.includes(run.id)) abortWorkflow(run.id);
+      }
       if (deleteWorkflow(req.user.id, id)) count++;
     } catch {
       /* ignore individual failures */
@@ -349,13 +364,17 @@ wss.on('connection', (ws, req) => {
           ws.send(JSON.stringify({ error: 'prompt is required' }));
           return;
         }
-        const sessionId = startAgent(msg.prompt, {
-          userId: ws.userId,
-          permissionMode: msg.permissionMode,
-          maxTurns: msg.maxTurns,
-        });
-        subscriptions.set(ws, sessionId);
-        ws.send(JSON.stringify({ type: 'session_started', sessionId }));
+        try {
+          const sessionId = startAgent(msg.prompt, {
+            userId: ws.userId,
+            permissionMode: msg.permissionMode,
+            maxTurns: msg.maxTurns,
+          });
+          subscriptions.set(ws, sessionId);
+          ws.send(JSON.stringify({ type: 'session_started', sessionId }));
+        } catch (err) {
+          ws.send(JSON.stringify({ error: `agent failed to start: ${err.message}` }));
+        }
         break;
       }
 

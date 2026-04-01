@@ -528,4 +528,38 @@ describe('useWebSocket', () => {
     });
     expect(subscribeMsgs).toHaveLength(0);
   });
+
+  it('pong timeout: closes WS if no message received within 45s (High-2 fix)', () => {
+    const { result } = renderAndConnect();
+    expect(result.current.connected).toBe(true);
+    // Advance past heartbeat interval (30s) -- no messages received
+    // First tick at 30s: lastMessageTime was set at connect, so 30s < 45s, just sends ping
+    act(() => {
+      vi.advanceTimersByTime(30000);
+    });
+    expect(lastWs.sent).toContain('ping');
+    expect(lastWs.readyState).toBe(MockWebSocket.OPEN);
+
+    // Advance another 30s (total 60s since last message) -- exceeds 45s threshold
+    act(() => {
+      vi.advanceTimersByTime(30000);
+    });
+    // WS should have been closed due to pong timeout
+    expect(lastWs.readyState).toBe(MockWebSocket.CLOSED);
+  });
+
+  it('pong timeout resets when messages are received', () => {
+    renderAndConnect();
+    // Advance 25s, then receive a message
+    act(() => {
+      vi.advanceTimersByTime(25000);
+    });
+    simulateMessage({ type: 'pong' });
+    // Advance another 30s (55s total, but only 30s since last message)
+    act(() => {
+      vi.advanceTimersByTime(30000);
+    });
+    // Should still be open (30s < 45s since last message)
+    expect(lastWs.readyState).toBe(MockWebSocket.OPEN);
+  });
 });

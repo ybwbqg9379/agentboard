@@ -5,7 +5,13 @@ vi.mock('./mcpHealth.js', () => ({
   recordToolCall: vi.fn(),
 }));
 
-import { BLOCKED_PATTERNS, isDangerous, buildHooks, cleanupSessionLoopState } from './hooks.js';
+import {
+  BLOCKED_PATTERNS,
+  isDangerous,
+  buildHooks,
+  cleanupSessionLoopState,
+  isFilePathAllowed,
+} from './hooks.js';
 import { recordToolCall } from './mcpHealth.js';
 
 // ---------------------------------------------------------------------------
@@ -384,5 +390,91 @@ describe('cleanupSessionLoopState', () => {
 
   it('does not throw for unknown sessionId', () => {
     expect(() => cleanupSessionLoopState('nonexistent')).not.toThrow();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// isFilePathAllowed (workspace fence for file tools)
+// ---------------------------------------------------------------------------
+describe('isFilePathAllowed', () => {
+  const ws = '/home/user/project';
+
+  it('allows paths inside workspace', () => {
+    expect(isFilePathAllowed('/home/user/project/src/index.js', ws)).toBe(true);
+    expect(isFilePathAllowed('/home/user/project', ws)).toBe(true);
+  });
+
+  it('blocks paths outside workspace', () => {
+    expect(isFilePathAllowed('/home/user/secrets.txt', ws)).toBe(false);
+    expect(isFilePathAllowed('/etc/passwd', ws)).toBe(false);
+  });
+
+  it('blocks ../ traversal (relative path resolved against workspace)', () => {
+    expect(isFilePathAllowed('../secrets.txt', ws)).toBe(false);
+    expect(isFilePathAllowed('../../etc/passwd', ws)).toBe(false);
+  });
+
+  it('allows relative paths that stay inside workspace', () => {
+    expect(isFilePathAllowed('src/index.js', ws)).toBe(true);
+    expect(isFilePathAllowed('./README.md', ws)).toBe(true);
+    expect(isFilePathAllowed('src/../lib/utils.js', ws)).toBe(true);
+  });
+
+  it('blocks /tmp and /dev for file tools (workspace-only, no ALLOWED_ABSOLUTE_PREFIXES)', () => {
+    expect(isFilePathAllowed('/tmp/test.txt', ws)).toBe(false);
+    expect(isFilePathAllowed('/dev/null', ws)).toBe(false);
+  });
+
+  it('returns true for empty or missing inputs (permissive fallback)', () => {
+    expect(isFilePathAllowed('', ws)).toBe(true);
+    expect(isFilePathAllowed(null, ws)).toBe(true);
+    expect(isFilePathAllowed('/outside/path', null)).toBe(true);
+  });
+
+  describe('PreToolUse integration: file tools are fenced', () => {
+    let hooks;
+    const emitter = { emit: vi.fn() };
+    const sid = crypto.randomUUID();
+
+    beforeEach(() => {
+      emitter.emit.mockClear();
+      hooks = buildHooks(emitter, sid, '/home/user/project');
+    });
+
+    it('denies Read with ../ traversal', async () => {
+      const globalHook = hooks.PreToolUse[0].hooks[0];
+      const result = await globalHook({
+        tool_name: 'Read',
+        tool_input: { file_path: '../secrets.txt' },
+      });
+      expect(result.hookSpecificOutput?.permissionDecision).toBe('deny');
+    });
+
+    it('denies Write to absolute path outside workspace', async () => {
+      const globalHook = hooks.PreToolUse[0].hooks[0];
+      const result = await globalHook({
+        tool_name: 'Write',
+        tool_input: { file_path: '/etc/shadow', content: 'x' },
+      });
+      expect(result.hookSpecificOutput?.permissionDecision).toBe('deny');
+    });
+
+    it('allows Read inside workspace', async () => {
+      const globalHook = hooks.PreToolUse[0].hooks[0];
+      const result = await globalHook({
+        tool_name: 'Read',
+        tool_input: { file_path: '/home/user/project/src/app.js' },
+      });
+      expect(result.hookSpecificOutput?.permissionDecision).toBeUndefined();
+    });
+
+    it('denies Grep with path outside workspace', async () => {
+      const globalHook = hooks.PreToolUse[0].hooks[0];
+      const result = await globalHook({
+        tool_name: 'Grep',
+        tool_input: { pattern: 'TODO', path: '/home/other/' },
+      });
+      expect(result.hookSpecificOutput?.permissionDecision).toBe('deny');
+    });
   });
 });

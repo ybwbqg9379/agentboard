@@ -67,6 +67,16 @@ function isPathInside(basePath, targetPath) {
   );
 }
 
+/** Resolve a tool path argument (absolute or relative) against workspace, then fence-check.
+ *  File tools (Read/Write/Edit/Grep/Glob) are restricted to workspace only -- no /tmp, /dev. */
+export function isFilePathAllowed(filePath, workspaceRoot) {
+  if (typeof filePath !== 'string' || filePath.length === 0 || !workspaceRoot) return true;
+  const resolved = isAbsolute(filePath)
+    ? normalize(filePath)
+    : normalize(resolve(workspaceRoot, filePath));
+  return isPathInside(workspaceRoot, resolved);
+}
+
 export function extractAbsolutePaths(command) {
   if (typeof command !== 'string' || command.length === 0) return [];
 
@@ -157,7 +167,37 @@ export function buildHooks(emitter, sessionId, workspaceRoot) {
               };
             }
 
-            // 2. Semantic Loop Hash Detector 防呆
+            // 2. File tool workspace fence (Read/Write/Edit/Grep/Glob)
+            const FILE_TOOLS = {
+              Read: 'file_path',
+              Write: 'file_path',
+              Edit: 'file_path',
+              Grep: 'path',
+              Glob: 'path',
+            };
+            if (workspaceRoot && FILE_TOOLS[toolName]) {
+              const pathArg = toolInput?.[FILE_TOOLS[toolName]];
+              if (pathArg && !isFilePathAllowed(pathArg, workspaceRoot)) {
+                const msg = `Blocked ${toolName}: path "${pathArg}" is outside workspace`;
+                console.warn(`[hooks] ${msg} (session=${sessionId})`);
+                emitter.emit('event', {
+                  sessionId,
+                  type: 'system',
+                  subtype: 'hook',
+                  content: { message: msg },
+                  timestamp: Date.now(),
+                });
+                return {
+                  hookSpecificOutput: {
+                    hookEventName: 'PreToolUse',
+                    permissionDecision: 'deny',
+                    permissionDecisionReason: msg,
+                  },
+                };
+              }
+            }
+
+            // 3. Semantic Loop Hash Detector 防呆
             const state = sessionLoopState.get(sessionId);
             const callHash = hashArgs(toolInput);
             const currentCall = { tool: toolName, hash: callHash };

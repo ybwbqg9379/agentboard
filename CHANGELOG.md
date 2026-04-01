@@ -2,6 +2,25 @@
 
 ## Unreleased
 
+### 5 项阻塞性缺陷修复 (Blocking Issue Fix — 2C + 3H)
+
+#### Fixed — Critical
+
+- **C1** `hooks.js` — 路径围栏仅挂在 Bash hook 上，Read/Write/Edit/Grep/Glob 无 workspace 校验；`../` 相对路径不拦截。新增 `isFilePathAllowed()` 对所有文件工具做 `resolve(workspaceRoot, path)` 归一化 + `isPathInside` 校验
+- **C2** `server.js` — 删除运行中 session/workflow 产生"幽灵任务"：删库不先 stop，后续 stop/abort 因 ownership 失败。删除接口现在先调 `stopAgent()`/`abortWorkflow()` 再删库
+
+#### Fixed — High
+
+- **H1** `WorkflowEditor.jsx` — Workflow 启动强耦合 WS subscribe ack，3s 超时直接标记失败。改为 fire-and-forget subscribe + REST 并行，WS 失败不阻塞执行
+- **H2** `useWebSocket.js` + `WorkflowEditor.jsx` — Heartbeat 仅发 ping 无 pong 超时，半开连接永远不触发 onclose。新增 `lastMessageTimeRef`，>45s 无任何消息则主动 `ws.close()` 触发重连
+- **H3** `agentManager.js` + `workflowEngine.js` — startAgent/continueAgent 同步 throw 无回滚：running session 或 activeAgents slot 泄漏。SDK `query()` 包裹 try/catch，失败时清理状态 + 发 done 事件
+
+#### Tests
+
+- `hooks.test.js` 新增 `isFilePathAllowed` 单元测试 + PreToolUse 集成测试 (10 tests)
+- `useWebSocket.test.jsx` 新增 pong timeout 测试 (2 tests)
+- 测试总数: 542 -> 554 (全绿)
+
 ### 9 项缺陷修复 (Bug Audit Fix — 1C + 3H + 5M)
 
 #### Fixed — Critical
