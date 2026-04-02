@@ -39,6 +39,12 @@ export default function Header({
           >
             Workflow
           </button>
+          <button
+            className={`${styles.modeTab} ${mode === 'experiment' ? styles.modeActive : ''}`}
+            onClick={() => onModeChange('experiment')}
+          >
+            Experiment
+          </button>
         </div>
       </div>
 
@@ -47,6 +53,7 @@ export default function Header({
           className={styles.themeBtn}
           onClick={onToggleTheme}
           title={`Switch theme (current: ${theme})`}
+          aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
         >
           {theme === 'dark' ? (
             <svg

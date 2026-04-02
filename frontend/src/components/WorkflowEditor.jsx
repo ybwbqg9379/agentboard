@@ -28,6 +28,7 @@ const NODE_COLORS = {
   agent: { fill: 'var(--bg-tertiary)', stroke: 'var(--status-running)' },
   condition: { fill: 'var(--bg-tertiary)', stroke: 'var(--status-thinking)' },
   transform: { fill: 'var(--bg-tertiary)', stroke: 'var(--status-tool)' },
+  experiment: { fill: 'var(--bg-tertiary)', stroke: 'var(--bg-accent, #007aff)' },
 };
 
 const DEFAULT_CONFIGS = {
@@ -36,6 +37,7 @@ const DEFAULT_CONFIGS = {
   agent: { prompt: '', permissionMode: 'bypassPermissions', maxTurns: 30 },
   condition: { expression: '' },
   transform: { mapping: {} },
+  experiment: { experimentId: '' },
 };
 
 let nextId = 1;
@@ -180,6 +182,17 @@ function NodeConfigPanel({ node, onUpdate, onDelete, onClose }) {
               value={node.config?.summary || ''}
               onChange={(e) => updateConfig('summary', e.target.value)}
               placeholder="{{result}}"
+            />
+          </div>
+        )}
+
+        {node.type === 'experiment' && (
+          <div className={styles.configField}>
+            <label>Experiment ID (Number)</label>
+            <input
+              value={node.config?.experimentId || ''}
+              onChange={(e) => updateConfig('experimentId', e.target.value)}
+              placeholder="e.g. 1"
             />
           </div>
         )}
@@ -975,6 +988,7 @@ export default function WorkflowEditor() {
         <button onClick={() => addNode('agent')}>+ Agent</button>
         <button onClick={() => addNode('condition')}>+ Condition</button>
         <button onClick={() => addNode('transform')}>+ Transform</button>
+        <button onClick={() => addNode('experiment')}>+ Experiment</button>
         <button onClick={saveWorkflow}>Save</button>
         <button className={styles.runBtn} onClick={runWorkflow} disabled={runStatus === 'running'}>
           {runStatus === 'running' ? 'Running...' : 'Run'}

@@ -2,6 +2,41 @@
 
 ## Unreleased
 
+### 基准驱动自动化研究引擎 (AutoResearch & Experiment Engine)
+
+#### Added
+
+- **核心自动研究机制 (Ratchet Loop)**: 新增 `experimentEngine.js` 驱动自动化打分循环，支持根据自定义的 `ResearchPlan` 白皮书来安全隔离执行“代码假说-提取测试指标-决策通过与否”闭环。通过 `metricExtractor.js` 灵活解析终端日志的 regex、JSON 和 Exit Code，以此判定并借助本地 Git 增量强制对失败的方案进行代码撤销。
+- **实时实验仪表台**: `ExperimentView.jsx` 正式上线。具备双联大屏：左侧支持 JSON 在线编排 ResearchPlan 并发散执行；右侧搭载随 WS 实时回传刷新的打分监控图与各 Trial 最新通过状态，彻底实现量化指标的可视化统筹。
+- **DAG 管线实验节点映射 (`workflowEngine.js`)**: **`experiment`** 现已正式作为平台支持的原生图谱节点并入 `WorkflowEditor`。用户可在可视化画布中拖曳出实验节点，以实现“当主工作流运转至此，阻断抛交后台进行多轮基数优化，待指标收敛后自动将 Best Metric 携带至下一工作流节点”的管线闭环构想。
+- **实验三级持久化网络**: 引入 `experimentStore.js`。内置表结构（`experiments` 模板、`experiment_runs` 场次与 `experiment_trials` 具体试运行尝试），确保每一次科研数据都能被永久检索和审查。
+
+### 13 项实验引擎代码审查修复 (Experiment Engine Audit — 6C + 7I)
+
+#### Fixed -- Critical
+
+- **C1** `experimentEngine.js` -- `bestMetric` 在计算 `improvementPercent` 前被覆盖，改进率始终报 0%；调换赋值与计算顺序
+- **C2** `experimentEngine.js` -- git commit 消息拼接用户可控 metric 值存在 shell injection；增加 `safeMetric` 过滤，仅保留 `[-\d.e+]`
+- **C3** `experimentEngine.js` -- `source_dir` 无路径沙箱校验，允许任意目录被复制；增加 `config.workspaceDir` 前缀强制检查
+- **C4** `workflowEngine.js` -- `runExperimentNode` 检查 `event.subtype` 但 EventEmitter data 无此字段，experiment 节点 Promise 永远不 resolve；改为三个独立 handler 直接匹配事件名
+- **C5** `workflowEngine.js` -- `currentExpRunId` 在异步 `.then()` 中赋值，早期失败事件被忽略导致节点挂起；改为同步创建 runId 后再启动异步循环
+- **C6** `server.js` -- `/api/experiments/:id/run` 响应缺少 `runId`，前端 WS 订阅拿到 `undefined`；在响应前同步创建 runId 并返回
+
+#### Fixed -- Important
+
+- **I1** `experimentStore.js` -- `getBestTrial` 固定 ASC 排序，maximize 实验返回最差 trial；改为双预编译语句按 direction 分派
+- **I2** `useWebSocket.js` -- `connect` 空依赖 useCallback 导致 `experimentRunId` 闭包过期，重连后不重新订阅；增加 `experimentRunIdRef`
+- **I3** `useWebSocket.js` -- `loadExperimentRunsEvents` 漏传 `expId`，WS 订阅 experimentId 为 undefined；补齐参数传递
+- **I4** `ExperimentView.jsx` -- `event.content` 未做 null guard，畸形 WS 消息会抛 TypeError；全部加 `?.` 可选链
+- **I5** `middleware.js` -- workflow nodeSchema 的 type enum 缺少 `'experiment'`，含实验节点的 workflow 被 Zod 拒绝；补齐枚举值
+- **I6** `ExperimentView.jsx` -- 使用 `window.alert` 阻塞式提示；改为 inline error state 渲染
+- **I7** `Header.jsx` -- 主题切换按钮缺少 `aria-label`；补齐无障碍标签
+
+#### Docs
+
+- `ARCHITECTURE.md` -- 修正 experiment_runs schema 三个字段名错误 (`error`->`error_message`, `created_at`->`started_at`, `updated_at`->`completed_at`)、补齐 `user_id`/`status` 默认值、修正 trials 表名 (`experiment_trials`->`trials`) 及主键类型 (`INTEGER`->`TEXT`)
+- `README.md` -- 测试总数 528->554+、SQLite 描述 2x->3x
+
 ### 5 项阻塞性缺陷修复 (Blocking Issue Fix — 2C + 3H)
 
 #### Fixed — Critical

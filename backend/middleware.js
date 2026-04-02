@@ -137,6 +137,15 @@ export const wsMessageSchema = z.discriminatedUnion('action', [
     action: z.literal('unsubscribe_workflow'),
     runId: z.string().uuid().optional(),
   }),
+  z.object({
+    action: z.literal('subscribe_experiment'),
+    runId: z.string().uuid(),
+    experimentId: z.string().uuid().optional(),
+  }),
+  z.object({
+    action: z.literal('unsubscribe_experiment'),
+    runId: z.string().uuid().optional(),
+  }),
 ]);
 
 export const controlActionSchema = z.object({
@@ -147,7 +156,7 @@ export const controlActionSchema = z.object({
 
 const nodeSchema = z.object({
   id: z.string().min(1),
-  type: z.enum(['agent', 'condition', 'transform', 'input', 'output']),
+  type: z.enum(['agent', 'condition', 'transform', 'input', 'output', 'experiment']),
   label: z.string().optional(),
   config: z.record(z.string(), z.unknown()).optional(),
   position: z
@@ -184,6 +193,63 @@ export const sessionsQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20),
   offset: z.coerce.number().int().min(0).default(0),
 });
+
+export const experimentSchema = z.object({
+  name: z.string().min(1).max(200),
+  description: z.string().max(5000).optional(),
+  plan: z.object({
+    name: z.string().min(1),
+    description: z.string().optional(),
+    target: z
+      .object({
+        files: z.array(z.string()).optional(),
+        readonly: z.array(z.string()).optional(),
+        source_dir: z.string().optional(),
+        constraints: z.array(z.string()).optional(),
+      })
+      .optional(),
+    metrics: z.object({
+      primary: z.object({
+        command: z.string().min(1),
+        extract: z.string().optional(),
+        type: z.enum(['regex', 'json_path', 'exit_code']).optional(),
+        direction: z.enum(['minimize', 'maximize']).optional(),
+      }),
+      secondary: z
+        .array(
+          z.object({
+            name: z.string(),
+            command: z.string().optional(),
+            extract: z.string().optional(),
+            type: z.enum(['regex', 'json_path', 'exit_code']).optional(),
+            direction: z.enum(['minimize', 'maximize']).optional(),
+          }),
+        )
+        .optional(),
+      guard: z
+        .object({
+          command: z.string().min(1),
+          success_pattern: z.string().optional(),
+        })
+        .optional(),
+    }),
+    budget: z
+      .object({
+        time_per_experiment: z.string().optional(),
+        max_experiments: z.number().int().min(1).max(10000).optional(),
+        max_consecutive_failures: z.number().int().min(1).optional(),
+        total_time: z.string().optional(),
+      })
+      .optional(),
+    agent_instructions: z.string().max(50000).optional(),
+  }),
+});
+
+export const experimentRunSchema = z
+  .object({
+    context: z.record(z.string(), z.unknown()).optional(),
+  })
+  .default({});
 
 /**
  * Express middleware factory: validate req.body against a zod schema.

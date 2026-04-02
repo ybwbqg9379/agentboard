@@ -22,6 +22,10 @@
 import { EventEmitter } from 'node:events';
 import { startAgent, stopAgent, agentEvents } from './agentManager.js';
 import { createWorkflowRun, updateWorkflowRun, completeWorkflowRun } from './workflowStore.js';
+import { runExperimentLoop, abortExperiment, experimentEvents } from './experimentEngine.js';
+import { getExperiment, createRun as createExpRun } from './experimentStore.js';
+import { resolve } from 'node:path';
+import config from './config.js';
 
 export const workflowEvents = new EventEmitter();
 workflowEvents.setMaxListeners(50);
@@ -60,11 +64,14 @@ export function validateWorkflow(definition) {
     if (!node.id || !node.type) {
       errors.push(`Node missing id or type: ${JSON.stringify(node)}`);
     }
-    if (!['agent', 'condition', 'transform', 'input', 'output'].includes(node.type)) {
+    if (!['agent', 'condition', 'transform', 'input', 'output', 'experiment'].includes(node.type)) {
       errors.push(`Unknown node type: ${node.type}`);
     }
     if (node.type === 'agent' && !node.config?.prompt) {
       errors.push(`Agent node "${node.id}" missing prompt in config`);
+    }
+    if (node.type === 'experiment' && !node.config?.experimentId) {
+      errors.push(`Experiment node "${node.id}" missing experimentId in config`);
     }
   }
 
@@ -231,6 +238,12 @@ async function executeNode(node, context, runId, workflowId, userId) {
       return result;
     }
 
+    case 'experiment': {
+      const result = await runExperimentNode(node.config, runId, workflowId, nodeId, userId);
+      workflowEvents.emit('node_complete', { runId, workflowId, nodeId, result });
+      return result;
+    }
+
     default:
       throw new Error(`Unknown node type: ${node.type}`);
   }
@@ -320,6 +333,95 @@ function runAgentNode(prompt, nodeConfig, runId, workflowId, nodeId, userId) {
   });
 }
 
+function runExperimentNode(nodeConfig, runId, workflowId, nodeId, userId) {
+  const experimentId = nodeConfig.experimentId;
+  if (!experimentId) {
+    return Promise.reject(new Error('Missing experimentId configuration'));
+  }
+
+  const experiment = getExperiment(userId, experimentId);
+  if (!experiment) {
+    return Promise.reject(new Error('Experiment not found'));
+  }
+
+  // Create the run ID synchronously so listeners can match events immediately
+  const expRunId = createExpRun(userId, experimentId);
+
+  const workspaceDir = resolve(
+    config.workspaceDir,
+    userId,
+    'sessions',
+    `experiment-node-${workflowId}-${nodeId}-${Date.now()}`,
+  );
+
+  const entry = activeRuns.get(runId);
+  if (entry) {
+    entry.currentExperimentRunId = expRunId;
+  }
+
+  return new Promise((resolvePromise, rejectPromise) => {
+    let settled = false;
+
+    function onDone(data) {
+      if (data.runId !== expRunId) return;
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolvePromise({
+        experimentRunId: expRunId,
+        status: 'completed',
+        bestMetric: data.bestMetric,
+        trials: data.totalTrials,
+      });
+    }
+
+    function onBudget(data) {
+      if (data.runId !== expRunId) return;
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolvePromise({
+        experimentRunId: expRunId,
+        status: 'completed',
+        bestMetric: data.bestMetric || null,
+        trials: data.trialCount || 0,
+      });
+    }
+
+    function onError(data) {
+      if (data.runId !== expRunId) return;
+      if (settled) return;
+      settled = true;
+      cleanup();
+      rejectPromise(new Error(`Experiment node failed: ${data.error}`));
+    }
+
+    function cleanup() {
+      experimentEvents.off('experiment_done', onDone);
+      experimentEvents.off('budget_exhausted', onBudget);
+      experimentEvents.off('experiment_error', onError);
+      const e = activeRuns.get(runId);
+      if (e) {
+        e.currentExperimentRunId = null;
+      }
+    }
+
+    experimentEvents.on('experiment_done', onDone);
+    experimentEvents.on('budget_exhausted', onBudget);
+    experimentEvents.on('experiment_error', onError);
+
+    runExperimentLoop(experimentId, experiment.plan, userId, workspaceDir, expRunId).catch(
+      (err) => {
+        if (!settled) {
+          settled = true;
+          cleanup();
+          rejectPromise(err);
+        }
+      },
+    );
+  });
+}
+
 /**
  * Execute a workflow run.
  * @param {string} workflowId
@@ -404,7 +506,7 @@ export async function executeWorkflow(
       executed.add(nodeId);
 
       // Merge result into context (agent results go under their nodeId key)
-      if (node.type === 'agent') {
+      if (node.type === 'agent' || node.type === 'experiment') {
         context = { ...context, [nodeId]: result };
       } else if (node.type === 'input' || node.type === 'transform') {
         context = { ...context, ...result };
@@ -481,6 +583,9 @@ export function abortWorkflow(runId) {
   entry.aborted = true;
   if (entry.currentAgentSessionId) {
     stopAgent(entry.currentAgentSessionId);
+  }
+  if (entry.currentExperimentRunId) {
+    abortExperiment(entry.currentExperimentRunId);
   }
   return true;
 }

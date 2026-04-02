@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import { createServer } from 'node:http';
 import { WebSocketServer } from 'ws';
+import { resolve } from 'node:path';
 import config from './config.js';
 import {
   listSessionsPaged,
@@ -52,9 +53,32 @@ import {
   sessionsQuerySchema,
   workflowSchema,
   workflowRunRequestSchema,
+  experimentSchema,
+  experimentRunSchema,
   validate,
   validateQuery,
 } from './middleware.js';
+import {
+  createExperiment,
+  getExperiment,
+  listExperiments,
+  countExperiments,
+  updateExperiment,
+  deleteExperiment,
+  createRun as createExperimentRun,
+  listRuns as listExperimentRuns,
+  listTrials,
+  getRunOwned as getExperimentRunOwned,
+  recoverStaleRuns,
+  closeExperimentDb,
+} from './experimentStore.js';
+import {
+  runExperimentLoop,
+  abortExperiment,
+  getActiveExperiments,
+  validatePlan,
+  experimentEvents,
+} from './experimentEngine.js';
 
 const app = express();
 
@@ -313,6 +337,102 @@ app.get('/api/workflow-status', (_req, res) => {
   res.json({ activeRuns: getActiveWorkflowRuns(_req.user.id) });
 });
 
+// --- Experiment API ---
+
+app.get('/api/experiments', (req, res) => {
+  const limit = Math.min(Math.max(parseInt(req.query.limit) || 20, 1), 100);
+  const offset = Math.max(parseInt(req.query.offset) || 0, 0);
+  const experiments = listExperiments(req.user.id, limit, offset);
+  const total = countExperiments(req.user.id);
+  res.json({ experiments, total, limit, offset });
+});
+
+app.get('/api/experiments/:id', (req, res) => {
+  const experiment = getExperiment(req.user.id, req.params.id);
+  if (!experiment) return res.status(404).json({ error: 'experiment not found' });
+  res.json(experiment);
+});
+
+app.post('/api/experiments', validate(experimentSchema), (req, res) => {
+  const { name, description, plan } = req.body;
+  const validation = validatePlan(plan);
+  if (!validation.valid) {
+    return res.status(400).json({ error: 'invalid experiment plan', details: validation.errors });
+  }
+  const id = createExperiment(req.user.id, name, description, plan);
+  res.status(201).json({ id });
+});
+
+app.put('/api/experiments/:id', validate(experimentSchema), (req, res) => {
+  const { name, description, plan } = req.body;
+  const validation = validatePlan(plan);
+  if (!validation.valid) {
+    return res.status(400).json({ error: 'invalid experiment plan', details: validation.errors });
+  }
+  const updated = updateExperiment(req.user.id, req.params.id, name, description, plan);
+  if (!updated) return res.status(404).json({ error: 'experiment not found' });
+  res.json({ updated: true });
+});
+
+app.delete('/api/experiments/:id', (req, res) => {
+  const deleted = deleteExperiment(req.user.id, req.params.id);
+  if (!deleted) return res.status(404).json({ error: 'experiment not found' });
+  res.json({ deleted: true });
+});
+
+app.post('/api/experiments/:id/run', validate(experimentRunSchema), async (req, res) => {
+  const experiment = getExperiment(req.user.id, req.params.id);
+  if (!experiment) return res.status(404).json({ error: 'experiment not found' });
+
+  // Use workspace/sessions/ for experiment isolation (Q2 decision)
+  const workspaceDir = resolve(
+    config.workspaceDir,
+    req.user.id || 'default',
+    'sessions',
+    `experiment-${req.params.id}-${Date.now()}`,
+  );
+
+  const runId = createExperimentRun(req.user.id, req.params.id);
+
+  res.status(202).json({ message: 'experiment started', experimentId: req.params.id, runId });
+
+  runExperimentLoop(req.params.id, experiment.plan, req.user.id, workspaceDir, runId).catch(
+    (err) => {
+      console.error(`[experiment] execution error: ${err.message}`);
+    },
+  );
+});
+
+app.post('/api/experiment-runs/:id/abort', (req, res) => {
+  if (!getExperimentRunOwned(req.user.id, req.params.id)) {
+    return res.status(404).json({ error: 'run not found' });
+  }
+  const aborted = abortExperiment(req.params.id);
+  if (!aborted) return res.status(404).json({ error: 'run not found or not active' });
+  res.json({ aborted: true });
+});
+
+app.get('/api/experiments/:id/runs', (req, res) => {
+  const limit = Math.min(Math.max(parseInt(req.query.limit) || 20, 1), 100);
+  const offset = Math.max(parseInt(req.query.offset) || 0, 0);
+  const runs = listExperimentRuns(req.user.id, req.params.id, limit, offset);
+  res.json({ runs });
+});
+
+app.get('/api/experiment-runs/:id/trials', (req, res) => {
+  if (!getExperimentRunOwned(req.user.id, req.params.id)) {
+    return res.status(404).json({ error: 'run not found' });
+  }
+  const limit = Math.min(Math.max(parseInt(req.query.limit) || 200, 1), 1000);
+  const offset = Math.max(parseInt(req.query.offset) || 0, 0);
+  const trials = listTrials(req.params.id, limit, offset);
+  res.json({ trials });
+});
+
+app.get('/api/experiment-status', (_req, res) => {
+  res.json({ activeRuns: getActiveExperiments(_req.user.id) });
+});
+
 // --- Error Handler (Express 5 auto-forwards rejected promises) ---
 
 app.use((err, _req, res, _next) => {
@@ -328,6 +448,7 @@ const wss = new WebSocketServer({ server, path: '/ws' });
 // 跟踪每个 ws 连接订阅的 sessionId 和 workflow runId
 const subscriptions = new Map();
 const workflowSubs = new Map(); // Map<ws, Set<runId>>
+const experimentSubs = new Map(); // Map<ws, Set<runId>>
 
 wss.on('connection', (ws, req) => {
   if (!wsAuth(req)) {
@@ -469,6 +590,30 @@ wss.on('connection', (ws, req) => {
         break;
       }
 
+      case 'subscribe_experiment': {
+        const hasRun = msg.experimentId
+          ? Boolean(getExperiment(ws.userId, msg.experimentId))
+          : Boolean(getExperimentRunOwned(ws.userId, msg.runId));
+        if (!hasRun) {
+          ws.send(JSON.stringify({ error: 'experiment run not found' }));
+          return;
+        }
+        if (!experimentSubs.has(ws)) experimentSubs.set(ws, new Set());
+        experimentSubs.get(ws).add(msg.runId);
+        ws.send(JSON.stringify({ type: 'experiment_subscribed', runId: msg.runId }));
+        break;
+      }
+
+      case 'unsubscribe_experiment': {
+        if (msg.runId) {
+          experimentSubs.get(ws)?.delete(msg.runId);
+        } else {
+          experimentSubs.delete(ws);
+        }
+        ws.send(JSON.stringify({ type: 'experiment_unsubscribed' }));
+        break;
+      }
+
       default:
         ws.send(JSON.stringify({ error: `unknown action: ${msg.action}` }));
     }
@@ -477,6 +622,7 @@ wss.on('connection', (ws, req) => {
   ws.on('close', () => {
     subscriptions.delete(ws);
     workflowSubs.delete(ws);
+    experimentSubs.delete(ws);
   });
 });
 
@@ -514,10 +660,41 @@ for (const eventName of [
   });
 }
 
+// Broadcast experiment events to subscribed clients
+for (const eventName of [
+  'experiment_start',
+  'experiment_done',
+  'experiment_error',
+  'baseline',
+  'trial_start',
+  'trial_accepted',
+  'trial_rejected',
+  'trial_error',
+  'trial_complete',
+  'budget_exhausted',
+]) {
+  experimentEvents.on(eventName, (data) => {
+    const runId = data.runId;
+    if (!runId) return;
+    const payload = JSON.stringify({
+      type: 'experiment',
+      subtype: eventName,
+      content: data,
+      timestamp: Date.now(),
+    });
+    for (const [ws, runIds] of experimentSubs) {
+      if (ws.readyState === 1 && runIds.has(runId)) {
+        ws.send(payload);
+      }
+    }
+  });
+}
+
 // --- Start ---
 
-// Recover stale sessions from previous crashes before accepting connections
+// Recover stale sessions/runs from previous crashes
 recoverStaleSessions();
+recoverStaleRuns();
 
 server.listen(config.port, () => {
   console.log(`AgentBoard backend listening on http://localhost:${config.port}`);
@@ -550,6 +727,7 @@ function shutdown(signal) {
     closeDb();
     closeWorkflowDb();
     closeMemoryDb();
+    closeExperimentDb();
     console.log('Shutdown complete.');
     process.exit(0);
   });

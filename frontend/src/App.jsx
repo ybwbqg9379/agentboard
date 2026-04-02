@@ -7,6 +7,7 @@ import RightPanel from './components/RightPanel.jsx';
 import StatusBar from './components/StatusBar.jsx';
 import SessionDrawer from './components/SessionDrawer.jsx';
 import WorkflowEditor from './components/WorkflowEditor.jsx';
+import ExperimentView from './components/ExperimentView.jsx';
 
 export default function App() {
   const {
@@ -22,6 +23,12 @@ export default function App() {
     sessionStats,
     mcpHealth,
     subtasks,
+    experimentRunId,
+    experimentStatus,
+    experimentEvents,
+    subscribeExperiment,
+    unsubscribeExperiment,
+    loadExperimentRunsEvents,
   } = useWebSocket();
 
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -80,9 +87,20 @@ export default function App() {
             subtasks={subtasks}
           />
         </>
-      ) : (
+      ) : mode === 'workflow' ? (
         <div className="main-content workflow-mode">
           <WorkflowEditor />
+        </div>
+      ) : (
+        <div className="main-content experiment-mode">
+          <ExperimentView
+            experimentRunId={experimentRunId}
+            experimentStatus={experimentStatus}
+            experimentEvents={experimentEvents}
+            subscribeExperiment={subscribeExperiment}
+            unsubscribeExperiment={unsubscribeExperiment}
+            loadExperimentRunsEvents={loadExperimentRunsEvents}
+          />
         </div>
       )}
 

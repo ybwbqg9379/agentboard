@@ -1,12 +1,13 @@
 # AgentBoard
 
-AI Agent & Workflow 计算展示平台 —— 基于 Claude Agent SDK 编排框架，通过可视化引擎支持 **单Agent探索模式** 与 **DAG多Agent工作流模式**。平台无缝接入任意 OpenAI 兼容大模型（如 DeepSeek, vLLM, 通义千问, GPT 等），并通过原生暗/浅色全自适应 Dashboard 实时展示思考、调试与工具执行全时序。
+AI Agent & Workflow 计算展示平台 —— 基于 Claude Agent SDK 编排框架，通过可视化引擎支持 **单Agent探索模式**、**DAG多Agent工作流模式** 与 **自动化实验研究模式 (AutoResearch)**。平台无缝接入任意 OpenAI 兼容大模型（如 DeepSeek, vLLM, 通义千问, GPT 等），并通过原生暗/浅色全自适应 Dashboard 实时展示思考、调试与工具执行全时序。
 
 ## 核心特性
 
-- **双引擎驱动**:
+- **三大引擎驱动**:
   - **Agent 模式**：通过 Claude SDK 指派单节点 Agent（Researcher、Code-Reviewer 等），支持对话续接与记忆。
-  - **Workflow 模式**：拖拽式 DAG（有向无环图）编排面板。支持 **Agent 节点**、**条件分支节点 (Condition)**、**数据变换节点 (Transform)**，上下文透传与 `{{var}}` 模板变量替换。
+  - **Workflow 模式**：拖拽式 DAG（有向无环图）编排面板。支持 **Agent 节点**、**条件分支节点 (Condition)**、**数据变换节点 (Transform)**、**实验节点 (Experiment)**，上下文透传与 `{{var}}` 模板变量替换。
+  - **Experiment 模式 (AutoResearch)**：内置代码自动化迭代打分的棘轮机制（Ratchet Loop）。通过隔离在宿主机的基准测试提供 "提议-度量-回滚/提交" 的科学推演，并可无缝将其挂载入高级工作流。
 - **现代化响应式 UI原生架构**:
   - 全流程自适应流体布局，不仅适配大屏数据看板，而且**完美支持移动端 (`< 768px`)**的垂直滑屏查阅和抽屉交互。
   - **全站 Light/Dark Theme** 动态切换。基于 CSS 语义 Variable 的设计体系，与操作系统 `prefers-color-scheme` 即时绑定并进行本地缓存记忆。
@@ -35,8 +36,8 @@ Browser ← (WS / Zod Validated) → Node.js Backend ←→ Claude Agent SDK (qu
                               (workflowEngine.js)     |   MCP Servers     |
                                         ↓             | Core: fs/github/  |
                                +----------------+     |   memory/browser  |
-                               |  2x SQLite DB  |     | Search: tavily/   |
-                               |  (sessions)    |     |   exa/brave       |
+                               |  3x SQLite DB  |     | Search: tavily/   |
+                               | sessions/exps  |     |   exa/brave       |
                                |  (workflows)   |     | Crawl: firecrawl/ |
                                +----------------+     |   fetch/jina      |
                                                        +-------------------+
@@ -106,7 +107,7 @@ npm run dev
 
 ## API 文档与技术架构
 
-AgentBoard 使用了复杂的流式数据处理和分发技术，包含了双 SQLite 数据集 (`sessionStore`, `workflowStore`)，并设计有细粒度生命周期回调函数（Hooks）。
+AgentBoard 使用了复杂的流式数据处理和分发技术，包含三组 SQLite 持久层 (`sessionStore`, `workflowStore`, `experimentStore`)，并设计有细粒度生命周期回调函数（Hooks）。
 
 - 关于**系统架构、DAG工作流程流转过程与数据库 Schema** 的详细信息，请参阅 [架构与设计文档 (ARCHITECTURE.md)](ARCHITECTURE.md)。
 
@@ -115,7 +116,7 @@ AgentBoard 使用了复杂的流式数据处理和分发技术，包含了双 SQ
 我们通过严格的自动化流水线来保持极高的代码纯度：
 
 - 代码格式遵循 Prettier（单引号、100 行宽）。
-- 高达 **528** 个的 `Vitest` 单元/集成测试用例覆盖所有的 DAG 条件引擎运算和代理层转译算法。
+- 高达 **554+** 个的 `Vitest` 单元/集成测试用例覆盖所有的 DAG 条件引擎运算和代理层转译算法。
 
 您可以随时通过下发全局质量门禁命令来确保代码没有退化：
 

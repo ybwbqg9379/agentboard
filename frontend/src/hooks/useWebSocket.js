@@ -15,10 +15,15 @@ export function useWebSocket() {
   const [sessionStats, setSessionStats] = useState(null);
   const [mcpHealth, setMcpHealth] = useState({});
   const [subtasks, setSubtasks] = useState({});
+  const [experimentRunId, setExperimentRunId] = useState(null);
+  const [experimentStatus, setExperimentStatus] = useState('idle');
+  const [experimentEvents, setExperimentEvents] = useState([]);
+
   const wsRef = useRef(null);
   const reconnectTimer = useRef(null);
   const heartbeatTimer = useRef(null);
   const sessionIdRef = useRef(null);
+  const experimentRunIdRef = useRef(null);
   const statusRef = useRef('idle');
   const unmountedRef = useRef(false);
   const lastMessageTimeRef = useRef(Date.now());
@@ -54,6 +59,11 @@ export function useWebSocket() {
       const sid = sessionIdRef.current;
       if (sid && statusRef.current === 'running') {
         ws.send(JSON.stringify({ action: 'subscribe', sessionId: sid }));
+      }
+      if (experimentRunIdRef.current) {
+        ws.send(
+          JSON.stringify({ action: 'subscribe_experiment', runId: experimentRunIdRef.current }),
+        );
       }
     };
 
@@ -105,6 +115,37 @@ export function useWebSocket() {
       }
 
       if (msg.type === 'unsubscribed') {
+        return;
+      }
+
+      if (msg.type === 'experiment_subscribed') {
+        experimentRunIdRef.current = msg.runId;
+        setExperimentRunId(msg.runId);
+        return;
+      }
+
+      if (msg.type === 'experiment_unsubscribed') {
+        experimentRunIdRef.current = null;
+        setExperimentRunId(null);
+        setExperimentStatus('idle');
+        return;
+      }
+
+      if (msg.type === 'experiment') {
+        if (msg.subtype === 'experiment_start') {
+          setExperimentStatus('running');
+        } else if (
+          msg.subtype === 'experiment_done' ||
+          msg.subtype === 'experiment_error' ||
+          msg.subtype === 'budget_exhausted'
+        ) {
+          setExperimentStatus(msg.subtype === 'experiment_error' ? 'failed' : 'completed');
+        }
+
+        setExperimentEvents((prev) => {
+          const next = [...prev, msg];
+          return next.length > MAX_EVENTS ? next.slice(-MAX_EVENTS) : next;
+        });
         return;
       }
 
@@ -307,6 +348,58 @@ export function useWebSocket() {
     setSubtasks({});
   }, [send]);
 
+  const subscribeExperiment = useCallback(
+    (runId, expId) => {
+      send({ action: 'subscribe_experiment', runId, experimentId: expId });
+      experimentRunIdRef.current = runId;
+      setExperimentRunId(runId);
+      setExperimentEvents([]);
+      setExperimentStatus('running');
+    },
+    [send],
+  );
+
+  const unsubscribeExperiment = useCallback(() => {
+    send({ action: 'unsubscribe_experiment' });
+    experimentRunIdRef.current = null;
+    setExperimentRunId(null);
+    setExperimentStatus('idle');
+    setExperimentEvents([]);
+  }, [send]);
+
+  const loadExperimentRunsEvents = useCallback(
+    async (runId, expId) => {
+      try {
+        const res = await fetch(
+          `${API_BASE}/api/experiment-runs/${runId}/trials`,
+          withClientAuth(),
+        );
+        if (!res.ok) return;
+        const data = await res.json();
+
+        const trials = data.trials || [];
+        const restoredEvents = trials.map((t) => ({
+          type: 'experiment',
+          subtype: 'trial_complete',
+          content: {
+            trialNumber: t.trial_number,
+            accepted: t.accepted,
+            metric: t.primary_metric,
+            diff: t.diff,
+            reason: t.reason,
+          },
+          timestamp: new Date(t.created_at).getTime(),
+        }));
+
+        setExperimentEvents(restoredEvents);
+        subscribeExperiment(runId, expId);
+      } catch {
+        /* ignore */
+      }
+    },
+    [subscribeExperiment],
+  );
+
   return {
     connected,
     events,
@@ -320,5 +413,12 @@ export function useWebSocket() {
     sessionStats,
     mcpHealth,
     subtasks,
+    experimentRunId,
+    experimentStatus,
+    experimentEvents,
+    subscribeExperiment,
+    unsubscribeExperiment,
+    loadExperimentRunsEvents,
+    sendRaw: send,
   };
 }
