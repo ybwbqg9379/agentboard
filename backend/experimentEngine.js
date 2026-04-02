@@ -50,7 +50,7 @@ function parseTimeMs(timeStr) {
  * Execute a command in the experiment workspace and return output.
  * Runs directly on the host (no Docker) per Q1 decision.
  */
-function runCommand(command, cwd, timeoutMs = 300000) {
+function runCommand(command, cwd, timeoutMs = 300000, signal) {
   try {
     const output = execSync(command, {
       cwd,
@@ -58,9 +58,13 @@ function runCommand(command, cwd, timeoutMs = 300000) {
       encoding: 'utf-8',
       stdio: ['pipe', 'pipe', 'pipe'],
       maxBuffer: 10 * 1024 * 1024, // 10MB
+      ...(signal && { signal }),
     });
     return { output: output || '', exitCode: 0 };
   } catch (err) {
+    if (err.code === 'ABORT_ERR') {
+      return { output: '', exitCode: 130 };
+    }
     return {
       output: (err.stdout || '') + '\n' + (err.stderr || ''),
       exitCode: err.status ?? 1,
@@ -81,16 +85,33 @@ function prepareWorkspace(plan, workspaceDir, userId) {
 
   // If target files are specified and a source dir exists, copy them
   if (plan.target?.source_dir && fs.existsSync(plan.target.source_dir)) {
-    const sourceDir = resolve(plan.target.source_dir);
-    // Sandbox enforcement: source_dir must be within user's own workspace
-    const userRoot =
+    // Resolve symlinks to prevent bypass via symlinked paths
+    const sourceDir = fs.realpathSync(resolve(plan.target.source_dir));
+    const userRoot = fs.realpathSync(
       userId && userId !== 'default'
         ? resolve(config.workspaceDir, userId)
-        : resolve(config.workspaceDir);
+        : resolve(config.workspaceDir),
+    );
     if (!sourceDir.startsWith(userRoot + '/') && sourceDir !== userRoot) {
       throw new Error(`source_dir "${sourceDir}" is outside the allowed workspace "${userRoot}"`);
     }
     execSync(`cp -r "${sourceDir}/." "${workspaceDir}/"`, { stdio: 'pipe' });
+  }
+
+  // Ensure a CLAUDE.md exists to prevent the SDK from triggering [ONBOARDING TASK]
+  // which would generate unrelated file changes and potentially trip the whitelist
+  const claudeMdPath = resolve(workspaceDir, 'CLAUDE.md');
+  if (!fs.existsSync(claudeMdPath)) {
+    const userRoot =
+      userId && userId !== 'default'
+        ? resolve(config.workspaceDir, userId)
+        : resolve(config.workspaceDir);
+    const userClaudeMd = resolve(userRoot, 'CLAUDE.md');
+    if (fs.existsSync(userClaudeMd)) {
+      fs.copyFileSync(userClaudeMd, claudeMdPath);
+    } else {
+      fs.writeFileSync(claudeMdPath, '# Experiment workspace\n');
+    }
   }
 
   // Initialize git in workspace for ratchet operations
@@ -223,6 +244,7 @@ export async function runExperimentLoop(experimentId, plan, userId, workspaceDir
         plan.metrics.primary.command,
         workspaceDir,
         timePerExperiment,
+        abortController.signal,
       );
       const baselineMetrics = extractAllMetrics(
         baselineResult.output,
@@ -320,6 +342,7 @@ export async function runExperimentLoop(experimentId, plan, userId, workspaceDir
             plan.metrics.guard.command,
             workspaceDir,
             timePerExperiment,
+            abortController.signal,
           );
           const guardMetrics = extractAllMetrics(
             guardResult.output,
@@ -336,6 +359,7 @@ export async function runExperimentLoop(experimentId, plan, userId, workspaceDir
             plan.metrics.primary.command,
             workspaceDir,
             timePerExperiment,
+            abortController.signal,
           );
           const metrics = extractAllMetrics(benchResult.output, plan.metrics, benchResult.exitCode);
           currentMetric = metrics.primary;

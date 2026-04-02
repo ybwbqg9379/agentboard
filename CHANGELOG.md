@@ -11,6 +11,22 @@
 - **DAG 管线实验节点映射 (`workflowEngine.js`)**: **`experiment`** 现已正式作为平台支持的原生图谱节点并入 `WorkflowEditor`。用户可在可视化画布中拖曳出实验节点，以实现“当主工作流运转至此，阻断抛交后台进行多轮基数优化，待指标收敛后自动将 Best Metric 携带至下一工作流节点”的管线闭环构想。
 - **实验三级持久化网络**: 引入 `experimentStore.js`。内置表结构（`experiments` 模板、`experiment_runs` 场次与 `experiment_trials` 具体试运行尝试），确保每一次科研数据都能被永久检索和审查。
 
+### 4 项实验引擎三轮审查修复 (Experiment Engine Audit Round 3 — 2C + 2M)
+
+#### Fixed -- Critical
+
+- **R3-C1** `server.js` -- `subscribe_experiment` 鉴权逻辑为 `runOwned || expOwned`，仍可用自己的 experimentId 订阅他人 runId；改为仅校验 runId 归属
+- **R3-C2** `experimentEngine.js` -- source_dir 校验用 `resolve()` + `startsWith()`，未消解 symlink；改为 `fs.realpathSync()` 解析真实路径后再比较
+
+#### Fixed -- Major
+
+- **R3-M1** `experimentEngine.js` -- guard/benchmark 走 `execSync` 不响应 abort signal；`runCommand` 增加 `signal` 参数透传给 `execSync`，abort 时立即终止子进程
+- **R3-M2** `useWebSocket.js` + `server.js` -- View History 硬编码 `completed` 状态，failed/aborted 历史显示为已完成；新增 `GET /api/experiment-runs/:id` 端点，前端获取真实 run status
+
+#### Improved
+
+- `experimentEngine.js` -- cwdOverride 绕过了 `CLAUDE.md` 复制逻辑，可能触发 SDK onboarding 产生无关文件变更；`prepareWorkspace` 现在确保实验 workspace 内有 `CLAUDE.md`
+
 ### 7 项实验引擎二轮审查修复 (Experiment Engine Audit Round 2 — 4C + 3M)
 
 #### Fixed -- Critical

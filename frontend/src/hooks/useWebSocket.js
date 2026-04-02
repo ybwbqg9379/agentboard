@@ -391,15 +391,32 @@ export function useWebSocket() {
           timestamp: new Date(t.created_at).getTime(),
         }));
 
+        // Fetch actual run status so failed/aborted runs display correctly
+        let runStatus = 'completed';
+        try {
+          const statusRes = await fetch(
+            `${API_BASE}/api/experiment-runs/${runId}`,
+            withClientAuth(),
+          );
+          if (statusRes.ok) {
+            const runData = await statusRes.json();
+            runStatus = runData.status || 'completed';
+          }
+        } catch {
+          /* use default */
+        }
+
         // Set history events and runId directly WITHOUT calling subscribeExperiment
         // (which would clear experimentEvents and incorrectly set status to 'running')
         experimentRunIdRef.current = runId;
         setExperimentRunId(runId);
         setExperimentEvents(restoredEvents);
-        setExperimentStatus('completed');
+        setExperimentStatus(runStatus);
 
         // Subscribe for live updates only if the run is still active
-        send({ action: 'subscribe_experiment', runId, experimentId: expId });
+        if (runStatus === 'running') {
+          send({ action: 'subscribe_experiment', runId, experimentId: expId });
+        }
       } catch {
         /* ignore */
       }

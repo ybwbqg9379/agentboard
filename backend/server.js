@@ -403,6 +403,12 @@ app.post('/api/experiments/:id/run', validate(experimentRunSchema), async (req, 
   );
 });
 
+app.get('/api/experiment-runs/:id', (req, res) => {
+  const run = getExperimentRunOwned(req.user.id, req.params.id);
+  if (!run) return res.status(404).json({ error: 'run not found' });
+  res.json(run);
+});
+
 app.post('/api/experiment-runs/:id/abort', (req, res) => {
   if (!getExperimentRunOwned(req.user.id, req.params.id)) {
     return res.status(404).json({ error: 'run not found' });
@@ -591,12 +597,8 @@ wss.on('connection', (ws, req) => {
       }
 
       case 'subscribe_experiment': {
-        // Always validate runId ownership to prevent cross-tenant data leaks
-        const runOwned = msg.runId ? Boolean(getExperimentRunOwned(ws.userId, msg.runId)) : false;
-        const expOwned = msg.experimentId
-          ? Boolean(getExperiment(ws.userId, msg.experimentId))
-          : false;
-        if (!runOwned && !expOwned) {
+        // Validate runId ownership -- runId is the authoritative boundary
+        if (!msg.runId || !getExperimentRunOwned(ws.userId, msg.runId)) {
           ws.send(JSON.stringify({ error: 'experiment run not found' }));
           return;
         }
