@@ -99,6 +99,7 @@ vi.mock('./experimentEngine.js', () => ({
   abortExperiment: vi.fn(() => true),
   getActiveExperiments: vi.fn(() => []),
   validatePlan: vi.fn(() => ({ valid: true, errors: [] })),
+  prepareWorkspace: vi.fn(),
   experimentEvents,
 }));
 

@@ -27,6 +27,21 @@
 - **无 Coordinator 时的兜底**：若 `initSwarmBus()` 未被调用或 Agent 超时，自动切换为启发式选择（`minimize`/`maximize` 方向最优指标）和模板化假说生成，确保 Swarm 在任何环境下均可降级运行。
 - **P3 → P1 串联**：Coordinator 选出最优 Branch 后，将其 workspace 合并回主 workspace，此时 P1 Ratchet Loop 可继续在最优起点上精细收敛，实现两级优化。
 
+#### Bugfixes (code review round 1 + round 2)
+
+- fix: Coordinator Agent 永不运行——`initSwarmBus` 漏设模块级 `_agentEventsBus`
+- fix: abort signal 被丢弃——改用 `abortExperiment(branchRunId)` 桥接
+- fix: branchIndex 命名空间不一致——统一使用数组下标
+- fix: swarmStore 重复 DB 连接——改为共享 `experimentDb`
+- fix: `mergeBestBranchIntoMain` git commit 缺 identity——添加 `-c user.email/name`
+- fix: shell injection——`execSync` 替换为 `spawnSync` + 参数数组
+- fix: `process.env` 全局污染——finally 块清理 branch port 变量
+- fix: `loadSwarmBranches` 死代码——接入 View History 恢复路径
+- fix: `runSwarm` 缺少 `Content-Type: application/json`，后端收到 `undefined` body
+- fix: Swarm baseline workspace 未初始化——启动前调用 `prepareWorkspace`
+- fix: Branch runId 未在 `experiment_runs` 创建记录——改用 `createRun()` 正式建行
+- fix: Swarm 顶层 run 状态不回写——完成/失败时调用 `updateRunStatus`/`updateRunMetrics`
+
 #### Tests
 
 - `backend/researchSwarm.test.js` — 17 tests（XML 解析器 10 cases、启发式选择 4 cases、EventEmitter + 生命周期 3 cases）

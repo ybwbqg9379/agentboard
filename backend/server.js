@@ -83,6 +83,7 @@ import {
   abortExperiment,
   getActiveExperiments,
   validatePlan,
+  prepareWorkspace,
   experimentEvents,
 } from './experimentEngine.js';
 import {
@@ -524,6 +525,14 @@ app.post('/api/experiments/:id/swarm', (req, res) => {
     'sessions',
     `swarm-${req.params.id}-${Date.now()}`,
   );
+
+  // Prepare baseline workspace (mkdir, copy source files, git init) so
+  // cloneBranchWorkspace has a valid git repo to clone from.
+  try {
+    prepareWorkspace(plan, workspaceDir, req.user.id);
+  } catch (err) {
+    return res.status(500).json({ error: `workspace setup failed: ${err.message}` });
+  }
 
   const runId = createExperimentRun(req.user.id, req.params.id);
 

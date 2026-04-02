@@ -202,7 +202,7 @@ function ensureWorkspaceBaselineSnapshot(workspaceDir) {
  *
  * Per Q2 decision: uses workspace/sessions/{sessionId} isolation.
  */
-function prepareWorkspace(plan, workspaceDir, userId) {
+export function prepareWorkspace(plan, workspaceDir, userId) {
   if (!fs.existsSync(workspaceDir)) {
     fs.mkdirSync(workspaceDir, { recursive: true });
   }

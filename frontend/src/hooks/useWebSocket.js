@@ -526,7 +526,11 @@ export function useWebSocket() {
       try {
         const res = await fetch(
           `${API_BASE}/api/experiments/${experimentId}/swarm`,
-          withClientAuth({ method: 'POST', body: JSON.stringify({ swarm: swarmOverride }) }),
+          withClientAuth({
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ swarm: swarmOverride }),
+          }),
         );
         if (!res.ok) return null;
         const data = await res.json();

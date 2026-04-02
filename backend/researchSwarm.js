@@ -30,7 +30,7 @@ import {
   rejectSwarmBranch,
   saveCoordinatorDecision,
 } from './swarmStore.js';
-import { getRun } from './experimentStore.js';
+import { getRun, createRun, updateRunStatus, updateRunMetrics } from './experimentStore.js';
 
 export const swarmEvents = new EventEmitter();
 swarmEvents.setMaxListeners(50);
@@ -324,6 +324,7 @@ async function runBranch(
   branchId,
   baseWorkspaceDir,
   userId,
+  experimentId,
   swarmRunId,
   signal,
 ) {
@@ -382,9 +383,11 @@ async function runBranch(
     }
 
     // 4. Run the mini Ratchet Loop (P1)
+    //    Create a real experiment_runs row so trial FK constraints are satisfied
+    //    and getRun() can read back metrics after the loop finishes.
     //    runExperimentLoop creates its own internal abortController, so we bridge
     //    the swarm-level signal to it via abortExperiment().
-    const branchRunId = `${swarmRunId}-branch-${branchIndex}`;
+    const branchRunId = createRun(userId, experimentId);
     const onSwarmAbort = () => abortExperiment(branchRunId);
     signal?.addEventListener('abort', onSwarmAbort);
     try {
@@ -635,7 +638,7 @@ export async function runResearchSwarm(experimentId, plan, userId, workspaceDir,
     );
 
     const branchPromises = hypotheses.map((hyp, i) =>
-      runBranch(plan, hyp, i, branchIds[i], workspaceDir, userId, runId, signal),
+      runBranch(plan, hyp, i, branchIds[i], workspaceDir, userId, experimentId, runId, signal),
     );
 
     const settledResults = await Promise.allSettled(branchPromises);
@@ -679,6 +682,12 @@ export async function runResearchSwarm(experimentId, plan, userId, workspaceDir,
       cleanupBranchWorkspace(branch.branchDir);
     }
 
+    // Update top-level swarm run status so the frontend can show it in history
+    const totalTrials = branchResults.reduce((s, b) => s + (b.totalTrials || 0), 0);
+    const acceptedTrials = branchResults.reduce((s, b) => s + (b.acceptedTrials || 0), 0);
+    updateRunStatus(runId, 'completed');
+    updateRunMetrics(runId, selectedBranch.bestMetric, totalTrials, acceptedTrials);
+
     emit('swarm_complete', {
       selectedBranchIndex: selectedBranch.branchIndex,
       selectedHypothesis: selectedBranch.hypothesis,
@@ -694,6 +703,7 @@ export async function runResearchSwarm(experimentId, plan, userId, workspaceDir,
       reasoning,
     };
   } catch (err) {
+    updateRunStatus(runId, 'failed');
     emit('swarm_error', { error: err.message });
     throw err;
   } finally {

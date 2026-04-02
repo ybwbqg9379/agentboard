@@ -36,6 +36,10 @@ vi.mock('./swarmStore.js', () => ({
 
 vi.mock('./experimentStore.js', () => ({
   getRun: vi.fn(() => ({ best_metric: 0.85, total_trials: 5, accepted_trials: 2 })),
+  createRun: vi.fn(() => 'mock-branch-run-id'),
+  updateRunStatus: vi.fn(),
+  updateRunMetrics: vi.fn(),
+  experimentDb: {},
 }));
 
 vi.mock('node:fs', () => ({
