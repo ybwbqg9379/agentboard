@@ -15,6 +15,12 @@ vi.mock('./ExperimentView.module.css', () => ({
   ),
 }));
 
+// SwarmBranchCard is a P3 component imported by ExperimentView; stub it so
+// these experiment-level tests remain isolated from swarm dependencies.
+vi.mock('./SwarmBranchCard.jsx', () => ({
+  SwarmBranchCard: () => null,
+}));
+
 import ExperimentView from './ExperimentView.jsx';
 
 vi.stubGlobal('fetch', vi.fn());
@@ -104,14 +110,16 @@ describe('ExperimentView', () => {
     fireEvent.click(screen.getByText('Experiment B'));
 
     runsB.resolve(jsonResponse({ runs: [run('run-b', 0.2222)] }));
-    expect(await screen.findByText(/Best: 0\.2222/)).toBeInTheDocument();
+    // findByText throws if absent — the existence check is implicit in the await.
+    expect(await screen.findByText(/Best: 0\.2222/)).toBeTruthy();
 
     runsA.resolve(jsonResponse({ runs: [run('run-a', 0.1111)] }));
 
+    // queryByText returns null when the element is absent — no jest-dom needed.
     await waitFor(() => {
-      expect(screen.queryByText(/Best: 0\.1111/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Best: 0\.1111/)).toBeNull();
     });
-    expect(screen.getByText(/Best: 0\.2222/)).toBeInTheDocument();
+    expect(screen.getByText(/Best: 0\.2222/)).toBeTruthy();
   });
 
   it('applies explicit module classes to primary action buttons', async () => {
@@ -139,13 +147,14 @@ describe('ExperimentView', () => {
     );
 
     fireEvent.click(await screen.findByRole('button', { name: '+ New' }));
-    expect(screen.getByRole('button', { name: 'Save' })).toHaveClass('primaryButton');
+    // CSS Modules mock returns the prop key as the class string directly.
+    const saveBtn = screen.getByRole('button', { name: 'Save' });
+    expect(saveBtn.className.includes('primaryButton')).toBe(true);
 
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     fireEvent.click(screen.getByText('Experiment Primary'));
 
-    expect(await screen.findByRole('button', { name: /Run Experiment/i })).toHaveClass(
-      'primaryButton',
-    );
+    const runBtn = await screen.findByRole('button', { name: /Run Experiment/i });
+    expect(runBtn.className.includes('primaryButton')).toBe(true);
   });
 });

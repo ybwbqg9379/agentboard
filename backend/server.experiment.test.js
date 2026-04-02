@@ -91,6 +91,7 @@ vi.mock('./experimentStore.js', () => ({
   ),
   recoverStaleRuns: vi.fn(() => 0),
   closeExperimentDb: vi.fn(),
+  experimentDb: {},
 }));
 
 vi.mock('./experimentEngine.js', () => ({
@@ -99,6 +100,20 @@ vi.mock('./experimentEngine.js', () => ({
   getActiveExperiments: vi.fn(() => []),
   validatePlan: vi.fn(() => ({ valid: true, errors: [] })),
   experimentEvents,
+}));
+
+// P3: Mock swarm modules to prevent DB table creation issues in test environment
+vi.mock('./researchSwarm.js', () => ({
+  runResearchSwarm: vi.fn(),
+  abortSwarm: vi.fn(() => false),
+  isSwarmActive: vi.fn(() => false),
+  swarmEvents: new EventEmitter(),
+  initSwarmBus: vi.fn(),
+}));
+
+vi.mock('./swarmStore.js', () => ({
+  listSwarmBranches: vi.fn(() => []),
+  listCoordinatorDecisions: vi.fn(() => []),
 }));
 
 const { app, server } = await import('./server.js');

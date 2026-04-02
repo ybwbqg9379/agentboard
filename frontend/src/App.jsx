@@ -29,6 +29,14 @@ export default function App() {
     subscribeExperiment,
     unsubscribeExperiment,
     loadExperimentRunsEvents,
+    // P3 swarm
+    swarmBranches,
+    swarmHypotheses,
+    swarmStatus,
+    swarmReasoning,
+    runSwarm,
+    abortSwarmRun,
+    loadSwarmBranches,
   } = useWebSocket();
 
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -100,6 +108,13 @@ export default function App() {
             subscribeExperiment={subscribeExperiment}
             unsubscribeExperiment={unsubscribeExperiment}
             loadExperimentRunsEvents={loadExperimentRunsEvents}
+            swarmBranches={swarmBranches}
+            swarmHypotheses={swarmHypotheses}
+            swarmStatus={swarmStatus}
+            swarmReasoning={swarmReasoning}
+            runSwarm={runSwarm}
+            abortSwarmRun={abortSwarmRun}
+            loadSwarmBranches={loadSwarmBranches}
           />
         </div>
       )}

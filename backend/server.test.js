@@ -92,6 +92,20 @@ vi.mock('./mcpHealth.js', () => ({
   recordToolCall: vi.fn(),
 }));
 
+// P3: Mock swarm modules to prevent DB table creation in test environment
+vi.mock('./researchSwarm.js', () => ({
+  runResearchSwarm: vi.fn(),
+  abortSwarm: vi.fn(() => false),
+  isSwarmActive: vi.fn(() => false),
+  swarmEvents: new EventEmitter(),
+  initSwarmBus: vi.fn(),
+}));
+
+vi.mock('./swarmStore.js', () => ({
+  listSwarmBranches: vi.fn(() => []),
+  listCoordinatorDecisions: vi.fn(() => []),
+}));
+
 // ---------------------------------------------------------------------------
 // Import app and server after mocks are in place
 // ---------------------------------------------------------------------------

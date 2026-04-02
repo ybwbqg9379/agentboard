@@ -18,6 +18,11 @@ export function useWebSocket() {
   const [experimentRunId, setExperimentRunId] = useState(null);
   const [experimentStatus, setExperimentStatus] = useState('idle');
   const [experimentEvents, setExperimentEvents] = useState([]);
+  // P3: Swarm state
+  const [swarmBranches, setSwarmBranches] = useState([]); // branch status cards
+  const [swarmHypotheses, setSwarmHypotheses] = useState([]); // Coordinator decompose output
+  const [swarmStatus, setSwarmStatus] = useState('idle'); // idle | decomposing | running | synthesizing | completed | failed
+  const [swarmReasoning, setSwarmReasoning] = useState(null); // Coordinator selection reasoning
 
   const wsRef = useRef(null);
   const reconnectTimer = useRef(null);
@@ -142,6 +147,88 @@ export function useWebSocket() {
           setExperimentStatus(msg.subtype === 'experiment_error' ? 'failed' : 'completed');
         }
 
+        setExperimentEvents((prev) => {
+          const next = [...prev, msg];
+          return next.length > MAX_EVENTS ? next.slice(-MAX_EVENTS) : next;
+        });
+        return;
+      }
+
+      // P3: Swarm events (type === 'swarm') — share the same subscription runId
+      if (msg.type === 'swarm') {
+        const c = msg.content || {};
+        switch (msg.subtype) {
+          case 'swarm_decompose_start':
+            setSwarmStatus('decomposing');
+            setSwarmBranches([]);
+            setSwarmHypotheses([]);
+            setSwarmReasoning(null);
+            break;
+          case 'swarm_hypothesis':
+            if (c.hypothesis) {
+              setSwarmHypotheses((prev) => [
+                ...prev,
+                { id: c.hypothesis.id, text: c.hypothesis.text },
+              ]);
+            }
+            break;
+          case 'swarm_branch_start':
+            setSwarmStatus('running');
+            setSwarmBranches((prev) => {
+              const exists = prev.find((b) => b.branchIndex === c.branchIndex);
+              if (exists) return prev;
+              return [
+                ...prev,
+                {
+                  branchId: c.branchId,
+                  branchIndex: c.branchIndex,
+                  hypothesis: c.hypothesis,
+                  status: 'running',
+                  bestMetric: null,
+                  totalTrials: 0,
+                  acceptedTrials: 0,
+                },
+              ];
+            });
+            break;
+          case 'swarm_branch_complete':
+            setSwarmBranches((prev) =>
+              prev.map((b) =>
+                b.branchIndex === c.branchIndex
+                  ? {
+                      ...b,
+                      status: c.error ? 'failed' : 'completed',
+                      bestMetric: c.bestMetric ?? null,
+                      totalTrials: c.totalTrials ?? b.totalTrials,
+                      acceptedTrials: c.acceptedTrials ?? b.acceptedTrials,
+                      error: c.error,
+                    }
+                  : b,
+              ),
+            );
+            break;
+          case 'swarm_synthesize_start':
+            setSwarmStatus('synthesizing');
+            break;
+          case 'swarm_branch_selected':
+            setSwarmBranches((prev) =>
+              prev.map((b) => ({
+                ...b,
+                isSelected: b.branchIndex === c.selectedBranchIndex,
+              })),
+            );
+            setSwarmReasoning(c.reasoning || null);
+            break;
+          case 'swarm_complete':
+            setSwarmStatus('completed');
+            break;
+          case 'swarm_error':
+            setSwarmStatus('failed');
+            break;
+          default:
+            break;
+        }
+        // Also append swarm events to the experiment event log for the timeline
         setExperimentEvents((prev) => {
           const next = [...prev, msg];
           return next.length > MAX_EVENTS ? next.slice(-MAX_EVENTS) : next;
@@ -355,6 +442,11 @@ export function useWebSocket() {
       setExperimentRunId(runId);
       setExperimentEvents([]);
       setExperimentStatus('running');
+      // Reset swarm state for new subscription
+      setSwarmBranches([]);
+      setSwarmHypotheses([]);
+      setSwarmStatus('idle');
+      setSwarmReasoning(null);
     },
     [send],
   );
@@ -365,6 +457,10 @@ export function useWebSocket() {
     setExperimentRunId(null);
     setExperimentStatus('idle');
     setExperimentEvents([]);
+    setSwarmBranches([]);
+    setSwarmHypotheses([]);
+    setSwarmStatus('idle');
+    setSwarmReasoning(null);
   }, [send]);
 
   const loadExperimentRunsEvents = useCallback(
@@ -424,6 +520,82 @@ export function useWebSocket() {
     [send],
   );
 
+  // P3: Run a swarm for an experiment
+  const runSwarm = useCallback(
+    async (experimentId, swarmOverride = {}) => {
+      try {
+        const res = await fetch(
+          `${API_BASE}/api/experiments/${experimentId}/swarm`,
+          withClientAuth({ method: 'POST', body: JSON.stringify({ swarm: swarmOverride }) }),
+        );
+        if (!res.ok) return null;
+        const data = await res.json();
+        if (data.runId) {
+          send({ action: 'subscribe_experiment', runId: data.runId, experimentId });
+          experimentRunIdRef.current = data.runId;
+          setExperimentRunId(data.runId);
+          setExperimentEvents([]);
+          setExperimentStatus('running');
+          setSwarmBranches([]);
+          setSwarmHypotheses([]);
+          setSwarmStatus('decomposing');
+          setSwarmReasoning(null);
+        }
+        return data;
+      } catch {
+        return null;
+      }
+    },
+    [send],
+  );
+
+  // P3: Abort a running swarm
+  const abortSwarmRun = useCallback(async (runId) => {
+    try {
+      await fetch(
+        `${API_BASE}/api/experiment-runs/${runId}/abort-swarm`,
+        withClientAuth({ method: 'POST' }),
+      );
+    } catch {
+      // Best-effort
+    }
+  }, []);
+
+  // P3: Load swarm branches for a completed run (restore from DB)
+  const loadSwarmBranches = useCallback(async (runId) => {
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/experiment-runs/${runId}/branches`,
+        withClientAuth(),
+      );
+      if (!res.ok) return;
+      const data = await res.json();
+      const branches = (data.branches || []).map((b) => ({
+        branchId: b.id,
+        branchIndex: b.branch_index,
+        hypothesis: b.hypothesis,
+        status: b.status,
+        bestMetric: b.best_metric,
+        totalTrials: b.total_trials,
+        acceptedTrials: b.accepted_trials,
+        isSelected: Boolean(b.is_selected),
+      }));
+      setSwarmBranches(branches);
+      if (branches.length > 0) {
+        const selected = branches.find((b) => b.isSelected);
+        setSwarmStatus(
+          selected
+            ? 'completed'
+            : branches.some((b) => b.status === 'running')
+              ? 'running'
+              : 'completed',
+        );
+      }
+    } catch {
+      // Silent
+    }
+  }, []);
+
   return {
     connected,
     events,
@@ -443,6 +615,14 @@ export function useWebSocket() {
     subscribeExperiment,
     unsubscribeExperiment,
     loadExperimentRunsEvents,
+    // P3 swarm
+    swarmBranches,
+    swarmHypotheses,
+    swarmStatus,
+    swarmReasoning,
+    runSwarm,
+    abortSwarmRun,
+    loadSwarmBranches,
     sendRaw: send,
   };
 }

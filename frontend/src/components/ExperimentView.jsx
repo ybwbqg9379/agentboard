@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useId, useRef } from 'react';
 import { withClientAuth } from '../lib/clientAuth.js';
+import { SwarmBranchCard } from './SwarmBranchCard.jsx';
 import styles from './ExperimentView.module.css';
 
 // ─── Template definitions ─────────────────────────────────────────────────────
@@ -208,6 +209,14 @@ export default function ExperimentView({
   subscribeExperiment,
   unsubscribeExperiment,
   loadExperimentRunsEvents,
+  // P3 Swarm props
+  swarmBranches = [],
+  swarmHypotheses = [],
+  swarmStatus = 'idle',
+  swarmReasoning = null,
+  runSwarm,
+  abortSwarmRun,
+  loadSwarmBranches,
 }) {
   const [experiments, setExperiments] = useState([]);
   const [selectedExperiment, setSelectedExperiment] = useState(null);
@@ -500,10 +509,17 @@ export default function ExperimentView({
                 >
                   ▶ Run Experiment
                 </button>
+                {runSwarm && (
+                  <button
+                    onClick={() => runSwarm(selectedExperiment.id)}
+                    className={styles.swarmButton}
+                    title="以 Swarm 模式并行探索多个优化方向"
+                  >
+                    ⚡ Run as Swarm
+                  </button>
+                )}
                 <button
                   onClick={() => {
-                    // Fix #6: selectedExperiment.plan may be undefined if the
-                    // server returns a row without the plan column populated.
                     setEditForm(JSON.stringify(selectedExperiment.plan ?? {}, null, 2));
                     setIsEditing(true);
                   }}
@@ -539,7 +555,12 @@ export default function ExperimentView({
                       </button>
                     )}
                     {r.status !== 'running' && (
-                      <button onClick={() => loadExperimentRunsEvents(r.id, selectedExperiment.id)}>
+                      <button
+                        onClick={() => {
+                          loadExperimentRunsEvents(r.id, selectedExperiment.id);
+                          if (loadSwarmBranches) loadSwarmBranches(r.id);
+                        }}
+                      >
                         View History
                       </button>
                     )}
@@ -553,13 +574,23 @@ export default function ExperimentView({
               <div className={styles.liveDashboard}>
                 <div className={styles.liveHeader}>
                   <h3>
-                    Live Dashboard
+                    {swarmBranches.length > 0 ? 'Swarm Dashboard' : 'Live Dashboard'}
                     <span className={styles.statusBadge} data-status={experimentStatus}>
-                      {experimentStatus}
+                      {swarmBranches.length > 0 ? swarmStatus : experimentStatus}
                     </span>
                   </h3>
                   <div className={styles.liveControls}>
-                    {experimentStatus === 'running' && (
+                    {experimentStatus === 'running' &&
+                      swarmBranches.length > 0 &&
+                      abortSwarmRun && (
+                        <button
+                          onClick={() => abortSwarmRun(experimentRunId)}
+                          className={styles.dangerButton}
+                        >
+                          ■ Abort Swarm
+                        </button>
+                      )}
+                    {experimentStatus === 'running' && swarmBranches.length === 0 && (
                       <button onClick={handleAbort} className={styles.dangerButton}>
                         ■ Abort
                       </button>
@@ -568,6 +599,53 @@ export default function ExperimentView({
                   </div>
                 </div>
 
+                {/* ── P3 Swarm 看板 ─────────────────────────────── */}
+                {swarmBranches.length > 0 && (
+                  <div className={styles.swarmPanel}>
+                    {/* Coordinator 状态行 */}
+                    <div className={styles.swarmCoordinatorRow}>
+                      <span className={styles.swarmCoordinatorLabel}>Coordinator</span>
+                      <span className={styles.swarmCoordinatorStatus}>
+                        {swarmStatus === 'decomposing' && '🔍 正在拆解研究方向…'}
+                        {swarmStatus === 'running' && `🚀 ${swarmBranches.length} 个分支并行探索中`}
+                        {swarmStatus === 'synthesizing' && '🧠 正在综合结果并选择最优方向…'}
+                        {swarmStatus === 'completed' && '✅ 已选出最优分支'}
+                        {swarmStatus === 'failed' && '❌ Swarm 异常终止'}
+                      </span>
+                    </div>
+
+                    {/* 假说列表（Decompose 阶段展示） */}
+                    {swarmHypotheses.length > 0 && swarmStatus === 'decomposing' && (
+                      <div className={styles.swarmHypotheses}>
+                        {swarmHypotheses.map((h) => (
+                          <div key={h.id} className={styles.swarmHypothesisItem}>
+                            <span className={styles.swarmHypothesisId}>Branch {h.id}</span>
+                            <span>{h.text}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Branch 卡片网格 */}
+                    <div className={styles.swarmBranchGrid}>
+                      {swarmBranches.map((branch) => (
+                        <SwarmBranchCard
+                          key={branch.branchId ?? branch.branchIndex}
+                          branch={branch}
+                          index={branch.branchIndex}
+                        />
+                      ))}
+                    </div>
+
+                    {/* Coordinator 选择理由 */}
+                    {swarmReasoning && (
+                      <div className={styles.swarmReasoning}>
+                        <span className={styles.swarmReasoningLabel}>选择理由</span>
+                        <p>{swarmReasoning}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
                 {/* KPI Cards */}
                 <div className={styles.metricsBar}>
                   <div className={styles.metricCard}>

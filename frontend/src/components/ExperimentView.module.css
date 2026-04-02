@@ -603,3 +603,109 @@
 .eventRow .info {
   color: var(--text-primary);
 }
+
+/* ─── Swarm Button ──────────────────────────────────────────────────────────── */
+
+.swarmButton {
+  background: linear-gradient(135deg, #7c3aed, #4f46e5);
+  color: white;
+  border-color: #7c3aed;
+  font-weight: 600;
+}
+
+.swarmButton:hover {
+  opacity: 0.88;
+}
+
+/* ─── Swarm Panel ───────────────────────────────────────────────────────────── */
+
+.swarmPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px;
+  background: color-mix(in srgb, #7c3aed 6%, var(--bg-secondary, #1a1a2e));
+  border: 1px solid color-mix(in srgb, #7c3aed 30%, transparent);
+  border-radius: 10px;
+  margin-bottom: 16px;
+}
+
+/* Coordinator 状态行 */
+.swarmCoordinatorRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.swarmCoordinatorLabel {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #a78bfa;
+  flex-shrink: 0;
+}
+
+.swarmCoordinatorStatus {
+  font-size: 0.82rem;
+  color: var(--text-primary);
+}
+
+/* 假说列表（Decompose 阶段） */
+.swarmHypotheses {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.swarmHypothesisItem {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.swarmHypothesisId {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #a78bfa;
+  flex-shrink: 0;
+  padding-top: 1px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Branch 卡片网格 */
+.swarmBranchGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+}
+
+/* Coordinator 选择理由 */
+.swarmReasoning {
+  padding: 10px 12px;
+  background: color-mix(in srgb, #10b981 8%, transparent);
+  border: 1px solid color-mix(in srgb, #10b981 25%, transparent);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.swarmReasoningLabel {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #10b981;
+}
+
+.swarmReasoning p {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-primary);
+  line-height: 1.5;
+}

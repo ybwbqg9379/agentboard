@@ -85,6 +85,14 @@ import {
   validatePlan,
   experimentEvents,
 } from './experimentEngine.js';
+import {
+  runResearchSwarm,
+  abortSwarm,
+  isSwarmActive,
+  swarmEvents,
+  initSwarmBus,
+} from './researchSwarm.js';
+import { listSwarmBranches, listCoordinatorDecisions } from './swarmStore.js';
 
 const app = express();
 
@@ -482,6 +490,103 @@ app.get('/api/experiment-status', (_req, res) => {
   res.json({ activeRuns: getActiveExperiments(_req.user.id) });
 });
 
+// ── Swarm API ──────────────────────────────────────────────────────────────────
+
+/**
+ * POST /api/experiments/:id/swarm
+ * Launch a Research Swarm run for the given experiment.
+ * Request body may override swarm-level settings:
+ *   { branches?: number, branch_budget?: { max_experiments, time_per_branch }, top_k?: number }
+ */
+app.post('/api/experiments/:id/swarm', (req, res) => {
+  const experiment = getExperiment(req.user.id, req.params.id);
+  if (!experiment) return res.status(404).json({ error: 'experiment not found' });
+
+  // Merge request-body swarm overrides into plan
+  const plan = {
+    ...experiment.plan,
+    swarm: {
+      branches: 3,
+      branch_budget: { max_experiments: 5, time_per_branch: '15m' },
+      top_k: 1,
+      ...(experiment.plan.swarm || {}),
+      ...(req.body.swarm || {}),
+    },
+  };
+
+  // Validate branch count (1–8)
+  const branches = Math.min(Math.max(parseInt(plan.swarm.branches) || 3, 1), 8);
+  plan.swarm.branches = branches;
+
+  const workspaceDir = resolve(
+    config.workspaceDir,
+    req.user.id || 'default',
+    'sessions',
+    `swarm-${req.params.id}-${Date.now()}`,
+  );
+
+  const runId = createExperimentRun(req.user.id, req.params.id);
+
+  res.status(202).json({
+    message: 'swarm started',
+    experimentId: req.params.id,
+    runId,
+    branches,
+  });
+
+  runResearchSwarm(req.params.id, plan, req.user.id, workspaceDir, runId).catch((err) => {
+    console.error(`[swarm] execution error: ${err.message}`);
+  });
+});
+
+/**
+ * GET /api/experiment-runs/:id/branches
+ * List all research branches for a swarm run.
+ */
+app.get('/api/experiment-runs/:id/branches', (req, res) => {
+  if (!getExperimentRunOwned(req.user.id, req.params.id)) {
+    return res.status(404).json({ error: 'run not found' });
+  }
+  const branches = listSwarmBranches(req.params.id);
+  res.json({ branches });
+});
+
+/**
+ * GET /api/experiment-runs/:id/coordinator-decisions
+ * Return full Coordinator audit trail for a swarm run.
+ */
+app.get('/api/experiment-runs/:id/coordinator-decisions', (req, res) => {
+  if (!getExperimentRunOwned(req.user.id, req.params.id)) {
+    return res.status(404).json({ error: 'run not found' });
+  }
+  const decisions = listCoordinatorDecisions(req.params.id);
+  res.json({ decisions });
+});
+
+/**
+ * POST /api/experiment-runs/:id/abort-swarm
+ * Abort a running swarm (will abort all active branches).
+ */
+app.post('/api/experiment-runs/:id/abort-swarm', (req, res) => {
+  if (!getExperimentRunOwned(req.user.id, req.params.id)) {
+    return res.status(404).json({ error: 'run not found' });
+  }
+  const aborted = abortSwarm(req.params.id);
+  if (!aborted) return res.status(409).json({ error: 'swarm not active' });
+  res.json({ aborted: true });
+});
+
+/**
+ * GET /api/experiment-runs/:id/swarm-status
+ * Check whether a swarm run is currently active.
+ */
+app.get('/api/experiment-runs/:id/swarm-status', (req, res) => {
+  if (!getExperimentRunOwned(req.user.id, req.params.id)) {
+    return res.status(404).json({ error: 'run not found' });
+  }
+  res.json({ active: isSwarmActive(req.params.id) });
+});
+
 // --- Error Handler (Express 5 auto-forwards rejected promises) ---
 
 app.use((err, _req, res, _next) => {
@@ -648,6 +753,8 @@ wss.on('connection', (ws, req) => {
         if (!experimentSubs.has(ws)) experimentSubs.set(ws, new Set());
         experimentSubs.get(ws).add(msg.runId);
         ws.send(JSON.stringify({ type: 'experiment_subscribed', runId: msg.runId }));
+        // Also auto-subscribe to swarm events for the same runId
+        // (swarm events re-use the same experimentSubs map)
         break;
       }
 
@@ -736,6 +843,37 @@ for (const eventName of [
     }
   });
 }
+
+// Broadcast Swarm events to subscribed clients (reuse experimentSubs — same runId)
+for (const eventName of [
+  'swarm_decompose_start',
+  'swarm_hypothesis',
+  'swarm_branch_start',
+  'swarm_branch_complete',
+  'swarm_synthesize_start',
+  'swarm_branch_selected',
+  'swarm_complete',
+  'swarm_error',
+]) {
+  swarmEvents.on(eventName, (data) => {
+    const runId = data.runId;
+    if (!runId) return;
+    const payload = JSON.stringify({
+      type: 'swarm',
+      subtype: eventName,
+      content: data,
+      timestamp: Date.now(),
+    });
+    for (const [ws, runIds] of experimentSubs) {
+      if (ws.readyState === 1 && runIds.has(runId)) {
+        ws.send(payload);
+      }
+    }
+  });
+}
+
+// Initialise the agentEvents bus reference needed by Coordinator Agent sessions
+initSwarmBus(agentEvents);
 
 // --- Start ---
 

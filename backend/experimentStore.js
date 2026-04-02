@@ -11,6 +11,9 @@ const db = new Database(config.dbPath);
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 
+/** Shared DB connection for modules that need the same experiment database. */
+export { db as experimentDb };
+
 db.exec(`
   CREATE TABLE IF NOT EXISTS experiments (
     id          TEXT PRIMARY KEY,

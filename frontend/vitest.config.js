@@ -1,15 +1,21 @@
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
 export default defineConfig({
   plugins: [react()],
   test: {
     name: 'agentboard-frontend',
-    root: import.meta.dirname,
+    root: __dirname,
     environment: 'jsdom',
     include: ['src/**/*.test.{js,jsx}'],
     testTimeout: 10000,
     globals: true,
-    setupFiles: ['./src/test-setup.js'],
+    // Use absolute path so setupFiles resolves correctly when vitest is
+    // invoked from the repo root via the `projects` configuration.
+    setupFiles: [resolve(__dirname, 'src/test-setup.js')],
   },
 });

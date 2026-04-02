@@ -2,6 +2,38 @@
 
 ## Unreleased
 
+### P3：多 Agent 研究组织（Research Swarm）
+
+#### Added
+
+- **`backend/researchSwarm.js`**：P3 核心编排引擎。实现 Coordinator/Worker 双层模式：Coordinator Agent 将 ResearchPlan 拆解为 N 个研究假说（`coordinatorDecompose`），N 个 Worker Branch 并行运行各自的 P1 Ratchet Loop（`runBranch`），Coordinator 再综合所有 Branch 指标选出最优方向（`coordinatorSynthesize`）。最优 Branch workspace 通过 rsync 合并回主 workspace，rejected branches 自动清理（Q1 方案 C）。
+- **`backend/swarmStore.js`**：Swarm 持久化层。新增 `swarm_branches`（分支状态、指标、是否被选中）和 `swarm_coordinator_decisions`（Coordinator 决策完整审计日志）两张 SQLite 表，支持级联删除和完整 CRUD API。
+- **Swarm API 端点**（`backend/server.js`）：
+  - `POST /api/experiments/:id/swarm`——以 Swarm 模式启动，支持 `branches`/`branch_budget`/`top_k` 参数覆盖
+  - `GET /api/experiment-runs/:id/branches`——获取所有 Branch 状态
+  - `GET /api/experiment-runs/:id/coordinator-decisions`——Coordinator 决策审计
+  - `POST /api/experiment-runs/:id/abort-swarm`——终止所有并行 Branch
+  - `GET /api/experiment-runs/:id/swarm-status`——查询 Swarm 是否仍在运行
+- **Swarm WebSocket 事件广播**：服务端复用 `experimentSubs` map，新增 8 种 `swarm` 类型 WS 事件（`swarm_decompose_start`、`swarm_hypothesis`、`swarm_branch_start/complete`、`swarm_synthesize_start`、`swarm_branch_selected`、`swarm_complete/error`）。
+- **`frontend/src/hooks/useWebSocket.js`**：新增 swarm 状态（`swarmBranches`/`swarmHypotheses`/`swarmStatus`/`swarmReasoning`）及 `runSwarm()`/`abortSwarmRun()`/`loadSwarmBranches()` API；swarm 事件自动与 `subscribe_experiment` 同订阅，无需额外操作。
+- **`frontend/src/components/SwarmBranchCard.jsx`**：单个 Branch 状态卡片，展示假说文本、运行状态（旋转动画 / 完成 / 失败 / 已选中高亮）、最优 Metric、Trial 进度。
+- **Swarm Dashboard**（`ExperimentView.jsx`）：Live Dashboard 升级为 Swarm Dashboard，包含 Coordinator 状态行、假说列表（Decompose 阶段）、Branch 卡片网格（自适应列数）、Coordinator 选择理由展示。
+- **"⚡ Run as Swarm" 按钮**（`ExperimentView.jsx`）：在实验头部新增 Swarm 启动按钮（紫色渐变，区别于普通 Run 按钮）。
+
+#### Architecture
+
+- **PORT 隔离（Q3）**：每个 Branch Runner 注入 `BRANCH_PORT = 14000 + branchIndex` 并写入 Branch workspace 的 `CLAUDE.md`，防止并行 benchmark 命令争抢同一端口。
+- **workspace 克隆策略**：使用 `git clone --local --no-hardlinks` 实现同文件系统快速克隆，避免对象传输开销。
+- **无 Coordinator 时的兜底**：若 `initSwarmBus()` 未被调用或 Agent 超时，自动切换为启发式选择（`minimize`/`maximize` 方向最优指标）和模板化假说生成，确保 Swarm 在任何环境下均可降级运行。
+- **P3 → P1 串联**：Coordinator 选出最优 Branch 后，将其 workspace 合并回主 workspace，此时 P1 Ratchet Loop 可继续在最优起点上精细收敛，实现两级优化。
+
+#### Tests
+
+- `backend/researchSwarm.test.js` — 17 tests（XML 解析器 10 cases、启发式选择 4 cases、EventEmitter + 生命周期 3 cases）
+- `backend/swarmStore.test.js` — 10 tests（Branch CRUD 7 cases、级联删除、Coordinator 审计 2 cases）
+
+---
+
 ### 基准驱动自动化研究引擎 (AutoResearch & Experiment Engine)
 
 #### Added
