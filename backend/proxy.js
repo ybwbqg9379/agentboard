@@ -20,6 +20,10 @@ const TARGET_MODEL = config.llm.model;
 const API_KEY = config.llm.apiKey;
 const COMPRESS_PROMPT = config.llm.compressSystemPrompt;
 
+// Internal proxy auth token -- prevents agent-spawned processes from abusing the proxy.
+// Only enforced when PROXY_TOKEN env var is explicitly set.
+const PROXY_TOKEN = process.env.PROXY_TOKEN || '';
+
 // Max characters for tool descriptions (P3: Tool Schema Compression)
 const MAX_TOOL_DESC_LENGTH = 300;
 
@@ -403,10 +407,21 @@ const server = createServer(async (req, res) => {
   }
 
   // 只处理 POST /v1/messages
-  if (req.method !== 'POST' || !req.url.startsWith('/v1/messages')) {
+  if (req.method !== 'POST' || !req.url?.startsWith('/v1/messages')) {
     res.writeHead(404);
     res.end(JSON.stringify({ error: 'not found' }));
     return;
+  }
+
+  // Verify proxy auth token (sent as x-api-key by SDK) to prevent unauthorized LLM API usage.
+  // Only enforced when PROXY_TOKEN is explicitly configured.
+  if (PROXY_TOKEN) {
+    const inboundKey = req.headers['x-api-key'];
+    if (inboundKey !== PROXY_TOKEN) {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'invalid proxy token' }));
+      return;
+    }
   }
 
   // 读取请求体（带大小限制），用 Buffer 数组避免多字节字符跨 chunk 边界被截断

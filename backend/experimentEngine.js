@@ -11,9 +11,9 @@
  */
 
 import { EventEmitter } from 'node:events';
-import { execSync, spawn } from 'node:child_process';
+import { execSync, spawn, spawnSync } from 'node:child_process';
 import { Buffer } from 'node:buffer';
-import { resolve } from 'node:path';
+import { isAbsolute, normalize, resolve, sep } from 'node:path';
 import fs from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import config from './config.js';
@@ -27,6 +27,7 @@ import {
   saveTrial,
 } from './experimentStore.js';
 import { extractAllMetrics, isImproved, improvementPercent } from './metricExtractor.js';
+import { BLOCKED_PATTERNS } from './hooks.js';
 
 export const experimentEvents = new EventEmitter();
 experimentEvents.setMaxListeners(50);
@@ -35,6 +36,19 @@ const MAX_COMMAND_BUFFER = 10 * 1024 * 1024;
 const COMMAND_KILL_GRACE_MS = 500;
 const AUTORESEARCH_GIT_USER_EMAIL = 'autoresearch@agentboard.local';
 const AUTORESEARCH_GIT_USER_NAME = 'AutoResearch';
+const ALLOWED_BENCHMARK_EXECUTABLES = new Set([
+  'node',
+  'npm',
+  'pnpm',
+  'yarn',
+  'bun',
+  'python',
+  'python3',
+  'pytest',
+  'cargo',
+  'go',
+  'deno',
+]);
 
 // Map<runId, { abortController, experimentId }>
 const activeExperiments = new Map();
@@ -53,10 +67,291 @@ function parseTimeMs(timeStr) {
 }
 
 /**
- * Execute a command in the experiment workspace and return output.
- * Runs directly on the host (no Docker) per Q1 decision.
+ * Minimal argv parser for user-supplied benchmark commands.
+ * Supports quoted literals and backslash escapes without invoking a shell.
+ *
+ * Returns an array of unquoted argument strings.
+ * Throws on unterminated quotes.
  */
-async function runCommand(command, cwd, timeoutMs = 300000, signal) {
+function shellSplit(command) {
+  const args = [];
+  let current = '';
+  let tokenStarted = false;
+  let state = 'normal';
+
+  const pushCurrent = () => {
+    if (!tokenStarted) return;
+    args.push(current);
+    current = '';
+    tokenStarted = false;
+  };
+
+  for (let i = 0; i < command.length; i++) {
+    const ch = command[i];
+
+    if (state === 'single') {
+      if (ch === "'") {
+        state = 'normal';
+      } else {
+        current += ch;
+      }
+      continue;
+    }
+
+    if (state === 'double') {
+      if (ch === '"') {
+        state = 'normal';
+        continue;
+      }
+      if (ch === '\\') {
+        const next = command[i + 1];
+        if (next === '"' || next === '\\') {
+          current += next;
+          i++;
+        } else {
+          current += ch;
+        }
+      } else {
+        current += ch;
+      }
+      continue;
+    }
+
+    if (ch === "'") {
+      state = 'single';
+      tokenStarted = true;
+    } else if (ch === '"') {
+      state = 'double';
+      tokenStarted = true;
+    } else if (ch === '\\') {
+      const next = command[i + 1];
+      if (next === undefined) {
+        current += ch;
+      } else {
+        current += next;
+        i++;
+      }
+      tokenStarted = true;
+    } else if (ch === ' ' || ch === '\t' || ch === '\n' || ch === '\r') {
+      pushCurrent();
+    } else {
+      current += ch;
+      tokenStarted = true;
+    }
+  }
+
+  if (state === 'single') {
+    throw new Error(`Unterminated single quote in command: ${command}`);
+  }
+  if (state === 'double') {
+    throw new Error(`Unterminated double quote in command: ${command}`);
+  }
+
+  pushCurrent();
+  return args;
+}
+
+/**
+ * Check whether a path-like executable stays inside the workspace fence.
+ */
+function isPathInside(basePath, targetPath) {
+  let normalizedBase = normalize(resolve(basePath));
+  let normalizedTarget = normalize(resolve(targetPath));
+  if (fs.existsSync(normalizedBase)) {
+    try {
+      normalizedBase = fs.realpathSync(normalizedBase);
+    } catch {
+      /* keep normalized path */
+    }
+  }
+  if (fs.existsSync(normalizedTarget)) {
+    try {
+      normalizedTarget = fs.realpathSync(normalizedTarget);
+    } catch {
+      /* keep normalized path */
+    }
+  }
+  return (
+    normalizedTarget === normalizedBase || normalizedTarget.startsWith(`${normalizedBase}${sep}`)
+  );
+}
+
+function isWorkspaceLocalExecutable(executable, workspaceDir) {
+  const resolved = isAbsolute(executable)
+    ? normalize(executable)
+    : normalize(resolve(workspaceDir, executable));
+  let checkedPath = resolved;
+  if (fs.existsSync(resolved)) {
+    try {
+      checkedPath = fs.realpathSync(resolved);
+    } catch {
+      checkedPath = resolved;
+    }
+  }
+  return isPathInside(workspaceDir, checkedPath);
+}
+
+function getBenchmarkSubcommand(args) {
+  for (const arg of args) {
+    if (arg.startsWith('-')) continue;
+    return arg;
+  }
+  return null;
+}
+
+function validateNodeBenchmark(args, workspaceDir) {
+  const script = args[0];
+  if (!script || script.startsWith('-')) {
+    throw new Error('node benchmark commands must execute a workspace-local script file');
+  }
+  if (!isWorkspaceLocalExecutable(script, workspaceDir)) {
+    throw new Error(`node benchmark script must stay inside the workspace: ${script}`);
+  }
+}
+
+function validatePythonBenchmark(args, workspaceDir, executable) {
+  const script = args[0];
+  if (!script || script.startsWith('-')) {
+    throw new Error(
+      `${executable} benchmark commands must execute a workspace-local script file; inline flags are not allowed`,
+    );
+  }
+  if (!isWorkspaceLocalExecutable(script, workspaceDir)) {
+    throw new Error(`${executable} benchmark script must stay inside the workspace: ${script}`);
+  }
+}
+
+function validateDenoBenchmark(args, workspaceDir) {
+  const subcommand = args[0];
+  if (subcommand === 'test') return;
+  if (subcommand !== 'run') {
+    throw new Error('deno benchmark commands only allow "run" or "test"');
+  }
+  const script = args[1];
+  if (!script || script.startsWith('-')) {
+    throw new Error('deno run benchmark commands must execute a workspace-local script file');
+  }
+  if (!isWorkspaceLocalExecutable(script, workspaceDir)) {
+    throw new Error(`deno benchmark script must stay inside the workspace: ${script}`);
+  }
+}
+
+function validateBareExecutable(argv, workspaceDir) {
+  const [executable, ...args] = argv;
+  if (!ALLOWED_BENCHMARK_EXECUTABLES.has(executable)) {
+    throw new Error(
+      `Benchmark executable "${executable}" is not allowed; use a workspace-local executable or an allowlisted runner`,
+    );
+  }
+
+  switch (executable) {
+    case 'node':
+      validateNodeBenchmark(args, workspaceDir);
+      return;
+    case 'python':
+    case 'python3':
+      validatePythonBenchmark(args, workspaceDir, executable);
+      return;
+    case 'npm': {
+      const subcommand = getBenchmarkSubcommand(args);
+      if (!subcommand || !new Set(['test', 'run', 'run-script']).has(subcommand)) {
+        throw new Error('npm benchmark commands only allow "test", "run", or "run-script"');
+      }
+      return;
+    }
+    case 'pnpm':
+    case 'yarn':
+    case 'bun': {
+      const subcommand = getBenchmarkSubcommand(args);
+      if (!subcommand || !new Set(['test', 'run']).has(subcommand)) {
+        throw new Error(`${executable} benchmark commands only allow "test" or "run"`);
+      }
+      return;
+    }
+    case 'cargo': {
+      const subcommand = getBenchmarkSubcommand(args);
+      if (!subcommand || !new Set(['test', 'bench', 'run']).has(subcommand)) {
+        throw new Error('cargo benchmark commands only allow "test", "bench", or "run"');
+      }
+      return;
+    }
+    case 'go': {
+      const subcommand = getBenchmarkSubcommand(args);
+      if (subcommand !== 'test') {
+        throw new Error('go benchmark commands only allow "test"');
+      }
+      return;
+    }
+    case 'deno':
+      validateDenoBenchmark(args, workspaceDir);
+      return;
+    case 'pytest':
+      return;
+    default:
+      return;
+  }
+}
+
+/**
+ * Validate that a benchmark command stays within the allowed execution model.
+ */
+function validateBenchmarkCommand(command, workspaceDir) {
+  if (typeof command !== 'string' || command.trim().length === 0) {
+    throw new Error('Benchmark command must be a non-empty string');
+  }
+  if (BLOCKED_PATTERNS.some((pattern) => pattern.test(command))) {
+    throw new Error(`Benchmark command blocked by security policy: ${command}`);
+  }
+  const argv = shellSplit(command);
+  if (argv.length === 0) {
+    throw new Error('Benchmark command must not be empty after parsing');
+  }
+
+  const executable = argv[0];
+  const isPathLike =
+    executable.startsWith('.') ||
+    executable.includes('/') ||
+    executable.includes('\\') ||
+    isAbsolute(executable);
+
+  if (isPathLike) {
+    if (!isWorkspaceLocalExecutable(executable, workspaceDir)) {
+      throw new Error(`Benchmark executable must stay inside the workspace: ${executable}`);
+    }
+    return;
+  }
+
+  validateBareExecutable(argv, workspaceDir);
+}
+
+/**
+ * Execute a command in the experiment workspace.
+ *
+ * @param {string} command - Command string
+ * @param {string} cwd - Working directory
+ * @param {number} timeoutMs - Timeout in ms
+ * @param {AbortSignal} [signal] - Abort signal
+ * @param {object} [opts] - Options
+ * @param {boolean} [opts.shell] - Use shell (for trusted internal commands only).
+ *   Default false: command is parsed via shellSplit() and executed without shell,
+ *   removing shell interpretation from user-supplied benchmark commands.
+ */
+async function runCommand(command, cwd, timeoutMs = 300000, signal, opts = {}) {
+  let cmd, args;
+  if (opts.shell) {
+    // Trusted internal commands (git diff, git checkout, etc.) -- use shell
+    cmd = '/bin/sh';
+    args = ['-c', command];
+  } else {
+    // User-supplied benchmark commands -- no shell, parsed into argv
+    const argv = shellSplit(command);
+    if (argv.length === 0) {
+      return { output: 'empty command', exitCode: 1, aborted: false };
+    }
+    cmd = argv[0];
+    args = argv.slice(1);
+  }
+
   return new Promise((resolvePromise) => {
     let stdout = '';
     let stderr = '';
@@ -67,9 +362,8 @@ async function runCommand(command, cwd, timeoutMs = 300000, signal) {
     let timedOut = false;
     let forceKillTimer = null;
 
-    const child = spawn(command, {
+    const child = spawn(cmd, args, {
       cwd,
-      shell: true,
       detached: process.platform !== 'win32',
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
@@ -168,10 +462,24 @@ async function runCommand(command, cwd, timeoutMs = 300000, signal) {
 }
 
 function ensureWorkspaceGitIdentity(workspaceDir) {
-  execSync(
-    `git config user.email "${AUTORESEARCH_GIT_USER_EMAIL}" && git config user.name "${AUTORESEARCH_GIT_USER_NAME}"`,
-    { cwd: workspaceDir, stdio: 'pipe' },
-  );
+  for (const [key, value] of [
+    ['user.email', AUTORESEARCH_GIT_USER_EMAIL],
+    ['user.name', AUTORESEARCH_GIT_USER_NAME],
+  ]) {
+    const result = spawnSync('git', ['config', key, value], {
+      cwd: workspaceDir,
+      stdio: 'pipe',
+    });
+    if (result.error) {
+      throw new Error(`Failed to set git ${key} in workspace: ${result.error.message}`, {
+        cause: result.error,
+      });
+    }
+    if (result.status !== 0) {
+      const stderr = result.stderr?.toString().trim() || 'unknown error';
+      throw new Error(`git config ${key} failed (exit ${result.status}): ${stderr}`);
+    }
+  }
 }
 
 function ensureWorkspaceBaselineSnapshot(workspaceDir) {
@@ -219,7 +527,18 @@ export function prepareWorkspace(plan, workspaceDir, userId) {
     if (!sourceDir.startsWith(userRoot + '/') && sourceDir !== userRoot) {
       throw new Error(`source_dir "${sourceDir}" is outside the allowed workspace "${userRoot}"`);
     }
-    execSync(`cp -r "${sourceDir}/." "${workspaceDir}/"`, { stdio: 'pipe' });
+    const cpResult = spawnSync('cp', ['-r', `${sourceDir}/.`, `${workspaceDir}/`], {
+      stdio: 'pipe',
+    });
+    if (cpResult.error) {
+      throw new Error(`Failed to copy source_dir: ${cpResult.error.message}`, {
+        cause: cpResult.error,
+      });
+    }
+    if (cpResult.status !== 0) {
+      const stderr = cpResult.stderr?.toString().trim() || 'unknown error';
+      throw new Error(`cp -r failed (exit ${cpResult.status}): ${stderr}`);
+    }
   }
 
   // Ensure a CLAUDE.md exists to prevent the SDK from triggering [ONBOARDING TASK]
@@ -329,7 +648,7 @@ ${plan.agent_instructions || 'Analyze the current code, hypothesize an improveme
  * @returns {string} runId
  */
 export async function runExperimentLoop(experimentId, plan, userId, workspaceDir, preCreatedRunId) {
-  const runId = preCreatedRunId || createRun(userId, experimentId);
+  const runId = preCreatedRunId || (await createRun(userId, experimentId));
   const abortController = new AbortController();
 
   activeExperiments.set(runId, {
@@ -359,6 +678,17 @@ export async function runExperimentLoop(experimentId, plan, userId, workspaceDir
   try {
     // 0. Prepare workspace
     prepareWorkspace(plan, workspaceDir, userId);
+
+    // 0.5 Validate all benchmark commands before executing any
+    const commandsToValidate = [
+      plan.metrics.primary?.command,
+      plan.metrics.guard?.command,
+      ...(plan.metrics.secondary || []).map((m) => m.command),
+    ].filter(Boolean);
+    for (const cmd of commandsToValidate) {
+      validateBenchmarkCommand(cmd, workspaceDir);
+    }
+
     emit('experiment_start', { plan: plan.name, maxExperiments });
 
     // 1. Run baseline benchmark
@@ -378,7 +708,7 @@ export async function runExperimentLoop(experimentId, plan, userId, workspaceDir
 
         if (baselineMetrics.primary !== null) {
           bestMetric = baselineMetrics.primary;
-          updateRunBaseline(runId, bestMetric);
+          updateRunBaseline(runId, bestMetric, userId);
           emit('baseline', { metric: bestMetric, guardPassed: baselineMetrics.guardPassed });
         }
       }
@@ -439,7 +769,9 @@ export async function runExperimentLoop(experimentId, plan, userId, workspaceDir
           const violations = changedFiles.filter((f) => !isFileAllowed(f, plan.target.files));
 
           if (violations.length > 0) {
-            await runCommand('git checkout -- . && git clean -fd', workspaceDir, 5000);
+            await runCommand('git checkout -- . && git clean -fd', workspaceDir, 5000, null, {
+              shell: true,
+            });
             trialResult = { accepted: false, reason: 'whitelist_violation', primaryMetric: null };
             emit('trial_rejected', {
               trialNumber: trialCount,
@@ -517,6 +849,8 @@ export async function runExperimentLoop(experimentId, plan, userId, workspaceDir
             `git add -A && git commit -m "autoresearch: trial ${trialCount} (metric: ${safeMetric})"`,
             workspaceDir,
             5000,
+            null,
+            { shell: true },
           );
 
           const diff = (await runCommand('git diff HEAD~1', workspaceDir, 5000)).output;
@@ -544,7 +878,9 @@ export async function runExperimentLoop(experimentId, plan, userId, workspaceDir
               : 'no_improvement';
 
           const diff = (await runCommand('git diff', workspaceDir, 5000)).output;
-          await runCommand('git checkout -- . && git clean -fd', workspaceDir, 5000);
+          await runCommand('git checkout -- . && git clean -fd', workspaceDir, 5000, null, {
+            shell: true,
+          });
 
           trialResult = {
             accepted: false,
@@ -564,7 +900,9 @@ export async function runExperimentLoop(experimentId, plan, userId, workspaceDir
         }
       } catch (err) {
         // Trial-level error (agent failure, command timeout, etc)
-        await runCommand('git checkout -- . && git clean -fd', workspaceDir, 5000);
+        await runCommand('git checkout -- . && git clean -fd', workspaceDir, 5000, null, {
+          shell: true,
+        });
         trialResult = { accepted: false, reason: `error: ${err.message}`, primaryMetric: null };
         consecutiveFailures++;
         emit('trial_error', { trialNumber: trialCount, trialId, error: err.message });
@@ -580,7 +918,7 @@ export async function runExperimentLoop(experimentId, plan, userId, workspaceDir
         },
         durationMs,
       });
-      await updateRunMetrics(runId, bestMetric, trialCount, acceptedCount);
+      await updateRunMetrics(runId, bestMetric, trialCount, acceptedCount, userId);
 
       previousResults.push({
         number: trialCount,
@@ -601,7 +939,7 @@ export async function runExperimentLoop(experimentId, plan, userId, workspaceDir
 
     // 3. Done
     const status = abortController.signal.aborted ? 'aborted' : 'completed';
-    await updateRunStatus(runId, status);
+    await updateRunStatus(runId, status, userId);
     emit('experiment_done', {
       status,
       bestMetric,
@@ -611,8 +949,8 @@ export async function runExperimentLoop(experimentId, plan, userId, workspaceDir
     });
   } catch (err) {
     console.error(`[experimentEngine] Fatal error in run ${runId}: ${err.message}`);
-    await updateRunStatus(runId, 'failed');
-    await updateRunError(runId, err.message);
+    await updateRunStatus(runId, 'failed', userId);
+    await updateRunError(runId, err.message, userId);
     emit('experiment_error', { error: err.message });
   } finally {
     activeExperiments.delete(runId);

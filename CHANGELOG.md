@@ -1,5 +1,48 @@
 # Changelog
 
+## [0.15.1] - 2026-04-02
+
+### fix(audit): 全面安全审计修复 -- 5 critical + 10 high + 8 medium (22 files)
+
+#### Security
+
+- benchmark 命令执行面收紧 -- BLOCKED_PATTERNS 校验 + shellSplit() 无 shell argv 解析执行; 用户命令必须使用 allowlisted runner 或工作区内可执行文件，`node -e` / `python -c` 等内联求值形式被拒绝; 内部 git 命令单独走 shell 路径 (experimentEngine.js)
+- cp -r shell 注入修复 -- 改为 spawnSync 参数数组 + 返回值检查 (experimentEngine.js)
+- proxy 端口鉴权 -- 新增可选 PROXY_TOKEN，配置后校验 x-api-key 匹配; 未配置时不强制（兼容本地 dev） (proxy.js, sdkRuntime.js, config.js)
+- store update 用户隔离 -- experimentStore 和 sessionStore 的 update 系列函数均新增 userId 参数; researchSwarm 调用点同步传递 userId (experimentStore.js, sessionStore.js, agentManager.js, researchSwarm.js)
+- hooks 围栏强化 -- isFilePathAllowed 空输入 deny; rm -rf 全拦截; cd .. 无斜杠拦截 (hooks.js)
+- subscribe_workflow 授权收紧 -- 移除 workflow 所有权 fallback (server.js)
+
+#### Bug Fixes
+
+- await createRun 缺失 -- 防御性修复，防止 runId 变为 Promise 对象 (experimentEngine.js)
+- branchIndex 硬编码 -- allSettled fallback 改用位置 index (researchSwarm.js)
+- startAgent 竞态 -- 新增 activeAgents 预占位 (agentManager.js)
+- ensureWorkspaceGitIdentity 崩溃 -- 改 spawnSync + 返回值 error/status 检查 (experimentEngine.js)
+- runExperimentNode 无超时 -- 新增 wall-clock timeout + 超时时调用 abortExperiment 终止底层实验 (workflowEngine.js)
+- svgRef 空指针 -- 三处添加 null guard (WorkflowEditor.jsx)
+- WebSocket 双连接 -- connect 守卫补 CONNECTING (useWebSocket.js)
+- SVG id 全局冲突 -- 改为 useId 动态生成 (WorkflowEditor.jsx)
+- nextEdgeId 不重置 -- newWorkflow 时重置 (workflowEdgeUtils.js)
+- fetchExperiments 卸载泄漏 -- AbortController + useCallback (ExperimentView.jsx)
+- globalThis 双真相源 -- 统一使用模块级 \_agentEventsBus (researchSwarm.js)
+
+#### Improvements
+
+- agentEvents maxListeners 50 -> 200 (agentManager.js)
+- event key 稳定性 -- 移除 idx 后缀 (ExperimentView.jsx)
+- delete 防重复 -- isDeleting 守卫 (SessionDrawer.jsx)
+- scroll 抖动修复 -- instant + rAF (AgentTimeline.jsx, TerminalView.jsx)
+- proxy req.url null 守卫 (proxy.js)
+
+#### Tests
+
+- 603 tests / 30 files 全部通过
+- hooks.test.js: 2 cases 适配新安全语义
+- experimentEngine.test.js: 4 cases 适配 updateRun userId 参数
+
+---
+
 ## [0.15.0] - 2026-04-02
 
 ### feat(db): SQLite to Supabase PostgreSQL 全面迁移 (version bump 0.14.0 -> 0.15.0)

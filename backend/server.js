@@ -730,10 +730,7 @@ wss.on('connection', (ws, req) => {
 
       case 'subscribe_workflow': {
         const hasExistingRun = await hasOwnedWorkflowRun(ws.userId, msg.runId);
-        const hasOwnedWorkflow = msg.workflowId
-          ? Boolean(await getWorkflow(ws.userId, msg.workflowId))
-          : false;
-        if (!hasExistingRun && !hasOwnedWorkflow) {
+        if (!hasExistingRun) {
           ws.send(JSON.stringify({ error: 'run not found' }));
           return;
         }

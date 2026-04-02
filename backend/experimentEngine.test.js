@@ -93,7 +93,7 @@ describe('experimentEngine', () => {
       runId,
     );
 
-    expect(updateRunStatus).toHaveBeenCalledWith(runId, 'failed');
+    expect(updateRunStatus).toHaveBeenCalledWith(runId, 'failed', 'alice');
     expect(updateRunError).toHaveBeenCalledTimes(1);
     expect(updateRunError.mock.calls[0][1]).toContain('outside the allowed workspace');
     expect(updateRunError.mock.calls[0][1]).toContain(resolve(workspaceRoot, 'bob'));
@@ -104,16 +104,22 @@ describe('experimentEngine', () => {
     { timeout: 10000 },
     async () => {
       const runId = '22222222-2222-2222-2222-222222222222';
+      const sourceDir = uniqueDir('abort-source');
       const workspaceDir = uniqueDir('abort-run');
+      const sleeperFile = resolve(sourceDir, 'sleeper.js');
       const startedAt = Date.now();
+
+      fs.mkdirSync(sourceDir, { recursive: true });
+      fs.writeFileSync(sleeperFile, 'setTimeout(() => {}, 5000);');
 
       const runPromise = runExperimentLoop(
         'exp-abort',
         {
           name: 'abort baseline',
+          target: { source_dir: sourceDir },
           metrics: {
             primary: {
-              command: 'node -e "setTimeout(() => {}, 5000)"',
+              command: 'node sleeper.js',
               type: 'exit_code',
               direction: 'maximize',
             },
@@ -132,7 +138,7 @@ describe('experimentEngine', () => {
 
       const elapsedMs = Date.now() - startedAt;
       expect(elapsedMs).toBeLessThan(2500);
-      expect(updateRunStatus).toHaveBeenCalledWith(runId, 'aborted');
+      expect(updateRunStatus).toHaveBeenCalledWith(runId, 'aborted', 'default');
     },
   );
 
@@ -141,13 +147,13 @@ describe('experimentEngine', () => {
     { timeout: 10000 },
     async () => {
       const runId = '33333333-3333-3333-3333-333333333333';
+      const sourceDir = uniqueDir('process-tree-source');
       const workspaceDir = uniqueDir('process-tree-run');
-      const processDir = uniqueDir('process-tree-fixtures');
-      fs.mkdirSync(processDir, { recursive: true });
+      fs.mkdirSync(sourceDir, { recursive: true });
 
-      const workerPidFile = resolve(processDir, 'worker.pid');
-      const workerFile = resolve(processDir, 'worker.js');
-      const parentFile = resolve(processDir, 'parent.js');
+      const workerPidFile = resolve(sourceDir, 'worker.pid');
+      const workerFile = resolve(sourceDir, 'worker.js');
+      const parentFile = resolve(sourceDir, 'parent.js');
 
       fs.writeFileSync(
         workerFile,
@@ -155,16 +161,17 @@ describe('experimentEngine', () => {
       );
       fs.writeFileSync(
         parentFile,
-        `const { spawn } = require('node:child_process'); spawn(process.execPath, [${JSON.stringify(workerFile)}], { stdio: 'ignore' }); setInterval(() => {}, 100000);`,
+        `const { spawn } = require('node:child_process'); const { resolve } = require('node:path'); spawn(process.execPath, [resolve(__dirname, 'worker.js')], { stdio: 'ignore' }); setInterval(() => {}, 100000);`,
       );
 
       const runPromise = runExperimentLoop(
         'exp-process-tree',
         {
           name: 'abort descendant workers',
+          target: { source_dir: sourceDir },
           metrics: {
             primary: {
-              command: `node ${JSON.stringify(parentFile)}`,
+              command: 'node parent.js',
               type: 'exit_code',
               direction: 'maximize',
             },
@@ -191,7 +198,7 @@ describe('experimentEngine', () => {
       await new Promise((resolvePromise) => setTimeout(resolvePromise, 400));
 
       expect(isAlive(workerPid)).toBe(false);
-      expect(updateRunStatus).toHaveBeenCalledWith(runId, 'aborted');
+      expect(updateRunStatus).toHaveBeenCalledWith(runId, 'aborted', 'default');
     },
   );
 
@@ -200,10 +207,15 @@ describe('experimentEngine', () => {
     const sourceDir = uniqueDir('source-repo');
     const workspaceDir = uniqueDir('identity-run');
     const scoreFile = resolve(sourceDir, 'score.txt');
+    const readScoreFile = resolve(sourceDir, 'read-score.js');
     const sessionId = 'agent-session-identity';
 
     fs.mkdirSync(sourceDir, { recursive: true });
     fs.writeFileSync(scoreFile, '1\n');
+    fs.writeFileSync(
+      readScoreFile,
+      `const fs = require('node:fs'); console.log(fs.readFileSync('score.txt', 'utf8').trim());`,
+    );
     execSync('git init', { cwd: sourceDir, stdio: 'pipe' });
     execSync('git add -A', { cwd: sourceDir, stdio: 'pipe' });
     execSync(
@@ -234,8 +246,7 @@ describe('experimentEngine', () => {
         },
         metrics: {
           primary: {
-            command:
-              "node -e \"const fs = require('node:fs'); console.log(fs.readFileSync('score.txt', 'utf8').trim())\"",
+            command: 'node read-score.js',
             extract: '^(\\d+)$',
             type: 'regex',
             direction: 'maximize',
@@ -260,6 +271,112 @@ describe('experimentEngine', () => {
     expect(gitConfig).toContain('name = AutoResearch');
     expect(gitConfig).toContain('email = autoresearch@agentboard.local');
     expect(lastCommitMessage).toBe('autoresearch: trial 1 (metric: 2)');
-    expect(updateRunStatus).toHaveBeenCalledWith(runId, 'completed');
+    expect(updateRunStatus).toHaveBeenCalledWith(runId, 'completed', 'default');
   });
+
+  it('rejects non-allowlisted benchmark executables before running the experiment', async () => {
+    const runId = '55555555-5555-5555-5555-555555555555';
+    const workspaceDir = uniqueDir('blocked-executable-run');
+
+    await runExperimentLoop(
+      'exp-blocked-executable',
+      {
+        name: 'blocked executable',
+        metrics: {
+          primary: {
+            command: 'uname -a',
+            type: 'exit_code',
+            direction: 'maximize',
+          },
+        },
+      },
+      'default',
+      workspaceDir,
+      runId,
+    );
+
+    expect(updateRunStatus).toHaveBeenCalledWith(runId, 'failed', 'default');
+    expect(updateRunError.mock.calls.at(-1)[1]).toContain('not allowed');
+  });
+
+  it('rejects node benchmark commands that use inline evaluation flags', async () => {
+    const runId = '66666666-6666-6666-6666-666666666666';
+    const workspaceDir = uniqueDir('node-inline-eval-run');
+
+    await runExperimentLoop(
+      'exp-node-inline-eval',
+      {
+        name: 'node inline eval blocked',
+        metrics: {
+          primary: {
+            command: 'node -e "process.exit(0)"',
+            type: 'exit_code',
+            direction: 'maximize',
+          },
+        },
+      },
+      'default',
+      workspaceDir,
+      runId,
+    );
+
+    expect(updateRunStatus).toHaveBeenCalledWith(runId, 'failed', 'default');
+    expect(updateRunError.mock.calls.at(-1)[1]).toContain('workspace-local script file');
+  });
+
+  it(
+    'parses escaped quotes inside double-quoted benchmark arguments correctly',
+    { timeout: 10000 },
+    async () => {
+      const runId = '77777777-7777-7777-7777-777777777777';
+      const sourceDir = uniqueDir('escaped-quotes-source');
+      const workspaceDir = uniqueDir('escaped-quotes-run');
+      const assertArgFile = resolve(sourceDir, 'assert-arg.js');
+      const sessionId = 'agent-session-escaped-quotes';
+
+      fs.mkdirSync(sourceDir, { recursive: true });
+      fs.writeFileSync(
+        assertArgFile,
+        `
+const expected = 'a "b" c';
+if (process.argv[2] !== expected) {
+  console.error(\`expected="\${expected}" actual="\${process.argv[2] || ''}"\`);
+  process.exit(1);
+}
+process.exit(0);
+      `.trim(),
+      );
+
+      startAgent.mockImplementation(async (_prompt) => {
+        setTimeout(() => {
+          agentEvents.emit('event', { sessionId, type: 'done' });
+        }, 0);
+        return sessionId;
+      });
+
+      await runExperimentLoop(
+        'exp-escaped-quotes',
+        {
+          name: 'escaped quotes',
+          target: { source_dir: sourceDir },
+          metrics: {
+            primary: {
+              command: 'node assert-arg.js "a \\"b\\" c"',
+              type: 'exit_code',
+              direction: 'maximize',
+            },
+          },
+          budget: {
+            max_experiments: 1,
+          },
+        },
+        'default',
+        workspaceDir,
+        runId,
+      );
+
+      expect(updateRunBaseline).toHaveBeenCalledWith(runId, 1, 'default');
+      expect(updateRunStatus).toHaveBeenCalledWith(runId, 'completed', 'default');
+    },
+  );
 });

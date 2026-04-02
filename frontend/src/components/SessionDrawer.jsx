@@ -68,10 +68,13 @@ export default function SessionDrawer({ open, onClose, onLoadSession, currentSes
     });
   }
 
+  const [isDeleting, setIsDeleting] = useState(false);
+
   async function executeDelete() {
-    if (!confirmState) return;
+    if (!confirmState || isDeleting) return;
     const { ids } = confirmState;
     setConfirmState(null);
+    setIsDeleting(true);
     try {
       let res;
       if (ids.length === 1) {
@@ -101,6 +104,8 @@ export default function SessionDrawer({ open, onClose, onLoadSession, currentSes
     } catch {
       // Refresh list to get accurate counts after partial failure
       fetchSessions();
+    } finally {
+      setIsDeleting(false);
     }
   }
 

@@ -96,8 +96,8 @@ describe('isDangerous', () => {
   });
 
   describe('edge cases', () => {
-    it('allows rm -rf with relative path (./local)', () => {
-      expect(isDangerous('rm -rf ./local')).toBe(false);
+    it('blocks rm -rf with relative path (./local)', () => {
+      expect(isDangerous('rm -rf ./local')).toBe(true);
     });
 
     it('returns false for empty string', () => {
@@ -425,10 +425,10 @@ describe('isFilePathAllowed', () => {
     expect(isFilePathAllowed('/dev/null', ws)).toBe(false);
   });
 
-  it('returns true for empty or missing inputs (permissive fallback)', () => {
-    expect(isFilePathAllowed('', ws)).toBe(true);
-    expect(isFilePathAllowed(null, ws)).toBe(true);
-    expect(isFilePathAllowed('/outside/path', null)).toBe(true);
+  it('returns false for empty or missing inputs (deny by default)', () => {
+    expect(isFilePathAllowed('', ws)).toBe(false);
+    expect(isFilePathAllowed(null, ws)).toBe(false);
+    expect(isFilePathAllowed('/outside/path', null)).toBe(false);
   });
 
   describe('PreToolUse integration: file tools are fenced', () => {

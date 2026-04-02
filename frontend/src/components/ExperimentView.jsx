@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useId, useRef } from 'react';
+import { useState, useEffect, useMemo, useId, useRef, useCallback } from 'react';
 import { withClientAuth } from '../lib/clientAuth.js';
 import { SwarmBranchCard } from './SwarmBranchCard.jsx';
 import styles from './ExperimentView.module.css';
@@ -241,24 +241,25 @@ export default function ExperimentView({
     };
   }, []);
 
-  // Load experiments on mount
-  useEffect(() => {
-    fetchExperiments();
-  }, []);
-
-  const fetchExperiments = async () => {
-    // Fix #4: removed console.error — fetch failure is non-critical,
-    // the experiments list simply stays empty; no log pollution.
+  const fetchExperiments = useCallback(async (signal) => {
     try {
-      const res = await fetch('/api/experiments', withClientAuth());
-      if (res.ok) {
+      const res = await fetch('/api/experiments', withClientAuth({ signal }));
+      if (res.ok && !signal?.aborted) {
         const data = await res.json();
         setExperiments(data.experiments || []);
       }
-    } catch {
+    } catch (e) {
+      if (e.name === 'AbortError') return;
       // silent: list stays empty; user can retry by reloading
     }
-  };
+  }, []);
+
+  // Load experiments on mount
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchExperiments(controller.signal);
+    return () => controller.abort();
+  }, [fetchExperiments]);
 
   const handleSelectExperiment = async (exp) => {
     // Fix #7: clear runs immediately so previous experiment's list
@@ -683,9 +684,9 @@ export default function ExperimentView({
                   {experimentEvents.length === 0 && (
                     <div className={styles.eventsEmpty}>Waiting for events…</div>
                   )}
-                  {experimentEvents.map((evt, idx) => (
+                  {experimentEvents.map((evt) => (
                     <div
-                      key={`${evt.timestamp}-${evt.subtype}-${idx}`}
+                      key={`${evt.timestamp}-${evt.subtype}-${evt.content?.trialNumber ?? evt.content?.metric ?? ''}`}
                       className={`${styles.eventRow} ${
                         evt.subtype === 'trial_complete' && evt.content?.accepted
                           ? styles.eventAccepted

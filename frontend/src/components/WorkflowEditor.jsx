@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useId } from 'react';
 import styles from './WorkflowEditor.module.css';
 import Dropdown from './Dropdown';
 import ConfirmDialog from './ConfirmDialog.jsx';
@@ -13,6 +13,7 @@ import {
   updateEdge,
   ensureEdgeIds,
   syncEdgeIdCounter,
+  resetEdgeIdCounter,
   getDefaultEdgeCondition,
 } from './workflowEdgeUtils.js';
 
@@ -257,6 +258,9 @@ function EdgeConfigPanel({ edge, sourceNode, targetNode, onUpdate, onDelete, onC
 // --- Main Editor ---
 
 export default function WorkflowEditor() {
+  const svgIdPrefix = useId();
+  const arrowheadId = `${svgIdPrefix}-arrowhead`;
+  const gridId = `${svgIdPrefix}-grid`;
   const [workflows, setWorkflows] = useState([]);
   const [currentWorkflow, setCurrentWorkflow] = useState(null);
   const [nodes, setNodes] = useState([]);
@@ -319,6 +323,8 @@ export default function WorkflowEditor() {
 
   // Create new workflow
   const newWorkflow = useCallback(() => {
+    nextId = 1;
+    resetEdgeIdCounter();
     const inputNode = {
       id: genId(),
       type: 'input',
@@ -731,6 +737,7 @@ export default function WorkflowEditor() {
           prev.map((n) => (n.id === draggingNode ? { ...n, position: { x: newX, y: newY } } : n)),
         );
       } else if (drawingEdge) {
+        if (!svgRef.current) return;
         const rect = svgRef.current.getBoundingClientRect();
         setDrawingEdge((prev) => ({
           ...prev,
@@ -748,6 +755,11 @@ export default function WorkflowEditor() {
     (e) => {
       if (drawingEdge) {
         // Check if mouse is over a node input port
+        if (!svgRef.current) {
+          setDrawingEdge(null);
+          setIsPanning(false);
+          return;
+        }
         const rect = svgRef.current.getBoundingClientRect();
         const mx = e.clientX - rect.left - pan.x;
         const my = e.clientY - rect.top - pan.y;
@@ -786,6 +798,7 @@ export default function WorkflowEditor() {
   const handleOutputPortMouseDown = useCallback(
     (e, nodeId) => {
       e.stopPropagation();
+      if (!svgRef.current) return;
       const rect = svgRef.current.getBoundingClientRect();
       setDrawingEdge({
         fromId: nodeId,
@@ -1012,7 +1025,7 @@ export default function WorkflowEditor() {
         <svg ref={svgRef} className={styles.canvasSvg}>
           <defs>
             <marker
-              id="arrowhead"
+              id={arrowheadId}
               markerWidth="10"
               markerHeight="7"
               refX="10"
@@ -1021,7 +1034,7 @@ export default function WorkflowEditor() {
             >
               <polygon points="0 0, 10 3.5, 0 7" fill="var(--border-secondary)" />
             </marker>
-            <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+            <pattern id={gridId} width="20" height="20" patternUnits="userSpaceOnUse">
               <circle cx="10" cy="10" r="0.5" fill="var(--text-tertiary)" />
             </pattern>
           </defs>
@@ -1034,7 +1047,7 @@ export default function WorkflowEditor() {
               y={-2000}
               width={4000}
               height={4000}
-              fill="url(#grid)"
+              fill={`url(#${gridId})`}
               className={styles.grid}
             />
 
@@ -1062,7 +1075,7 @@ export default function WorkflowEditor() {
                       setSelectedEdge({ id: edge.id, from: edge.from, to: edge.to });
                     }}
                     onDoubleClick={() => handleEdgeDoubleClick(edge)}
-                    style={{ cursor: 'pointer' }}
+                    style={{ cursor: 'pointer', markerEnd: `url(#${arrowheadId})` }}
                   />
                   {edge.condition && (
                     <text x={(x1 + x2) / 2} y={(y1 + y2) / 2 - 8} className={styles.edgeLabel}>

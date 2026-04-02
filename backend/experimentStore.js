@@ -154,42 +154,44 @@ export async function listRuns(userId, experimentId, limit = 20, offset = 0) {
   return data;
 }
 
-export async function updateRunStatus(runId, status) {
+export async function updateRunStatus(runId, status, userId) {
   const updates = { status };
   if (['completed', 'aborted', 'failed'].includes(status)) {
     updates.completed_at = new Date().toISOString();
   }
-  const { error } = await supabase.from('experiment_runs').update(updates).eq('id', runId);
+  let q = supabase.from('experiment_runs').update(updates).eq('id', runId);
+  if (userId) q = q.eq('user_id', userId);
+  const { error } = await q;
   if (error) {
     console.error(`[experimentStore] updateRunStatus failed: ${error.message}`);
   }
 }
 
-export async function updateRunMetrics(runId, bestMetric, totalTrials, acceptedTrials) {
-  const { error } = await supabase
+export async function updateRunMetrics(runId, bestMetric, totalTrials, acceptedTrials, userId) {
+  let q = supabase
     .from('experiment_runs')
     .update({ best_metric: bestMetric, total_trials: totalTrials, accepted_trials: acceptedTrials })
     .eq('id', runId);
+  if (userId) q = q.eq('user_id', userId);
+  const { error } = await q;
   if (error) {
     console.error(`[experimentStore] updateRunMetrics failed: ${error.message}`);
   }
 }
 
-export async function updateRunBaseline(runId, baseline) {
-  const { error } = await supabase
-    .from('experiment_runs')
-    .update({ baseline_metric: baseline })
-    .eq('id', runId);
+export async function updateRunBaseline(runId, baseline, userId) {
+  let q = supabase.from('experiment_runs').update({ baseline_metric: baseline }).eq('id', runId);
+  if (userId) q = q.eq('user_id', userId);
+  const { error } = await q;
   if (error) {
     console.error(`[experimentStore] updateRunBaseline failed: ${error.message}`);
   }
 }
 
-export async function updateRunError(runId, message) {
-  const { error } = await supabase
-    .from('experiment_runs')
-    .update({ error_message: message })
-    .eq('id', runId);
+export async function updateRunError(runId, message, userId) {
+  let q = supabase.from('experiment_runs').update({ error_message: message }).eq('id', runId);
+  if (userId) q = q.eq('user_id', userId);
+  const { error } = await q;
   if (error) {
     console.error(`[experimentStore] updateRunError failed: ${error.message}`);
   }

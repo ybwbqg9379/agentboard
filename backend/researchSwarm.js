@@ -482,7 +482,7 @@ async function coordinatorDecompose(plan, workspaceDir, userId, runId, signal) {
 
   try {
     // Try to use the Coordinator Agent if the agentEvents bus has been initialised
-    if (globalThis.__agentEventsBus) {
+    if (_agentEventsBus) {
       const result = await runCoordinatorAgent(prompt, workspaceDir, userId, signal);
       output = result.text;
       sessionId = result.sessionId;
@@ -548,7 +548,7 @@ async function coordinatorSynthesize(plan, branchResults, userId, runId, signal)
   let sessionId = '';
 
   try {
-    if (globalThis.__agentEventsBus) {
+    if (_agentEventsBus) {
       const result = await runCoordinatorAgent(
         prompt,
         branchResults[0]?.branchDir || '',
@@ -644,10 +644,10 @@ export async function runResearchSwarm(experimentId, plan, userId, workspaceDir,
     );
 
     const settledResults = await Promise.allSettled(branchPromises);
-    const branchResults = settledResults.map((r) =>
+    const branchResults = settledResults.map((r, i) =>
       r.status === 'fulfilled'
         ? r.value
-        : { branchIndex: 0, bestMetric: null, status: 'failed', error: r.reason?.message },
+        : { branchIndex: i, bestMetric: null, status: 'failed', error: r.reason?.message },
     );
 
     if (signal.aborted) return;
@@ -687,8 +687,8 @@ export async function runResearchSwarm(experimentId, plan, userId, workspaceDir,
     // Update top-level swarm run status so the frontend can show it in history
     const totalTrials = branchResults.reduce((s, b) => s + (b.totalTrials || 0), 0);
     const acceptedTrials = branchResults.reduce((s, b) => s + (b.acceptedTrials || 0), 0);
-    await updateRunStatus(runId, 'completed');
-    await updateRunMetrics(runId, selectedBranch.bestMetric, totalTrials, acceptedTrials);
+    await updateRunStatus(runId, 'completed', userId);
+    await updateRunMetrics(runId, selectedBranch.bestMetric, totalTrials, acceptedTrials, userId);
 
     emit('swarm_complete', {
       selectedBranchIndex: selectedBranch.branchIndex,
@@ -705,7 +705,7 @@ export async function runResearchSwarm(experimentId, plan, userId, workspaceDir,
       reasoning,
     };
   } catch (err) {
-    await updateRunStatus(runId, 'failed');
+    await updateRunStatus(runId, 'failed', userId);
     emit('swarm_error', { error: err.message });
     throw err;
   } finally {

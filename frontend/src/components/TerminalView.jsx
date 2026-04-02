@@ -114,7 +114,10 @@ export default function TerminalView({ events }) {
   const lines = useMemo(() => extractTerminalLines(events), [events]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const id = requestAnimationFrame(() => {
+      bottomRef.current?.scrollIntoView({ behavior: 'instant' });
+    });
+    return () => cancelAnimationFrame(id);
   }, [lines.length]);
 
   if (lines.length === 0) {

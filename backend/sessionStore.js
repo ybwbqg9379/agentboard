@@ -13,25 +13,28 @@ export async function createSession(userId, prompt) {
   return id;
 }
 
-export async function updateSessionStatus(id, status) {
-  const { error } = await supabase.from('sessions').update({ status }).eq('id', id);
+export async function updateSessionStatus(id, status, userId) {
+  let q = supabase.from('sessions').update({ status }).eq('id', id);
+  if (userId) q = q.eq('user_id', userId);
+  const { error } = await q;
   if (error) {
     console.error(`[sessionStore] updateSessionStatus failed: ${error.message}`);
   }
 }
 
-export async function updateSessionStats(id, stats) {
-  const { error } = await supabase.from('sessions').update({ stats }).eq('id', id);
+export async function updateSessionStats(id, stats, userId) {
+  let q = supabase.from('sessions').update({ stats }).eq('id', id);
+  if (userId) q = q.eq('user_id', userId);
+  const { error } = await q;
   if (error) {
     console.error(`[sessionStore] updateSessionStats failed: ${error.message}`);
   }
 }
 
-export async function updatePinnedContext(id, pinnedContextArray) {
-  const { error } = await supabase
-    .from('sessions')
-    .update({ pinned_context: pinnedContextArray })
-    .eq('id', id);
+export async function updatePinnedContext(id, pinnedContextArray, userId) {
+  let q = supabase.from('sessions').update({ pinned_context: pinnedContextArray }).eq('id', id);
+  if (userId) q = q.eq('user_id', userId);
+  const { error } = await q;
   if (error) {
     console.error(`[sessionStore] updatePinnedContext failed: ${error.message}`);
   }

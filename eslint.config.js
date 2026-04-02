@@ -28,6 +28,8 @@ export default [
         localStorage: 'readonly',
         Math: 'readonly',
         __APP_VERSION__: 'readonly',
+        requestAnimationFrame: 'readonly',
+        cancelAnimationFrame: 'readonly',
       },
     },
     rules: {

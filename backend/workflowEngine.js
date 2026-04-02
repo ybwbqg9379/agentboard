@@ -357,6 +357,17 @@ async function runExperimentNode(nodeConfig, runId, workflowId, nodeId, userId) 
   return new Promise((resolvePromise, rejectPromise) => {
     let settled = false;
 
+    // Wall-clock timeout to prevent indefinite hang if experiment events are never emitted
+    const EXPERIMENT_NODE_TIMEOUT_MS = AGENT_NODE_TIMEOUT_MS;
+    const nodeTimeout = setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        cleanup();
+        abortExperiment(expRunId);
+        rejectPromise(new Error(`Experiment node timed out after ${EXPERIMENT_NODE_TIMEOUT_MS}ms`));
+      }
+    }, EXPERIMENT_NODE_TIMEOUT_MS);
+
     function onDone(data) {
       if (data.runId !== expRunId) return;
       if (settled) return;
@@ -392,6 +403,7 @@ async function runExperimentNode(nodeConfig, runId, workflowId, nodeId, userId) 
     }
 
     function cleanup() {
+      clearTimeout(nodeTimeout);
       experimentEvents.off('experiment_done', onDone);
       experimentEvents.off('budget_exhausted', onBudget);
       experimentEvents.off('experiment_error', onError);

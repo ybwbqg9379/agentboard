@@ -21,6 +21,10 @@ export function syncEdgeIdCounter(edges) {
   nextEdgeId = max + 1;
 }
 
+export function resetEdgeIdCounter() {
+  nextEdgeId = 1;
+}
+
 export function ensureEdgeIds(edges) {
   return edges.map((e) => (e.id ? e : { ...e, id: genEdgeId() }));
 }

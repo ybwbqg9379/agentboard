@@ -229,7 +229,10 @@ export default function AgentTimeline({ events, status }) {
   const displayItems = useMemo(() => buildDisplayItems(events), [events]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const id = requestAnimationFrame(() => {
+      bottomRef.current?.scrollIntoView({ behavior: 'instant' });
+    });
+    return () => cancelAnimationFrame(id);
   }, [displayItems.length]);
 
   if (displayItems.length === 0 && status === 'idle') {

@@ -26,7 +26,7 @@ function hashArgs(args) {
 }
 
 export const BLOCKED_PATTERNS = [
-  /rm\s+(-\w*\s+)*-rf\s+[/~]/,
+  /rm\s+(-\w*\s+)*-rf\b/,
   /\|\s*(sh|bash|zsh)\b/,
   /\bsudo\b/,
   /\b(>\s*|tee\s+)(\/etc|\/usr|\/System|\/bin|\/sbin)\//,
@@ -42,7 +42,7 @@ export const BLOCKED_PATTERNS = [
   /\b(curl|wget)\b.*--data/,
   /\b(curl|wget)\b.*-d\s/,
   // Block escaping to parent directories beyond workspace
-  /\bcd\s+\.\.\//,
+  /\bcd\s+\.\.(?:\/|$|\s)/,
 
   // --- Phase 2: Destructive Oracle (上帝之眼破坏预言机) ---
   // SQL Disasters
@@ -70,7 +70,7 @@ function isPathInside(basePath, targetPath) {
 /** Resolve a tool path argument (absolute or relative) against workspace, then fence-check.
  *  File tools (Read/Write/Edit/Grep/Glob) are restricted to workspace only -- no /tmp, /dev. */
 export function isFilePathAllowed(filePath, workspaceRoot) {
-  if (typeof filePath !== 'string' || filePath.length === 0 || !workspaceRoot) return true;
+  if (typeof filePath !== 'string' || filePath.length === 0 || !workspaceRoot) return false;
   const resolved = isAbsolute(filePath)
     ? normalize(filePath)
     : normalize(resolve(workspaceRoot, filePath));

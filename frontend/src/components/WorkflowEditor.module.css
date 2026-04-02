@@ -147,7 +147,7 @@
   fill: none;
   stroke: var(--border-secondary);
   stroke-width: 1.5;
-  marker-end: url(#arrowhead);
+  /* marker-end set inline via arrowheadId for multi-instance safety */
   transition: stroke 0.15s;
 }
 

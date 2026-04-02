@@ -9,6 +9,7 @@ const config = {
   // Anthropic-to-OpenAI proxy -- Claude Code SDK 通过它将 Anthropic 格式转为 OpenAI 格式
   proxy: {
     url: process.env.PROXY_URL || `http://localhost:${process.env.PROXY_PORT || '4000'}`,
+    token: process.env.PROXY_TOKEN || '',
   },
 
   // GitHub 集成（可选，无 token 时仅支持公开仓库）

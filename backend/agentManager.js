@@ -22,7 +22,7 @@ import { buildAgentEnv, getSdkExecutablePath } from './sdkRuntime.js';
 const activeAgents = new Map();
 
 export const agentEvents = new EventEmitter();
-agentEvents.setMaxListeners(50);
+agentEvents.setMaxListeners(200);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -239,6 +239,7 @@ async function buildBaseOptions(sessionId, permMode, prompt, userId, cwdOverride
       userWorkspace,
       proxyUrl: config.proxy.url,
       apiKey: config.llm.apiKey,
+      proxyToken: config.proxy.token,
     }),
     mcpServers: selectedMcpServers,
     allowedTools: uniqueAllowedTools,
@@ -317,7 +318,7 @@ function consumeStream(sessionId, stream, abortController, userId = 'default') {
                 pinned.push(val);
               }
             }
-            if (pinned.length > 0) await updatePinnedContext(sessionId, pinned);
+            if (pinned.length > 0) await updatePinnedContext(sessionId, pinned, userId);
           }
         }
 
@@ -332,7 +333,7 @@ function consumeStream(sessionId, stream, abortController, userId = 'default') {
             num_turns: msg.num_turns || 0,
             model: config.llm.model,
           };
-          await updateSessionStats(sessionId, stats);
+          await updateSessionStats(sessionId, stats, userId);
         }
       }
     } catch (err) {
@@ -353,7 +354,7 @@ function consumeStream(sessionId, stream, abortController, userId = 'default') {
       }
       activeAgents.delete(sessionId);
       cleanupSessionLoopState(sessionId);
-      await updateSessionStatus(sessionId, finalStatus);
+      await updateSessionStatus(sessionId, finalStatus, userId);
       agentEvents.emit('event', {
         sessionId,
         type: 'done',
@@ -379,6 +380,17 @@ export async function startAgent(prompt, opts = {}) {
     : 'bypassPermissions';
 
   const abortController = new AbortController();
+
+  // Claim the slot immediately to prevent TOCTOU race with stopAgent
+  // (mirrors the pattern used in continueAgent)
+  activeAgents.set(sessionId, {
+    stream: null,
+    timeoutId: null,
+    abortController,
+    stopped: false,
+    userId: opts.userId || 'default',
+  });
+
   let stream;
   try {
     const baseOpts = await buildBaseOptions(sessionId, permMode, prompt, opts.userId, opts.cwd);
@@ -393,7 +405,8 @@ export async function startAgent(prompt, opts = {}) {
     });
   } catch (err) {
     console.error(`[agentManager] startAgent sync failure: ${err.message}`);
-    await updateSessionStatus(sessionId, 'failed');
+    activeAgents.delete(sessionId);
+    await updateSessionStatus(sessionId, 'failed', opts.userId);
     cleanupSessionLoopState(sessionId);
     agentEvents.emit('event', {
       sessionId,
@@ -438,7 +451,7 @@ export async function continueAgent(sessionId, prompt, opts = {}) {
     : 'bypassPermissions';
 
   // Update session status back to running and append the follow-up prompt
-  await updateSessionStatus(sessionId, 'running');
+  await updateSessionStatus(sessionId, 'running', opts.userId);
   await insertEvent(sessionId, 'user', { type: 'user', text: prompt, timestamp: Date.now() });
 
   let stream;
@@ -455,7 +468,7 @@ export async function continueAgent(sessionId, prompt, opts = {}) {
     });
   } catch (err) {
     activeAgents.delete(sessionId);
-    await updateSessionStatus(sessionId, 'failed');
+    await updateSessionStatus(sessionId, 'failed', opts.userId);
     cleanupSessionLoopState(sessionId);
     agentEvents.emit('event', {
       sessionId,
