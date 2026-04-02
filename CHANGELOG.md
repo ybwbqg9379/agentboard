@@ -13,6 +13,12 @@
 - **指标折线图 (P1 补完)**: `ExperimentView.jsx` Live Dashboard 新增纯 SVG 折线图，实时展示 primary metric 随 trial 序号变化的曲线；Accept 点以主题色圆点标注，Reject 点以红色圆点标注；附带 Y/X 轴刻度与图例，数据不足 2 点时显示占位提示。
 - **ResearchPlan 预置模板 (P2 补完)**: 新建 `backend/templates/` 目录，包含 5 个生产级 JSON 模板（ml-training / performance-optimization / bundle-size / ci-quality / security-fuzz）；后端新增 `GET /api/experiment-templates/:filename` 路由安全提供模板文件（文件名严格正则白名单）；ExperimentView 侧栏新增"Start from template"模板快选区，点击一键填充 JSON 编辑器并跳转到编辑视图。
 
+### CI 修复: 实验引擎 git identity
+
+#### Fixed
+
+- **CI-1** `experimentEngine.js` -- 实验 workspace 初始化时 `git commit` 依赖全局 git user identity，CI runner 无此配置导致 baseline 阶段 fatal 失败；改为在 `git init` 后立即设置 repo-local `user.email` / `user.name`（`AutoResearch` 内部标识，不影响真实用户身份）
+
 ### 15 项实验引擎六轮审查修复 (Experiment Engine Audit Round 6 — 3C + 5I + 4T + 3Test)
 
 #### Fixed -- Critical

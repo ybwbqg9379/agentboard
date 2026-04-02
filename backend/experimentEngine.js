@@ -209,10 +209,13 @@ function prepareWorkspace(plan, workspaceDir, userId) {
 
   // Initialize git in workspace for ratchet operations
   if (!fs.existsSync(resolve(workspaceDir, '.git'))) {
-    execSync('git init && git add -A && git commit -m "autoresearch: baseline" --allow-empty', {
-      cwd: workspaceDir,
-      stdio: 'pipe',
-    });
+    execSync(
+      'git init' +
+        ' && git config user.email "autoresearch@agentboard.local"' +
+        ' && git config user.name "AutoResearch"' +
+        ' && git add -A && git commit -m "autoresearch: baseline" --allow-empty',
+      { cwd: workspaceDir, stdio: 'pipe' },
+    );
   }
 }
 
