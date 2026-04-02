@@ -44,6 +44,15 @@ function uniqueDir(name) {
   return resolve(workspaceRoot, `${Date.now()}-${Math.random().toString(16).slice(2)}-${name}`);
 }
 
+function isAlive(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 describe('experimentEngine', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -122,6 +131,65 @@ describe('experimentEngine', () => {
 
       const elapsedMs = Date.now() - startedAt;
       expect(elapsedMs).toBeLessThan(2500);
+      expect(updateRunStatus).toHaveBeenCalledWith(runId, 'aborted');
+    },
+  );
+
+  it(
+    'kills descendant worker processes when an experiment command is aborted',
+    { timeout: 10000 },
+    async () => {
+      const runId = '33333333-3333-3333-3333-333333333333';
+      const workspaceDir = uniqueDir('process-tree-run');
+      const processDir = uniqueDir('process-tree-fixtures');
+      fs.mkdirSync(processDir, { recursive: true });
+
+      const workerPidFile = resolve(processDir, 'worker.pid');
+      const workerFile = resolve(processDir, 'worker.js');
+      const parentFile = resolve(processDir, 'parent.js');
+
+      fs.writeFileSync(
+        workerFile,
+        `const fs = require('node:fs'); fs.writeFileSync(${JSON.stringify(workerPidFile)}, String(process.pid)); setInterval(() => {}, 100000);`,
+      );
+      fs.writeFileSync(
+        parentFile,
+        `const { spawn } = require('node:child_process'); spawn(process.execPath, [${JSON.stringify(workerFile)}], { stdio: 'ignore' }); setInterval(() => {}, 100000);`,
+      );
+
+      const runPromise = runExperimentLoop(
+        'exp-process-tree',
+        {
+          name: 'abort descendant workers',
+          metrics: {
+            primary: {
+              command: `node ${JSON.stringify(parentFile)}`,
+              type: 'exit_code',
+              direction: 'maximize',
+            },
+          },
+        },
+        'default',
+        workspaceDir,
+        runId,
+      );
+
+      let workerPid = null;
+      for (let i = 0; i < 20; i++) {
+        if (fs.existsSync(workerPidFile)) {
+          workerPid = Number(fs.readFileSync(workerPidFile, 'utf8'));
+          break;
+        }
+        await new Promise((resolvePromise) => setTimeout(resolvePromise, 50));
+      }
+
+      expect(workerPid).toBeTruthy();
+      expect(abortExperiment(runId)).toBe(true);
+
+      await runPromise;
+      await new Promise((resolvePromise) => setTimeout(resolvePromise, 400));
+
+      expect(isAlive(workerPid)).toBe(false);
       expect(updateRunStatus).toHaveBeenCalledWith(runId, 'aborted');
     },
   );

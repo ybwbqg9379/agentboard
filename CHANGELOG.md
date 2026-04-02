@@ -11,6 +11,16 @@
 - **DAG 管线实验节点映射 (`workflowEngine.js`)**: **`experiment`** 现已正式作为平台支持的原生图谱节点并入 `WorkflowEditor`。用户可在可视化画布中拖曳出实验节点，以实现“当主工作流运转至此，阻断抛交后台进行多轮基数优化，待指标收敛后自动将 Best Metric 携带至下一工作流节点”的管线闭环构想。
 - **实验三级持久化网络**: 引入 `experimentStore.js`。内置表结构（`experiments` 模板、`experiment_runs` 场次与 `experiment_trials` 具体试运行尝试），确保每一次科研数据都能被永久检索和审查。
 
+### 1 项实验引擎五轮审查修复 (Experiment Engine Audit Round 5 — 1M)
+
+#### Fixed -- Major
+
+- **R5-M1** `experimentEngine.js` -- `exec(..., { signal })` 虽然能终止直接子进程，但对 `npm test` 这类会继续派生 worker 的命令不保证清理完整进程树；`runCommand` 现改为 `spawn + process-group kill`，在 Unix/macOS 上以独立进程组运行命令并在 abort/timeout 时对整个进程组发送 `SIGTERM`/`SIGKILL`，Windows 上使用 `taskkill /T /F`
+
+#### Tests
+
+- `experimentEngine.test.js` 新增“父进程派生 worker 后 abort 不留残余进程”的回归用例
+
 ### 1 项实验引擎四轮审查修复 (Experiment Engine Audit Round 4 — 1M)
 
 #### Fixed -- Major

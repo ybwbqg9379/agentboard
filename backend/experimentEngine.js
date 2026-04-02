@@ -11,11 +11,11 @@
  */
 
 import { EventEmitter } from 'node:events';
-import { exec, execSync } from 'node:child_process';
+import { execSync, spawn } from 'node:child_process';
+import { Buffer } from 'node:buffer';
 import { resolve } from 'node:path';
 import fs from 'node:fs';
 import { randomUUID } from 'node:crypto';
-import { promisify } from 'node:util';
 import config from './config.js';
 import { startAgent, stopAgent, agentEvents } from './agentManager.js';
 import {
@@ -31,7 +31,8 @@ import { extractAllMetrics, isImproved, improvementPercent } from './metricExtra
 export const experimentEvents = new EventEmitter();
 experimentEvents.setMaxListeners(50);
 
-const execAsync = promisify(exec);
+const MAX_COMMAND_BUFFER = 10 * 1024 * 1024;
+const COMMAND_KILL_GRACE_MS = 500;
 
 // Map<runId, { abortController, experimentId }>
 const activeExperiments = new Map();
@@ -54,33 +55,114 @@ function parseTimeMs(timeStr) {
  * Runs directly on the host (no Docker) per Q1 decision.
  */
 async function runCommand(command, cwd, timeoutMs = 300000, signal) {
-  try {
-    const { stdout, stderr } = await execAsync(command, {
+  return new Promise((resolvePromise) => {
+    let stdout = '';
+    let stderr = '';
+    let stdoutBytes = 0;
+    let stderrBytes = 0;
+    let settled = false;
+    let aborted = false;
+    let timedOut = false;
+    let forceKillTimer = null;
+
+    const child = spawn(command, {
       cwd,
-      timeout: timeoutMs,
-      encoding: 'utf-8',
-      maxBuffer: 10 * 1024 * 1024, // 10MB
-      ...(signal && { signal }),
+      shell: true,
+      detached: process.platform !== 'win32',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
     });
-    return {
-      output: [stdout || '', stderr || ''].filter(Boolean).join('\n'),
-      exitCode: 0,
-      aborted: false,
+
+    const cleanup = () => {
+      clearTimeout(timeoutId);
+      clearTimeout(forceKillTimer);
+      if (signal) signal.removeEventListener('abort', onAbort);
     };
-  } catch (err) {
-    if (err.code === 'ABORT_ERR' || signal?.aborted) {
-      return {
-        output: [err.stdout || '', err.stderr || ''].filter(Boolean).join('\n'),
-        exitCode: 130,
-        aborted: true,
-      };
+
+    const finish = (result) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolvePromise(result);
+    };
+
+    const appendChunk = (chunk, target) => {
+      const text = chunk.toString('utf-8');
+      const bytes = Buffer.byteLength(text);
+      if (target === 'stdout') {
+        stdout += text;
+        stdoutBytes += bytes;
+      } else {
+        stderr += text;
+        stderrBytes += bytes;
+      }
+
+      if (stdoutBytes + stderrBytes > MAX_COMMAND_BUFFER) {
+        stderr += '\n[runCommand] output exceeded maxBuffer';
+        requestStop('buffer');
+      }
+    };
+
+    const killProcessTree = (killSignal, force = false) => {
+      if (!child.pid) return;
+      if (process.platform === 'win32') {
+        const args = ['/PID', String(child.pid), '/T'];
+        if (force || killSignal === 'SIGKILL') args.push('/F');
+        const killer = spawn('taskkill', args, { stdio: 'ignore', windowsHide: true });
+        killer.on('error', () => {});
+        return;
+      }
+
+      try {
+        process.kill(-child.pid, killSignal);
+      } catch {
+        try {
+          process.kill(child.pid, killSignal);
+        } catch {
+          /* ignore */
+        }
+      }
+    };
+
+    const requestStop = (reason) => {
+      if (settled) return;
+      if (reason === 'abort') aborted = true;
+      if (reason === 'timeout') timedOut = true;
+
+      killProcessTree('SIGTERM');
+      forceKillTimer = setTimeout(() => {
+        killProcessTree('SIGKILL', true);
+      }, COMMAND_KILL_GRACE_MS);
+    };
+
+    const onAbort = () => requestStop('abort');
+    if (signal) {
+      if (signal.aborted) {
+        requestStop('abort');
+      } else {
+        signal.addEventListener('abort', onAbort, { once: true });
+      }
     }
-    return {
-      output: [err.stdout || '', err.stderr || ''].filter(Boolean).join('\n'),
-      exitCode: typeof err.code === 'number' ? err.code : (err.status ?? 1),
-      aborted: false,
-    };
-  }
+
+    const timeoutId = setTimeout(() => {
+      requestStop('timeout');
+    }, timeoutMs);
+
+    child.stdout?.on('data', (chunk) => appendChunk(chunk, 'stdout'));
+    child.stderr?.on('data', (chunk) => appendChunk(chunk, 'stderr'));
+
+    child.on('error', (err) => {
+      stderr += `${stderr ? '\n' : ''}${err.message}`;
+    });
+
+    child.on('close', (code) => {
+      finish({
+        output: [stdout || '', stderr || ''].filter(Boolean).join('\n'),
+        exitCode: aborted ? 130 : timedOut ? 124 : (code ?? 1),
+        aborted,
+      });
+    });
+  });
 }
 
 /**
