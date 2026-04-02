@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EventEmitter } from 'node:events';
+import { execSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import { resolve } from 'node:path';
@@ -193,4 +194,70 @@ describe('experimentEngine', () => {
       expect(updateRunStatus).toHaveBeenCalledWith(runId, 'aborted');
     },
   );
+
+  it('sets repo-local git identity when source_dir already contains a git repo', async () => {
+    const runId = '44444444-4444-4444-4444-444444444444';
+    const sourceDir = uniqueDir('source-repo');
+    const workspaceDir = uniqueDir('identity-run');
+    const scoreFile = resolve(sourceDir, 'score.txt');
+    const sessionId = 'agent-session-identity';
+
+    fs.mkdirSync(sourceDir, { recursive: true });
+    fs.writeFileSync(scoreFile, '1\n');
+    execSync('git init', { cwd: sourceDir, stdio: 'pipe' });
+    execSync('git add -A', { cwd: sourceDir, stdio: 'pipe' });
+    execSync(
+      'git -c user.name="Source Author" -c user.email="source@example.com" commit -m "source baseline"',
+      {
+        cwd: sourceDir,
+        stdio: 'pipe',
+      },
+    );
+
+    startAgent.mockImplementation((_prompt, opts) => {
+      fs.writeFileSync(resolve(opts.cwd, 'score.txt'), '2\n');
+      Promise.resolve().then(() => {
+        agentEvents.emit('event', { sessionId, type: 'done' });
+      });
+      return sessionId;
+    });
+
+    await runExperimentLoop(
+      'exp-identity',
+      {
+        name: 'git identity coverage',
+        target: {
+          source_dir: sourceDir,
+          files: ['score.txt'],
+        },
+        metrics: {
+          primary: {
+            command:
+              "node -e \"const fs = require('node:fs'); console.log(fs.readFileSync('score.txt', 'utf8').trim())\"",
+            extract: '^(\\d+)$',
+            type: 'regex',
+            direction: 'maximize',
+          },
+        },
+        budget: {
+          max_experiments: 1,
+        },
+      },
+      'default',
+      workspaceDir,
+      runId,
+    );
+
+    const gitConfig = fs.readFileSync(resolve(workspaceDir, '.git', 'config'), 'utf8');
+    const lastCommitMessage = execSync('git log -1 --format=%s', {
+      cwd: workspaceDir,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim();
+
+    expect(gitConfig).toContain('name = AutoResearch');
+    expect(gitConfig).toContain('email = autoresearch@agentboard.local');
+    expect(lastCommitMessage).toBe('autoresearch: trial 1 (metric: 2)');
+    expect(updateRunStatus).toHaveBeenCalledWith(runId, 'completed');
+  });
 });

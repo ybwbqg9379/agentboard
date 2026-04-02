@@ -217,6 +217,20 @@
   background-color: var(--bg-hover);
 }
 
+.primaryButton {
+  background: var(--bg-accent, #007aff);
+  color: white;
+  border-color: var(--bg-accent, #007aff);
+}
+
+.actions .primaryButton:hover,
+.headerActions .primaryButton:hover {
+  background: var(--bg-accent, #007aff);
+  border-color: var(--bg-accent, #007aff);
+  color: white;
+  opacity: 0.9;
+}
+
 /* ─── Dashboard ────────────────────────────────────────────────────────────── */
 
 .dashboard {
@@ -265,12 +279,6 @@
 
 .headerActions button:hover {
   background-color: var(--bg-hover);
-}
-
-.headerActions button.primary {
-  background: var(--bg-accent, #007aff);
-  color: white;
-  border-color: var(--bg-accent, #007aff);
 }
 
 /* ─── Recent Runs ──────────────────────────────────────────────────────────── */
@@ -449,10 +457,17 @@
   background-color: var(--bg-hover);
 }
 
-.liveControls button.danger {
+.dangerButton {
   background: var(--status-error, #e53935);
   color: white;
   border-color: var(--status-error, #e53935);
+}
+
+.liveControls .dangerButton:hover {
+  background: var(--status-error, #e53935);
+  border-color: var(--status-error, #e53935);
+  color: white;
+  opacity: 0.9;
 }
 
 /* ─── KPI Cards ────────────────────────────────────────────────────────────── */

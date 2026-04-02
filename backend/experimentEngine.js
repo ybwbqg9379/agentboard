@@ -33,6 +33,8 @@ experimentEvents.setMaxListeners(50);
 
 const MAX_COMMAND_BUFFER = 10 * 1024 * 1024;
 const COMMAND_KILL_GRACE_MS = 500;
+const AUTORESEARCH_GIT_USER_EMAIL = 'autoresearch@agentboard.local';
+const AUTORESEARCH_GIT_USER_NAME = 'AutoResearch';
 
 // Map<runId, { abortController, experimentId }>
 const activeExperiments = new Map();
@@ -165,6 +167,35 @@ async function runCommand(command, cwd, timeoutMs = 300000, signal) {
   });
 }
 
+function ensureWorkspaceGitIdentity(workspaceDir) {
+  execSync(
+    `git config user.email "${AUTORESEARCH_GIT_USER_EMAIL}" && git config user.name "${AUTORESEARCH_GIT_USER_NAME}"`,
+    { cwd: workspaceDir, stdio: 'pipe' },
+  );
+}
+
+function ensureWorkspaceBaselineSnapshot(workspaceDir) {
+  let hasHead = true;
+  try {
+    execSync('git rev-parse --verify HEAD', { cwd: workspaceDir, stdio: 'pipe' });
+  } catch {
+    hasHead = false;
+  }
+
+  const statusOutput = execSync('git status --porcelain', {
+    cwd: workspaceDir,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  }).trim();
+
+  if (!hasHead || statusOutput) {
+    execSync('git add -A && git commit -m "autoresearch: baseline" --allow-empty', {
+      cwd: workspaceDir,
+      stdio: 'pipe',
+    });
+  }
+}
+
 /**
  * Initialize the experiment workspace directory.
  * Copies target files into a session-scoped workspace.
@@ -209,14 +240,10 @@ function prepareWorkspace(plan, workspaceDir, userId) {
 
   // Initialize git in workspace for ratchet operations
   if (!fs.existsSync(resolve(workspaceDir, '.git'))) {
-    execSync(
-      'git init' +
-        ' && git config user.email "autoresearch@agentboard.local"' +
-        ' && git config user.name "AutoResearch"' +
-        ' && git add -A && git commit -m "autoresearch: baseline" --allow-empty',
-      { cwd: workspaceDir, stdio: 'pipe' },
-    );
+    execSync('git init', { cwd: workspaceDir, stdio: 'pipe' });
   }
+  ensureWorkspaceGitIdentity(workspaceDir);
+  ensureWorkspaceBaselineSnapshot(workspaceDir);
 }
 
 /**

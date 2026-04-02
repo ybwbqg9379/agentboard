@@ -13,6 +13,19 @@
 - **指标折线图 (P1 补完)**: `ExperimentView.jsx` Live Dashboard 新增纯 SVG 折线图，实时展示 primary metric 随 trial 序号变化的曲线；Accept 点以主题色圆点标注，Reject 点以红色圆点标注；附带 Y/X 轴刻度与图例，数据不足 2 点时显示占位提示。
 - **ResearchPlan 预置模板 (P2 补完)**: 新建 `backend/templates/` 目录，包含 5 个生产级 JSON 模板（ml-training / performance-optimization / bundle-size / ci-quality / security-fuzz）；后端新增 `GET /api/experiment-templates/:filename` 路由安全提供模板文件（文件名严格正则白名单）；ExperimentView 侧栏新增"Start from template"模板快选区，点击一键填充 JSON 编辑器并跳转到编辑视图。
 
+### 审查后续修复
+
+#### Fixed
+
+- **AR-F1** `experimentEngine.js` -- `source_dir` 复制已有 Git 仓库时，workspace 因继承 `.git` 而跳过 repo-local identity 初始化；现改为无论仓库是否预先存在，都统一写入 `AutoResearch` 本地身份，并在缺少 HEAD 或复制出脏工作区时创建 baseline snapshot，避免后续 trial commit 再次依赖宿主环境配置
+- **AR-F2** `ExperimentView.jsx` -- 快速切换实验时，旧的 `/runs` 请求晚到会覆盖当前实验列表；新增 pending request 取消与 `selectedExperimentIdRef` 守卫，确保只有当前选中实验的响应才能落盘到 UI
+- **AR-F3** `ExperimentView.jsx` + `ExperimentView.module.css` -- `primary` / `danger` 按钮样式通过字面量 className 绑定，无法命中 CSS Modules 生成类名；改为显式 module class，恢复 Save / Run Experiment / Abort 的视觉样式
+
+#### Tests
+
+- `experimentEngine.test.js` 新增“`source_dir` 已含 Git 仓库时仍写入 repo-local identity 并成功完成 trial commit”的回归用例
+- `ExperimentView.test.jsx` 新增实验切换竞态用例与主按钮样式绑定用例
+
 ### CI 修复: 实验引擎 git identity
 
 #### Fixed

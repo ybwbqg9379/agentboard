@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useId } from 'react';
+import { useState, useEffect, useMemo, useId, useRef } from 'react';
 import { withClientAuth } from '../lib/clientAuth.js';
 import styles from './ExperimentView.module.css';
 
@@ -218,6 +218,19 @@ export default function ExperimentView({
   const [templateLoading, setTemplateLoading] = useState(false);
   // Fix #5: surfaces template-load errors to the user
   const [templateError, setTemplateError] = useState(null);
+  const runsRequestControllerRef = useRef(null);
+  const selectedExperimentIdRef = useRef(null);
+
+  const cancelPendingRunsRequest = () => {
+    runsRequestControllerRef.current?.abort();
+    runsRequestControllerRef.current = null;
+  };
+
+  useEffect(() => {
+    return () => {
+      cancelPendingRunsRequest();
+    };
+  }, []);
 
   // Load experiments on mount
   useEffect(() => {
@@ -241,23 +254,39 @@ export default function ExperimentView({
   const handleSelectExperiment = async (exp) => {
     // Fix #7: clear runs immediately so previous experiment's list
     // is never briefly visible while the new fetch is in flight.
+    selectedExperimentIdRef.current = exp.id;
     setRuns([]);
     setSelectedExperiment(exp);
     setIsEditing(false);
+    setTemplateError(null);
     fetchRuns(exp.id);
   };
 
   const fetchRuns = async (expId) => {
+    cancelPendingRunsRequest();
+    const controller = new AbortController();
+    runsRequestControllerRef.current = controller;
+
     // Fix #4: removed console.error — fetch failure leaves runs empty,
     // which the UI already handles gracefully with "No runs yet" copy.
     try {
-      const res = await fetch(`/api/experiments/${expId}/runs`, withClientAuth());
+      const res = await fetch(
+        `/api/experiments/${expId}/runs`,
+        withClientAuth({ signal: controller.signal }),
+      );
       if (res.ok) {
         const data = await res.json();
-        setRuns(data.runs || []);
+        if (!controller.signal.aborted && selectedExperimentIdRef.current === expId) {
+          setRuns(data.runs || []);
+        }
       }
-    } catch {
+    } catch (e) {
+      if (e.name === 'AbortError') return;
       // silent: runs stays []
+    } finally {
+      if (runsRequestControllerRef.current === controller) {
+        runsRequestControllerRef.current = null;
+      }
     }
   };
 
@@ -270,6 +299,9 @@ export default function ExperimentView({
       const res = await fetch(`/api/experiment-templates/${templateFile}`, withClientAuth());
       if (res.ok) {
         const plan = await res.json();
+        cancelPendingRunsRequest();
+        selectedExperimentIdRef.current = null;
+        setRuns([]);
         setEditForm(JSON.stringify(plan, null, 2));
         setSelectedExperiment(null);
         setIsEditing(true);
@@ -285,6 +317,10 @@ export default function ExperimentView({
   };
 
   const handleNewExperiment = () => {
+    cancelPendingRunsRequest();
+    selectedExperimentIdRef.current = null;
+    setRuns([]);
+    setTemplateError(null);
     const template = {
       name: 'New Experiment',
       description: 'Describe your optimization goal here.',
@@ -443,7 +479,7 @@ export default function ExperimentView({
               >
                 Cancel
               </button>
-              <button onClick={handleSave} className="primary">
+              <button onClick={handleSave} className={styles.primaryButton}>
                 Save
               </button>
             </div>
@@ -458,7 +494,10 @@ export default function ExperimentView({
               </p>
               <p>{selectedExperiment.description}</p>
               <div className={styles.headerActions}>
-                <button onClick={() => handleRun(selectedExperiment.id)} className="primary">
+                <button
+                  onClick={() => handleRun(selectedExperiment.id)}
+                  className={styles.primaryButton}
+                >
                   ▶ Run Experiment
                 </button>
                 <button
@@ -521,7 +560,7 @@ export default function ExperimentView({
                   </h3>
                   <div className={styles.liveControls}>
                     {experimentStatus === 'running' && (
-                      <button onClick={handleAbort} className="danger">
+                      <button onClick={handleAbort} className={styles.dangerButton}>
                         ■ Abort
                       </button>
                     )}
