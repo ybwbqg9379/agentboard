@@ -1,5 +1,52 @@
 # Changelog
 
+## [0.15.0] - 2026-04-02
+
+### feat(db): SQLite to Supabase PostgreSQL 全面迁移 (version bump 0.14.0 -> 0.15.0)
+
+#### Breaking Changes
+
+- `better-sqlite3` (原生 N-API) 已完全移除，替换为 `@supabase/supabase-js` (纯 JS)
+- 环境变量新增 `SUPABASE_URL` 和 `SUPABASE_SECRET_KEY`（必填）
+- 移除环境变量 `DB_PATH`（不再需要本地 SQLite 文件）
+- 所有 Store 函数从同步变为异步（返回 Promise）
+
+#### Added
+
+- `backend/supabaseClient.js` -- Supabase 客户端单例，支持 publishable/secret key 两种模式
+- Supabase PostgreSQL schema -- 10 张表 + 8 索引 + FK 级联删除
+- RLS 行级安全策略 -- 11 条基于 JWT claims 的用户隔离策略
+- `.env.example` 更新 -- 新增 Supabase 配置文档
+
+#### Changed
+
+- 5 个 Store 模块完全重写为 async Supabase API（sessionStore、experimentStore、workflowStore、memoryStore、swarmStore）
+- ~104 个调用点从同步改为 `await`（agentManager、server、researchSwarm、workflowEngine、RememberTool）
+- JSON 列升级为 JSONB（stats、pinned_context、plan、definition、context、node_results、all_metrics、parsed_result）
+- Boolean 列从 INTEGER 0/1 升级为原生 BOOLEAN（accepted、is_selected）
+- 时间戳从 `datetime('now')` 迁移为 `TIMESTAMPTZ DEFAULT NOW()`
+
+#### Removed
+
+- `better-sqlite3` 依赖（消除跨平台 N-API 编译问题）
+- `config.dbPath` 配置项
+- `experimentDb` 共享连接模式（改为各 Store 独立引用 Supabase client）
+- 本地 `data/` 目录依赖
+
+#### Migrations
+
+- `backend/migrations/001_create_all_tables.sql` -- 10 张表 + 8 索引（幂等）
+- `backend/migrations/002_enable_rls.sql` -- RLS + 11 条用户隔离策略（幂等）
+
+#### Tests
+
+- 603 tests / 30 files -- 全部通过
+- 8 个测试文件重写为 Supabase client mock
+- 新增 LoopTool.test.js (4 cases)
+- 新增 startAgent 失败时的 listener/timer cleanup 测试覆盖
+
+---
+
 ## [0.14.0] - 2026-04-02
 
 ### P3：多 Agent 研究组织（Research Swarm）

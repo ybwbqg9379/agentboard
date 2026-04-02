@@ -1,10 +1,75 @@
 /**
- * Tests for workflow SQLite persistence layer.
+ * Unit tests for Supabase-based workflow store.
+ *
+ * Mocks the Supabase client to avoid real network calls.
+ * All store functions are async -- every call uses await.
  */
 
 import { randomUUID } from 'node:crypto';
-import { describe, it, expect, afterAll } from 'vitest';
-import {
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+// ---------------------------------------------------------------------------
+// Supabase mock
+// ---------------------------------------------------------------------------
+
+let mockFromHandler;
+
+vi.mock('./supabaseClient.js', () => {
+  const createChainable = (resolvedValue = { data: null, error: null }) => {
+    const target = {};
+
+    const proxy = new Proxy(target, {
+      get(t, prop) {
+        if (prop === 'then') {
+          return (cb) => Promise.resolve(resolvedValue).then(cb);
+        }
+        if (prop === 'single' || prop === 'maybeSingle') {
+          return t[prop] || (() => Promise.resolve(resolvedValue));
+        }
+        if (t[prop]) return t[prop];
+        return () => proxy;
+      },
+      set(t, prop, value) {
+        t[prop] = value;
+        return true;
+      },
+    });
+
+    const methods = [
+      'select',
+      'insert',
+      'update',
+      'delete',
+      'upsert',
+      'eq',
+      'order',
+      'limit',
+      'range',
+    ];
+    for (const m of methods) {
+      target[m] = vi.fn().mockReturnValue(proxy);
+    }
+    target.single = vi.fn().mockResolvedValue(resolvedValue);
+    target.maybeSingle = vi.fn().mockResolvedValue(resolvedValue);
+
+    return proxy;
+  };
+
+  return {
+    default: {
+      from: vi.fn((...args) => {
+        if (mockFromHandler) return mockFromHandler(...args);
+        return createChainable({ data: [], error: null });
+      }),
+      _createChainable: createChainable,
+    },
+  };
+});
+
+const supabase = (await import('./supabaseClient.js')).default;
+const createChainable = supabase._createChainable;
+
+const {
   createWorkflow,
   updateWorkflow,
   getWorkflow,
@@ -17,10 +82,11 @@ import {
   getWorkflowRun,
   listWorkflowRuns,
   closeWorkflowDb,
-} from './workflowStore.js';
+} = await import('./workflowStore.js');
 
-afterAll(() => {
-  closeWorkflowDb();
+beforeEach(() => {
+  vi.clearAllMocks();
+  mockFromHandler = undefined;
 });
 
 // ---------------------------------------------------------------------------
@@ -36,53 +102,110 @@ describe('Workflow CRUD', () => {
     edges: [{ from: 'in', to: 'out' }],
   };
 
-  let wfId;
-
-  it('creates a workflow and returns a UUID', () => {
-    wfId = createWorkflow('test-user', 'Test WF', 'A test workflow', definition);
+  it('creates a workflow and returns a UUID', async () => {
+    mockFromHandler = () => createChainable({ data: null, error: null });
+    const wfId = await createWorkflow('test-user', 'Test WF', 'A test workflow', definition);
     expect(wfId).toBeDefined();
     expect(typeof wfId).toBe('string');
     expect(wfId.length).toBe(36);
   });
 
-  it('retrieves a workflow by ID with parsed definition', () => {
-    const wf = getWorkflow('test-user', wfId);
+  it('inserts with correct fields', async () => {
+    let capturedRow;
+    mockFromHandler = () => {
+      const chain = createChainable({ data: null, error: null });
+      chain.insert = vi.fn((row) => {
+        capturedRow = row;
+        return chain;
+      });
+      return chain;
+    };
+
+    await createWorkflow('test-user', 'Test WF', 'A test workflow', definition);
+    expect(capturedRow.user_id).toBe('test-user');
+    expect(capturedRow.name).toBe('Test WF');
+    expect(capturedRow.description).toBe('A test workflow');
+    // JSONB: definition is stored as native object
+    expect(capturedRow.definition).toEqual(definition);
+  });
+
+  it('retrieves a workflow by ID with native definition (JSONB)', async () => {
+    const fakeWf = {
+      id: 'wf-1',
+      user_id: 'test-user',
+      name: 'Test WF',
+      description: 'A test workflow',
+      definition,
+      created_at: '2025-01-01T00:00:00Z',
+      updated_at: '2025-01-01T00:00:00Z',
+    };
+    mockFromHandler = () => createChainable({ data: fakeWf, error: null });
+
+    const wf = await getWorkflow('test-user', 'wf-1');
     expect(wf).not.toBeNull();
     expect(wf.name).toBe('Test WF');
     expect(wf.description).toBe('A test workflow');
     expect(wf.definition).toEqual(definition);
   });
 
-  it('returns null for non-existent workflow', () => {
-    expect(getWorkflow('test-user', '00000000-0000-0000-0000-000000000000')).toBeNull();
+  it('returns null for non-existent workflow', async () => {
+    mockFromHandler = () => createChainable({ data: null, error: null });
+    const wf = await getWorkflow('test-user', '00000000-0000-0000-0000-000000000000');
+    expect(wf).toBeNull();
   });
 
-  it('lists workflows with pagination', () => {
-    const list = listWorkflows('test-user', 10, 0);
+  it('lists workflows with pagination using .range()', async () => {
+    const fakeList = [
+      { id: 'wf-1', name: 'WF1', definition, updated_at: '2025-01-02' },
+      { id: 'wf-2', name: 'WF2', definition, updated_at: '2025-01-01' },
+    ];
+    let capturedRange;
+    mockFromHandler = () => {
+      const chain = createChainable({ data: fakeList, error: null });
+      chain.range = vi.fn((start, end) => {
+        capturedRange = { start, end };
+        return chain;
+      });
+      return chain;
+    };
+
+    const list = await listWorkflows('test-user', 10, 0);
     expect(Array.isArray(list)).toBe(true);
-    expect(list.length).toBeGreaterThanOrEqual(1);
+    expect(list.length).toBe(2);
     expect(list[0].definition).toBeDefined();
+    expect(capturedRange).toEqual({ start: 0, end: 9 }); // range(0, 0+10-1)
   });
 
-  it('counts workflows', () => {
-    const count = countWorkflows('test-user');
-    expect(count).toBeGreaterThanOrEqual(1);
+  it('counts workflows', async () => {
+    mockFromHandler = () => createChainable({ count: 3, error: null });
+    const count = await countWorkflows('test-user');
+    expect(count).toBe(3);
   });
 
-  it('updates a workflow', () => {
+  it('updates a workflow and returns true when rows matched', async () => {
+    let capturedUpdate;
+    mockFromHandler = () => {
+      const chain = createChainable({ data: [{ id: 'wf-1' }], error: null });
+      chain.update = vi.fn((row) => {
+        capturedUpdate = row;
+        return chain;
+      });
+      return chain;
+    };
+
     const newDef = {
       ...definition,
       nodes: [...definition.nodes, { id: 'mid', type: 'agent', config: { prompt: 'hello' } }],
     };
-    const updated = updateWorkflow('test-user', wfId, 'Updated WF', 'Updated desc', newDef);
+    const updated = await updateWorkflow('test-user', 'wf-1', 'Updated WF', 'Updated desc', newDef);
     expect(updated).toBe(true);
-    const wf = getWorkflow('test-user', wfId);
-    expect(wf.name).toBe('Updated WF');
-    expect(wf.definition.nodes).toHaveLength(3);
+    expect(capturedUpdate.name).toBe('Updated WF');
+    expect(capturedUpdate.definition.nodes).toHaveLength(3);
   });
 
-  it('returns false when updating non-existent workflow', () => {
-    const result = updateWorkflow(
+  it('returns false when updating non-existent workflow', async () => {
+    mockFromHandler = () => createChainable({ data: [], error: null });
+    const result = await updateWorkflow(
       'test-user',
       '00000000-0000-0000-0000-000000000000',
       'x',
@@ -92,14 +215,16 @@ describe('Workflow CRUD', () => {
     expect(result).toBe(false);
   });
 
-  it('deletes a workflow', () => {
-    const id2 = createWorkflow('test-user', 'Delete Me', '', definition);
-    expect(deleteWorkflow('test-user', id2)).toBe(true);
-    expect(getWorkflow('test-user', id2)).toBeNull();
+  it('deletes a workflow and returns true', async () => {
+    mockFromHandler = () => createChainable({ data: [{ id: 'wf-del' }], error: null });
+    const result = await deleteWorkflow('test-user', 'wf-del');
+    expect(result).toBe(true);
   });
 
-  it('returns false when deleting non-existent workflow', () => {
-    expect(deleteWorkflow('test-user', '00000000-0000-0000-0000-000000000000')).toBe(false);
+  it('returns false when deleting non-existent workflow', async () => {
+    mockFromHandler = () => createChainable({ data: [], error: null });
+    const result = await deleteWorkflow('test-user', '00000000-0000-0000-0000-000000000000');
+    expect(result).toBe(false);
   });
 });
 
@@ -108,127 +233,171 @@ describe('Workflow CRUD', () => {
 // ---------------------------------------------------------------------------
 
 describe('Workflow Runs', () => {
-  let wfId;
-  let runId;
-
-  it('creates a run for a workflow', () => {
-    wfId = createWorkflow('test-user', 'Run Test', '', {
-      nodes: [
-        { id: 'in', type: 'input' },
-        { id: 'out', type: 'output' },
-      ],
-      edges: [{ from: 'in', to: 'out' }],
-    });
-    runId = createWorkflowRun('test-user', wfId, { input: 'hello' });
+  it('creates a run and returns an ID', async () => {
+    mockFromHandler = () => createChainable({ data: null, error: null });
+    const runId = await createWorkflowRun('test-user', 'wf-1', { input: 'hello' });
     expect(runId).toBeDefined();
     expect(typeof runId).toBe('string');
+    expect(runId.length).toBe(36);
   });
 
-  it('supports creating a run with a caller-provided runId', () => {
+  it('inserts a run with correct fields', async () => {
+    let capturedRow;
+    mockFromHandler = () => {
+      const chain = createChainable({ data: null, error: null });
+      chain.insert = vi.fn((row) => {
+        capturedRow = row;
+        return chain;
+      });
+      return chain;
+    };
+
+    await createWorkflowRun('test-user', 'wf-1', { input: 'hello' });
+    expect(capturedRow.user_id).toBe('test-user');
+    expect(capturedRow.workflow_id).toBe('wf-1');
+    expect(capturedRow.status).toBe('pending');
+    // JSONB: context is native object
+    expect(capturedRow.context).toEqual({ input: 'hello' });
+  });
+
+  it('supports creating a run with a caller-provided runId', async () => {
     const customRunId = randomUUID();
-    const createdRunId = createWorkflowRun('test-user', wfId, { input: 'custom' }, customRunId);
+    mockFromHandler = () => {
+      const chain = createChainable({ data: null, error: null });
+      chain.insert = vi.fn((row) => {
+        expect(row.id).toBe(customRunId);
+        return chain;
+      });
+      return chain;
+    };
+
+    const createdRunId = await createWorkflowRun(
+      'test-user',
+      'wf-1',
+      { input: 'custom' },
+      customRunId,
+    );
     expect(createdRunId).toBe(customRunId);
-    expect(getWorkflowRun('test-user', customRunId)?.workflow_id).toBe(wfId);
   });
 
-  it('retrieves a run with parsed JSON fields', () => {
-    const run = getWorkflowRun('test-user', runId);
+  it('retrieves a run with JSONB fields as native objects', async () => {
+    const fakeRun = {
+      id: 'run-1',
+      user_id: 'test-user',
+      workflow_id: 'wf-1',
+      status: 'pending',
+      context: { input: 'hello' },
+      node_results: {},
+      created_at: '2025-01-01T00:00:00Z',
+      completed_at: null,
+    };
+    mockFromHandler = () => createChainable({ data: fakeRun, error: null });
+
+    const run = await getWorkflowRun('test-user', 'run-1');
     expect(run).not.toBeNull();
-    expect(run.workflow_id).toBe(wfId);
+    expect(run.workflow_id).toBe('wf-1');
     expect(run.status).toBe('pending');
     expect(run.context).toEqual({ input: 'hello' });
     expect(run.node_results).toEqual({});
   });
 
-  it('updates a run', () => {
-    updateWorkflowRun(runId, {
+  it('updates a run', async () => {
+    let capturedUpdate;
+    mockFromHandler = () => {
+      const chain = createChainable({ data: null, error: null });
+      chain.update = vi.fn((row) => {
+        capturedUpdate = row;
+        return chain;
+      });
+      return chain;
+    };
+
+    await updateWorkflowRun('run-1', {
       status: 'running',
       context: { input: 'hello', step: 1 },
       nodeResults: { in: { done: true } },
     });
-    const run = getWorkflowRun('test-user', runId);
-    expect(run.status).toBe('running');
-    expect(run.context.step).toBe(1);
-    expect(run.node_results.in).toEqual({ done: true });
+    expect(capturedUpdate.status).toBe('running');
+    expect(capturedUpdate.context).toEqual({ input: 'hello', step: 1 });
+    expect(capturedUpdate.node_results).toEqual({ in: { done: true } });
   });
 
-  it('completes a run', () => {
-    completeWorkflowRun(runId, {
+  it('completes a run with completed_at timestamp', async () => {
+    let capturedUpdate;
+    mockFromHandler = () => {
+      const chain = createChainable({ data: null, error: null });
+      chain.update = vi.fn((row) => {
+        capturedUpdate = row;
+        return chain;
+      });
+      return chain;
+    };
+
+    await completeWorkflowRun('run-1', {
       status: 'completed',
       nodeResults: { in: { done: true }, out: { done: true } },
     });
-    const run = getWorkflowRun('test-user', runId);
-    expect(run.status).toBe('completed');
-    expect(run.completed_at).not.toBeNull();
+    expect(capturedUpdate.status).toBe('completed');
+    expect(capturedUpdate.completed_at).toBeDefined();
+    expect(capturedUpdate.node_results).toEqual({ in: { done: true }, out: { done: true } });
   });
 
-  it('lists runs for a workflow', () => {
-    const runs = listWorkflowRuns('test-user', wfId, 10, 0);
+  it('lists runs for a workflow', async () => {
+    const fakeRuns = [
+      { id: 'run-1', workflow_id: 'wf-1', context: { input: 'hello' }, status: 'completed' },
+    ];
+    mockFromHandler = () => createChainable({ data: fakeRuns, error: null });
+
+    const runs = await listWorkflowRuns('test-user', 'wf-1', 10, 0);
     expect(Array.isArray(runs)).toBe(true);
-    expect(runs.length).toBeGreaterThanOrEqual(1);
+    expect(runs.length).toBe(1);
     expect(runs[0].context).toBeDefined();
   });
 
-  it('returns null for non-existent run', () => {
-    expect(getWorkflowRun('test-user', '00000000-0000-0000-0000-000000000000')).toBeNull();
+  it('returns null for non-existent run', async () => {
+    mockFromHandler = () => createChainable({ data: null, error: null });
+    const run = await getWorkflowRun('test-user', '00000000-0000-0000-0000-000000000000');
+    expect(run).toBeNull();
   });
 });
 
 // ---------------------------------------------------------------------------
-// Tenant isolation: deleteWorkflow only deletes owned runs (C2 fix)
+// Tenant isolation: deleteWorkflow only deletes owned resources
 // ---------------------------------------------------------------------------
 
 describe('Tenant isolation on delete', () => {
-  it('deleteWorkflow does not delete runs belonging to other users', () => {
-    const wfIdA = createWorkflow('user-a', 'WF-A', '', {
-      nodes: [
-        { id: 'in', type: 'input' },
-        { id: 'out', type: 'output' },
-      ],
-      edges: [{ from: 'in', to: 'out' }],
-    });
-    const runIdA = createWorkflowRun('user-a', wfIdA, { from: 'a' });
+  it('deleteWorkflow filters by user_id via eq', async () => {
+    let eqCalls = [];
+    mockFromHandler = () => {
+      const chain = createChainable({ data: [{ id: 'wf-a' }], error: null });
+      chain.eq = vi.fn((col, val) => {
+        eqCalls.push({ col, val });
+        return chain;
+      });
+      return chain;
+    };
 
-    // user-b creates a workflow with a run
-    const wfIdB = createWorkflow('user-b', 'WF-B', '', {
-      nodes: [
-        { id: 'in', type: 'input' },
-        { id: 'out', type: 'output' },
-      ],
-      edges: [{ from: 'in', to: 'out' }],
-    });
-    const runIdB = createWorkflowRun('user-b', wfIdB, { from: 'b' });
+    await deleteWorkflow('user-a', 'wf-a');
+    expect(eqCalls).toContainEqual({ col: 'id', val: 'wf-a' });
+    expect(eqCalls).toContainEqual({ col: 'user_id', val: 'user-a' });
+  });
 
-    // user-a deletes their workflow
-    expect(deleteWorkflow('user-a', wfIdA)).toBe(true);
-    expect(getWorkflowRun('user-a', runIdA)).toBeNull();
-
-    // user-b's run must still exist
-    expect(getWorkflowRun('user-b', runIdB)).not.toBeNull();
-
-    // user-a cannot delete user-b's workflow
-    expect(deleteWorkflow('user-a', wfIdB)).toBe(false);
-    expect(getWorkflow('user-b', wfIdB)).not.toBeNull();
+  it('returns false when user does not own workflow', async () => {
+    mockFromHandler = () => createChainable({ data: [], error: null });
+    const result = await deleteWorkflow('user-a', 'wf-owned-by-b');
+    expect(result).toBe(false);
   });
 });
 
 // ---------------------------------------------------------------------------
-// Atomic delete (C1 fix) -- transaction wrapping
+// Atomic delete -- cascade handled by PostgreSQL FK
 // ---------------------------------------------------------------------------
 
 describe('Atomic delete', () => {
-  it('deleteWorkflow is atomic -- both runs and workflow are deleted together', () => {
-    const wfId = createWorkflow('atom-user', 'Atomic WF', '', {
-      nodes: [
-        { id: 'in', type: 'input' },
-        { id: 'out', type: 'output' },
-      ],
-      edges: [{ from: 'in', to: 'out' }],
-    });
-    const runId = createWorkflowRun('atom-user', wfId, {});
-    expect(deleteWorkflow('atom-user', wfId)).toBe(true);
-    expect(getWorkflow('atom-user', wfId)).toBeNull();
-    expect(getWorkflowRun('atom-user', runId)).toBeNull();
+  it('deleteWorkflow returns true when row deleted (runs cascade via FK)', async () => {
+    mockFromHandler = () => createChainable({ data: [{ id: 'wf-atom' }], error: null });
+    const result = await deleteWorkflow('atom-user', 'wf-atom');
+    expect(result).toBe(true);
   });
 });
 
@@ -237,31 +406,27 @@ describe('Atomic delete', () => {
 // ---------------------------------------------------------------------------
 
 describe('Error handling', () => {
-  it('updateWorkflowRun does not throw on valid input', () => {
-    const wfId = createWorkflow('err-user', 'ErrTest', '', {
-      nodes: [
-        { id: 'in', type: 'input' },
-        { id: 'out', type: 'output' },
-      ],
-      edges: [{ from: 'in', to: 'out' }],
-    });
-    const runId = createWorkflowRun('err-user', wfId);
-    expect(() =>
-      updateWorkflowRun(runId, { status: 'running', context: {}, nodeResults: {} }),
-    ).not.toThrow();
+  it('updateWorkflowRun does not throw on valid input', async () => {
+    mockFromHandler = () => createChainable({ data: null, error: null });
+    await expect(
+      updateWorkflowRun('run-1', { status: 'running', context: {}, nodeResults: {} }),
+    ).resolves.not.toThrow();
   });
 
-  it('completeWorkflowRun does not throw on valid input', () => {
-    const wfId = createWorkflow('err-user2', 'ErrTest2', '', {
-      nodes: [
-        { id: 'in', type: 'input' },
-        { id: 'out', type: 'output' },
-      ],
-      edges: [{ from: 'in', to: 'out' }],
-    });
-    const runId = createWorkflowRun('err-user2', wfId);
-    expect(() =>
-      completeWorkflowRun(runId, { status: 'completed', nodeResults: {} }),
-    ).not.toThrow();
+  it('completeWorkflowRun does not throw on valid input', async () => {
+    mockFromHandler = () => createChainable({ data: null, error: null });
+    await expect(
+      completeWorkflowRun('run-1', { status: 'completed', nodeResults: {} }),
+    ).resolves.not.toThrow();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// closeWorkflowDb
+// ---------------------------------------------------------------------------
+
+describe('closeWorkflowDb', () => {
+  it('does not throw (no-op for Supabase)', async () => {
+    await expect(closeWorkflowDb()).resolves.not.toThrow();
   });
 });

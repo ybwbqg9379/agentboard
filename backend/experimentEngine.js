@@ -572,7 +572,7 @@ export async function runExperimentLoop(experimentId, plan, userId, workspaceDir
 
       // 2f. Persist trial result
       const durationMs = Date.now() - trialStart;
-      saveTrial(runId, trialCount, {
+      await saveTrial(runId, trialCount, {
         ...trialResult,
         allMetrics: {
           primary: trialResult.primaryMetric,
@@ -580,7 +580,7 @@ export async function runExperimentLoop(experimentId, plan, userId, workspaceDir
         },
         durationMs,
       });
-      updateRunMetrics(runId, bestMetric, trialCount, acceptedCount);
+      await updateRunMetrics(runId, bestMetric, trialCount, acceptedCount);
 
       previousResults.push({
         number: trialCount,
@@ -601,7 +601,7 @@ export async function runExperimentLoop(experimentId, plan, userId, workspaceDir
 
     // 3. Done
     const status = abortController.signal.aborted ? 'aborted' : 'completed';
-    updateRunStatus(runId, status);
+    await updateRunStatus(runId, status);
     emit('experiment_done', {
       status,
       bestMetric,
@@ -611,8 +611,8 @@ export async function runExperimentLoop(experimentId, plan, userId, workspaceDir
     });
   } catch (err) {
     console.error(`[experimentEngine] Fatal error in run ${runId}: ${err.message}`);
-    updateRunStatus(runId, 'failed');
-    updateRunError(runId, err.message);
+    await updateRunStatus(runId, 'failed');
+    await updateRunError(runId, err.message);
     emit('experiment_error', { error: err.message });
   } finally {
     activeExperiments.delete(runId);
@@ -628,44 +628,52 @@ export async function runExperimentLoop(experimentId, plan, userId, workspaceDir
  * and benchmarks operate on the same directory.
  */
 async function runAgentTrial(prompt, workspaceDir, userId, timeoutMs, runId) {
-  return new Promise((resolvePromise, reject) => {
-    let sessionId;
-    const timeout = setTimeout(() => {
-      if (sessionId) stopAgent(sessionId);
+  let capturedSessionId = null;
+  let pendingTimeout;
+  let pendingHandler;
+
+  // Register listener BEFORE startAgent to prevent missing fast-completing done events
+  const completionPromise = new Promise((resolvePromise, reject) => {
+    pendingTimeout = setTimeout(() => {
+      if (capturedSessionId) stopAgent(capturedSessionId);
+      agentEvents.off('event', pendingHandler);
       reject(new Error('Agent trial timed out'));
     }, timeoutMs);
 
-    try {
-      sessionId = startAgent(prompt, {
-        userId,
-        permissionMode: 'bypassPermissions',
-        maxTurns: 30,
-        cwd: workspaceDir,
-      });
-    } catch (err) {
-      clearTimeout(timeout);
-      reject(err);
-      return;
-    }
-
-    // Track current agent sessionId for abort support
-    const entry = activeExperiments.get(runId);
-    if (entry) {
-      entry.currentAgentSessionId = sessionId;
-    }
-
-    const handler = (event) => {
-      if (event.sessionId === sessionId && event.type === 'done') {
-        clearTimeout(timeout);
-        agentEvents.off('event', handler);
+    pendingHandler = (event) => {
+      if (!capturedSessionId || event.sessionId !== capturedSessionId) return;
+      if (event.type === 'done') {
+        clearTimeout(pendingTimeout);
+        agentEvents.off('event', pendingHandler);
         const e = activeExperiments.get(runId);
         if (e) e.currentAgentSessionId = null;
-        resolvePromise(sessionId);
+        resolvePromise(capturedSessionId);
       }
     };
 
-    agentEvents.on('event', handler);
+    agentEvents.on('event', pendingHandler);
   });
+
+  try {
+    capturedSessionId = await startAgent(prompt, {
+      userId,
+      permissionMode: 'bypassPermissions',
+      maxTurns: 30,
+      cwd: workspaceDir,
+    });
+  } catch (err) {
+    clearTimeout(pendingTimeout);
+    agentEvents.off('event', pendingHandler);
+    throw err;
+  }
+
+  // Track current agent sessionId for abort support
+  const entry = activeExperiments.get(runId);
+  if (entry) {
+    entry.currentAgentSessionId = capturedSessionId;
+  }
+
+  return completionPromise;
 }
 
 /**

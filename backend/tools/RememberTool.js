@@ -53,11 +53,11 @@ export class RememberTool extends Tool {
       }
 
       for (const entity of entities) {
-        saveEntity(userId, entity.name, entity.type, entity.content);
+        await saveEntity(userId, entity.name, entity.type, entity.content);
       }
 
       for (const rel of relations) {
-        saveRelation(userId, rel.source, rel.target, rel.relation);
+        await saveRelation(userId, rel.source, rel.target, rel.relation);
       }
 
       return {
@@ -101,7 +101,7 @@ export class RecallTool extends Tool {
         throw new Error('UserId not available. Cannot fetch isolated tenant memory.');
       }
 
-      const graph = getUserMemoryGraph(userId);
+      const graph = await getUserMemoryGraph(userId);
 
       const formatted = `[Memory Retrieval]\nEntities: ${graph.entities.length}\nRelations: ${graph.relations.length}\n\n${JSON.stringify(graph, null, 2)}`;
 

@@ -15,7 +15,7 @@ vi.mock('./config.js', () => ({
 
 const agentEvents = new EventEmitter();
 const startAgent = vi.fn();
-const stopAgent = vi.fn();
+const stopAgent = vi.fn().mockResolvedValue(true);
 
 vi.mock('./agentManager.js', () => ({
   startAgent,
@@ -23,12 +23,12 @@ vi.mock('./agentManager.js', () => ({
   agentEvents,
 }));
 
-const createRun = vi.fn();
-const updateRunStatus = vi.fn();
-const updateRunMetrics = vi.fn();
-const updateRunBaseline = vi.fn();
-const updateRunError = vi.fn();
-const saveTrial = vi.fn();
+const createRun = vi.fn().mockResolvedValue(undefined);
+const updateRunStatus = vi.fn().mockResolvedValue(undefined);
+const updateRunMetrics = vi.fn().mockResolvedValue(undefined);
+const updateRunBaseline = vi.fn().mockResolvedValue(undefined);
+const updateRunError = vi.fn().mockResolvedValue(undefined);
+const saveTrial = vi.fn().mockResolvedValue(undefined);
 
 vi.mock('./experimentStore.js', () => ({
   createRun,
@@ -214,11 +214,13 @@ describe('experimentEngine', () => {
       },
     );
 
-    startAgent.mockImplementation((_prompt, opts) => {
+    startAgent.mockImplementation(async (_prompt, opts) => {
       fs.writeFileSync(resolve(opts.cwd, 'score.txt'), '2\n');
-      Promise.resolve().then(() => {
+      // Use setTimeout(0) to push to macrotask queue -- ensures the await
+      // assignment of capturedSessionId completes before the event fires
+      setTimeout(() => {
         agentEvents.emit('event', { sessionId, type: 'done' });
-      });
+      }, 0);
       return sessionId;
     });
 

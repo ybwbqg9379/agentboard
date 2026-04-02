@@ -1,16 +1,82 @@
 /**
- * Integration tests for SQLite session store.
+ * Unit tests for Supabase-based session store.
  *
- * Uses in-memory database via mocked config to avoid filesystem side-effects.
- * better-sqlite3 with ':memory:' gives a fresh DB per test module import.
+ * Mocks the Supabase client to avoid real network calls.
+ * All store functions are async -- every call uses await.
  */
 
-import { describe, it, expect } from 'vitest';
-import { vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('./config.js', () => ({
-  default: { dbPath: ':memory:' },
-}));
+// ---------------------------------------------------------------------------
+// Supabase mock
+// ---------------------------------------------------------------------------
+
+let mockFromHandler;
+
+vi.mock('./supabaseClient.js', () => {
+  /**
+   * Build a chainable mock that simulates
+   * supabase.from('table').select().eq().order()...
+   *
+   * When awaited, resolves to `resolvedValue`.
+   * Methods like .select(), .eq(), etc. return the same proxy for chaining.
+   * .single() / .maybeSingle() return a Promise of resolvedValue.
+   */
+  const createChainable = (resolvedValue = { data: null, error: null }) => {
+    const target = {};
+
+    const proxy = new Proxy(target, {
+      get(t, prop) {
+        if (prop === 'then') {
+          return (cb) => Promise.resolve(resolvedValue).then(cb);
+        }
+        if (prop === 'single' || prop === 'maybeSingle') {
+          return t[prop] || (() => Promise.resolve(resolvedValue));
+        }
+        if (t[prop]) return t[prop];
+        // Unknown methods return the proxy for chaining
+        return () => proxy;
+      },
+      set(t, prop, value) {
+        t[prop] = value;
+        return true;
+      },
+    });
+
+    // Seed commonly used methods so they are overridable via target
+    const methods = [
+      'select',
+      'insert',
+      'update',
+      'delete',
+      'upsert',
+      'eq',
+      'order',
+      'limit',
+      'range',
+    ];
+    for (const m of methods) {
+      target[m] = vi.fn().mockReturnValue(proxy);
+    }
+    target.single = vi.fn().mockResolvedValue(resolvedValue);
+    target.maybeSingle = vi.fn().mockResolvedValue(resolvedValue);
+
+    return proxy;
+  };
+
+  return {
+    default: {
+      from: vi.fn((...args) => {
+        if (mockFromHandler) return mockFromHandler(...args);
+        return createChainable({ data: [], error: null });
+      }),
+      _createChainable: createChainable,
+    },
+  };
+});
+
+const supabase = (await import('./supabaseClient.js')).default;
+const createChainable = supabase._createChainable;
 
 const {
   createSession,
@@ -28,34 +94,43 @@ const {
   close,
 } = await import('./sessionStore.js');
 
+beforeEach(() => {
+  vi.clearAllMocks();
+  mockFromHandler = undefined;
+});
+
 // ---------------------------------------------------------------------------
 // createSession
 // ---------------------------------------------------------------------------
 
 describe('createSession', () => {
-  it('returns a UUID string', () => {
-    const id = createSession('test-user', 'test prompt');
+  it('returns a UUID string', async () => {
+    mockFromHandler = () => createChainable({ data: null, error: null });
+    const id = await createSession('test-user', 'test prompt');
     expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
   });
 
-  it('creates session with status "running"', () => {
-    const id = createSession('test-user', 'hello world');
-    const session = getSession('test-user', id);
-    expect(session).not.toBeNull();
-    expect(session.status).toBe('running');
-    expect(session.prompt).toBe('hello world');
+  it('inserts with status "running"', async () => {
+    let capturedRow;
+    mockFromHandler = (table) => {
+      expect(table).toBe('sessions');
+      const chain = createChainable({ data: null, error: null });
+      chain.insert = vi.fn((row) => {
+        capturedRow = row;
+        return chain;
+      });
+      return chain;
+    };
+    await createSession('test-user', 'hello world');
+    expect(capturedRow.status).toBe('running');
+    expect(capturedRow.prompt).toBe('hello world');
+    expect(capturedRow.user_id).toBe('test-user');
   });
 
-  it('is retrievable via getSession', () => {
-    const id = createSession('test-user', 'find me');
-    const session = getSession('test-user', id);
-    expect(session).toBeDefined();
-    expect(session.id).toBe(id);
-  });
-
-  it('assigns unique IDs across multiple calls', () => {
-    const id1 = createSession('test-user', 'a');
-    const id2 = createSession('test-user', 'b');
+  it('assigns unique IDs across multiple calls', async () => {
+    mockFromHandler = () => createChainable({ data: null, error: null });
+    const id1 = await createSession('test-user', 'a');
+    const id2 = await createSession('test-user', 'b');
     expect(id1).not.toBe(id2);
   });
 });
@@ -65,15 +140,26 @@ describe('createSession', () => {
 // ---------------------------------------------------------------------------
 
 describe('getSession', () => {
-  it('returns null for non-existent ID', () => {
-    const result = getSession('test-user', '00000000-0000-0000-0000-000000000000');
-    expect(result).toBeUndefined();
+  it('returns null for non-existent ID', async () => {
+    mockFromHandler = () => createChainable({ data: null, error: null });
+    const result = await getSession('test-user', '00000000-0000-0000-0000-000000000000');
+    expect(result).toBeNull();
   });
 
-  it('returns the full session row', () => {
-    const id = createSession('test-user', 'full row test');
-    const session = getSession('test-user', id);
-    expect(session).toHaveProperty('id', id);
+  it('returns the full session row', async () => {
+    const fakeRow = {
+      id: 'abc-123',
+      user_id: 'test-user',
+      prompt: 'full row test',
+      status: 'running',
+      created_at: '2025-01-01T00:00:00Z',
+      stats: null,
+      pinned_context: null,
+    };
+    mockFromHandler = () => createChainable({ data: fakeRow, error: null });
+
+    const session = await getSession('test-user', 'abc-123');
+    expect(session).toHaveProperty('id', 'abc-123');
     expect(session).toHaveProperty('prompt', 'full row test');
     expect(session).toHaveProperty('status', 'running');
     expect(session).toHaveProperty('created_at');
@@ -85,21 +171,35 @@ describe('getSession', () => {
 // ---------------------------------------------------------------------------
 
 describe('updateSessionStatus', () => {
-  it('changes session status', () => {
-    const id = createSession('test-user', 'status test');
-    expect(getSession('test-user', id).status).toBe('running');
+  it('calls update with the new status', async () => {
+    let capturedUpdate;
+    mockFromHandler = () => {
+      const chain = createChainable({ data: null, error: null });
+      chain.update = vi.fn((row) => {
+        capturedUpdate = row;
+        return chain;
+      });
+      return chain;
+    };
 
-    updateSessionStatus(id, 'completed');
-    expect(getSession('test-user', id).status).toBe('completed');
+    await updateSessionStatus('sess-1', 'completed');
+    expect(capturedUpdate).toEqual({ status: 'completed' });
   });
 
-  it('can transition through multiple statuses', () => {
-    const id = createSession('test-user', 'multi status');
-    updateSessionStatus(id, 'failed');
-    expect(getSession('test-user', id).status).toBe('failed');
+  it('can transition through multiple statuses', async () => {
+    const statuses = [];
+    mockFromHandler = () => {
+      const chain = createChainable({ data: null, error: null });
+      chain.update = vi.fn((row) => {
+        statuses.push(row.status);
+        return chain;
+      });
+      return chain;
+    };
 
-    updateSessionStatus(id, 'interrupted');
-    expect(getSession('test-user', id).status).toBe('interrupted');
+    await updateSessionStatus('sess-1', 'failed');
+    await updateSessionStatus('sess-1', 'interrupted');
+    expect(statuses).toEqual(['failed', 'interrupted']);
   });
 });
 
@@ -108,26 +208,40 @@ describe('updateSessionStatus', () => {
 // ---------------------------------------------------------------------------
 
 describe('updateSessionStats', () => {
-  it('stores JSON stats retrievable from session', () => {
-    const id = createSession('test-user', 'stats test');
-    const stats = { cost_usd: 0.05, input_tokens: 100, output_tokens: 200 };
-    updateSessionStats(id, stats);
+  it('stores stats object (JSONB, no JSON.stringify needed)', async () => {
+    let capturedUpdate;
+    mockFromHandler = () => {
+      const chain = createChainable({ data: null, error: null });
+      chain.update = vi.fn((row) => {
+        capturedUpdate = row;
+        return chain;
+      });
+      return chain;
+    };
 
-    const session = getSession('test-user', id);
-    expect(session.stats).toBeDefined();
-    const parsed = JSON.parse(session.stats);
-    expect(parsed.cost_usd).toBe(0.05);
-    expect(parsed.input_tokens).toBe(100);
-    expect(parsed.output_tokens).toBe(200);
+    const stats = { cost_usd: 0.05, input_tokens: 100, output_tokens: 200 };
+    await updateSessionStats('sess-1', stats);
+    // Supabase JSONB: stored as native object, not stringified
+    expect(capturedUpdate.stats).toEqual(stats);
+    expect(capturedUpdate.stats.cost_usd).toBe(0.05);
+    expect(capturedUpdate.stats.input_tokens).toBe(100);
+    expect(capturedUpdate.stats.output_tokens).toBe(200);
   });
 
-  it('overwrites previous stats', () => {
-    const id = createSession('test-user', 'overwrite stats');
-    updateSessionStats(id, { cost_usd: 0.01 });
-    updateSessionStats(id, { cost_usd: 0.99 });
+  it('overwrites previous stats', async () => {
+    let lastStats;
+    mockFromHandler = () => {
+      const chain = createChainable({ data: null, error: null });
+      chain.update = vi.fn((row) => {
+        lastStats = row.stats;
+        return chain;
+      });
+      return chain;
+    };
 
-    const parsed = JSON.parse(getSession('test-user', id).stats);
-    expect(parsed.cost_usd).toBe(0.99);
+    await updateSessionStats('sess-1', { cost_usd: 0.01 });
+    await updateSessionStats('sess-1', { cost_usd: 0.99 });
+    expect(lastStats.cost_usd).toBe(0.99);
   });
 });
 
@@ -136,58 +250,64 @@ describe('updateSessionStats', () => {
 // ---------------------------------------------------------------------------
 
 describe('insertEvent and getEvents', () => {
-  it('round-trips events with parsed JSON content', () => {
-    const id = createSession('test-user', 'event roundtrip');
-    insertEvent(id, 'assistant', { text: 'hello' });
+  it('inserts an event with correct fields', async () => {
+    let capturedRow;
+    mockFromHandler = () => {
+      const chain = createChainable({ data: null, error: null });
+      chain.insert = vi.fn((row) => {
+        capturedRow = row;
+        return chain;
+      });
+      return chain;
+    };
 
-    const events = getEvents(id);
-    expect(events).toHaveLength(1);
-    expect(events[0].type).toBe('assistant');
-    expect(events[0].content).toEqual({ text: 'hello' });
+    await insertEvent('sess-1', 'assistant', { text: 'hello' });
+    expect(capturedRow.session_id).toBe('sess-1');
+    expect(capturedRow.type).toBe('assistant');
+    expect(capturedRow.content).toEqual({ text: 'hello' });
+    expect(typeof capturedRow.timestamp).toBe('number');
   });
 
-  it('returns events ordered by timestamp ASC', () => {
-    const id = createSession('test-user', 'ordered events');
-    insertEvent(id, 'a', { seq: 1 });
-    insertEvent(id, 'b', { seq: 2 });
-    insertEvent(id, 'c', { seq: 3 });
+  it('getEvents returns events ordered by timestamp ASC', async () => {
+    const fakeEvents = [
+      { id: 'e1', session_id: 's1', type: 'a', content: { seq: 1 }, timestamp: 1000 },
+      { id: 'e2', session_id: 's1', type: 'b', content: { seq: 2 }, timestamp: 2000 },
+      { id: 'e3', session_id: 's1', type: 'c', content: { seq: 3 }, timestamp: 3000 },
+    ];
+    mockFromHandler = () => createChainable({ data: fakeEvents, error: null });
 
-    const events = getEvents(id);
+    const events = await getEvents('s1');
     expect(events).toHaveLength(3);
     expect(events[0].content.seq).toBe(1);
     expect(events[1].content.seq).toBe(2);
     expect(events[2].content.seq).toBe(3);
-
-    // Verify ascending order by timestamp
     for (let i = 1; i < events.length; i++) {
       expect(events[i].timestamp).toBeGreaterThanOrEqual(events[i - 1].timestamp);
     }
   });
 
-  it('handles multiple events per session', () => {
-    const id = createSession('test-user', 'many events');
-    for (let i = 0; i < 10; i++) {
-      insertEvent(id, 'msg', { index: i });
-    }
-    const events = getEvents(id);
-    expect(events).toHaveLength(10);
+  it('returns empty array for session with no events', async () => {
+    mockFromHandler = () => createChainable({ data: [], error: null });
+    const events = await getEvents('no-events');
+    expect(events).toEqual([]);
   });
 
-  it('returns empty array for session with no events', () => {
-    const id = createSession('test-user', 'no events');
-    expect(getEvents(id)).toEqual([]);
-  });
+  it('isolates events between sessions via eq filter', async () => {
+    let lastEq;
+    mockFromHandler = () => {
+      const chain = createChainable({ data: [], error: null });
+      chain.eq = vi.fn((col, val) => {
+        lastEq = { col, val };
+        return chain;
+      });
+      return chain;
+    };
 
-  it('isolates events between sessions', () => {
-    const id1 = createSession('test-user', 'session A');
-    const id2 = createSession('test-user', 'session B');
-    insertEvent(id1, 'a', { from: 'A' });
-    insertEvent(id2, 'b', { from: 'B' });
+    await getEvents('session-A');
+    expect(lastEq).toEqual({ col: 'session_id', val: 'session-A' });
 
-    expect(getEvents(id1)).toHaveLength(1);
-    expect(getEvents(id1)[0].content.from).toBe('A');
-    expect(getEvents(id2)).toHaveLength(1);
-    expect(getEvents(id2)[0].content.from).toBe('B');
+    await getEvents('session-B');
+    expect(lastEq).toEqual({ col: 'session_id', val: 'session-B' });
   });
 });
 
@@ -196,18 +316,25 @@ describe('insertEvent and getEvents', () => {
 // ---------------------------------------------------------------------------
 
 describe('countEvents', () => {
-  it('returns correct count per session', () => {
-    const id = createSession('test-user', 'count events');
-    expect(countEvents(id)).toBe(0);
+  it('returns correct count from Supabase head:true query', async () => {
+    mockFromHandler = () => {
+      const chain = createChainable({ count: 3, error: null });
+      chain.select = vi.fn((sel, opts) => {
+        expect(sel).toBe('*');
+        expect(opts).toEqual({ count: 'exact', head: true });
+        return chain;
+      });
+      return chain;
+    };
 
-    insertEvent(id, 'x', { n: 1 });
-    insertEvent(id, 'x', { n: 2 });
-    insertEvent(id, 'x', { n: 3 });
-    expect(countEvents(id)).toBe(3);
+    const count = await countEvents('sess-1');
+    expect(count).toBe(3);
   });
 
-  it('returns 0 for non-existent session', () => {
-    expect(countEvents('00000000-0000-0000-0000-000000000000')).toBe(0);
+  it('returns 0 for non-existent session', async () => {
+    mockFromHandler = () => createChainable({ count: 0, error: null });
+    const count = await countEvents('00000000-0000-0000-0000-000000000000');
+    expect(count).toBe(0);
   });
 });
 
@@ -216,22 +343,33 @@ describe('countEvents', () => {
 // ---------------------------------------------------------------------------
 
 describe('listSessions', () => {
-  it('returns sessions ordered by created_at DESC', () => {
-    // Create sessions; they all get "now" as created_at but IDs differ
-    const id1 = createSession('test-user', 'list first');
-    const id2 = createSession('test-user', 'list second');
+  it('returns sessions from Supabase', async () => {
+    const fakeSessions = [
+      { id: 's2', prompt: 'second', status: 'running', created_at: '2025-01-02T00:00:00Z' },
+      { id: 's1', prompt: 'first', status: 'completed', created_at: '2025-01-01T00:00:00Z' },
+    ];
+    mockFromHandler = () => createChainable({ data: fakeSessions, error: null });
 
-    const sessions = listSessions('test-user', 100);
-    // At least these two sessions exist (along with ones from other tests)
+    const sessions = await listSessions('test-user', 100);
+    expect(sessions).toHaveLength(2);
     const ids = sessions.map((s) => s.id);
-    expect(ids).toContain(id1);
-    expect(ids).toContain(id2);
+    expect(ids).toContain('s1');
+    expect(ids).toContain('s2');
   });
 
-  it('respects limit parameter', () => {
-    // We have many sessions from prior tests; limit should truncate
-    const sessions = listSessions('test-user', 2);
-    expect(sessions).toHaveLength(2);
+  it('respects limit parameter via Supabase .limit()', async () => {
+    let capturedLimit;
+    mockFromHandler = () => {
+      const chain = createChainable({ data: [{}, {}], error: null });
+      chain.limit = vi.fn((n) => {
+        capturedLimit = n;
+        return chain;
+      });
+      return chain;
+    };
+
+    await listSessions('test-user', 2);
+    expect(capturedLimit).toBe(2);
   });
 });
 
@@ -240,28 +378,25 @@ describe('listSessions', () => {
 // ---------------------------------------------------------------------------
 
 describe('listSessionsPaged', () => {
-  it('pagination with limit and offset works correctly', () => {
-    const allSessions = listSessionsPaged('test-user', 100, 0);
-    const total = allSessions.length;
+  it('pagination with limit and offset uses .range()', async () => {
+    let capturedRange;
+    mockFromHandler = () => {
+      const chain = createChainable({ data: [{ id: 'p1' }, { id: 'p2' }], error: null });
+      chain.range = vi.fn((start, end) => {
+        capturedRange = { start, end };
+        return chain;
+      });
+      return chain;
+    };
 
-    if (total >= 3) {
-      const page1 = listSessionsPaged('test-user', 2, 0);
-      const page2 = listSessionsPaged('test-user', 2, 2);
-
-      expect(page1).toHaveLength(2);
-      // page2 may have fewer if near the end
-      expect(page2.length).toBeGreaterThan(0);
-
-      // Pages should not overlap
-      const page1Ids = new Set(page1.map((s) => s.id));
-      for (const s of page2) {
-        expect(page1Ids.has(s.id)).toBe(false);
-      }
-    }
+    const page = await listSessionsPaged('test-user', 2, 0);
+    expect(capturedRange).toEqual({ start: 0, end: 1 }); // range(0, 0+2-1)
+    expect(page).toHaveLength(2);
   });
 
-  it('returns empty array when offset exceeds total', () => {
-    const sessions = listSessionsPaged('test-user', 10, 999999);
+  it('returns empty array when offset exceeds total', async () => {
+    mockFromHandler = () => createChainable({ data: [], error: null });
+    const sessions = await listSessionsPaged('test-user', 10, 999999);
     expect(sessions).toEqual([]);
   });
 });
@@ -271,11 +406,10 @@ describe('listSessionsPaged', () => {
 // ---------------------------------------------------------------------------
 
 describe('countSessions', () => {
-  it('returns total count', () => {
-    const before = countSessions('test-user');
-    createSession('test-user', 'count me');
-    const after = countSessions('test-user');
-    expect(after).toBe(before + 1);
+  it('returns count from Supabase', async () => {
+    mockFromHandler = () => createChainable({ count: 5, error: null });
+    const count = await countSessions('test-user');
+    expect(count).toBe(5);
   });
 });
 
@@ -284,46 +418,92 @@ describe('countSessions', () => {
 // ---------------------------------------------------------------------------
 
 describe('recoverStaleSessions', () => {
-  it('marks running sessions as interrupted', () => {
-    const id = createSession('test-user', 'stale runner');
-    // createSession sets status to 'running'
-    expect(getSession('test-user', id).status).toBe('running');
+  it('updates running sessions to interrupted and returns count', async () => {
+    let capturedUpdate;
+    let capturedEqArgs;
+    mockFromHandler = () => {
+      const chain = createChainable({ data: [{ id: 's1' }, { id: 's2' }], error: null });
+      chain.update = vi.fn((row) => {
+        capturedUpdate = row;
+        return chain;
+      });
+      chain.eq = vi.fn((col, val) => {
+        capturedEqArgs = { col, val };
+        return chain;
+      });
+      return chain;
+    };
 
-    const changed = recoverStaleSessions();
-    expect(changed).toBeGreaterThanOrEqual(1);
-    expect(getSession('test-user', id).status).toBe('interrupted');
+    const changed = await recoverStaleSessions();
+    expect(capturedUpdate).toEqual({ status: 'interrupted' });
+    expect(capturedEqArgs).toEqual({ col: 'status', val: 'running' });
+    expect(changed).toBe(2);
   });
 
-  it('does not affect completed sessions', () => {
-    const id = createSession('test-user', 'completed one');
-    updateSessionStatus(id, 'completed');
+  it('does not affect completed sessions (filter by status=running)', async () => {
+    let capturedEq;
+    mockFromHandler = () => {
+      const chain = createChainable({ data: [], error: null });
+      chain.eq = vi.fn((col, val) => {
+        capturedEq = { col, val };
+        return chain;
+      });
+      return chain;
+    };
 
-    recoverStaleSessions();
-    expect(getSession('test-user', id).status).toBe('completed');
+    await recoverStaleSessions();
+    expect(capturedEq).toEqual({ col: 'status', val: 'running' });
   });
 
-  it('does not affect failed sessions', () => {
-    const id = createSession('test-user', 'failed one');
-    updateSessionStatus(id, 'failed');
-
-    recoverStaleSessions();
-    expect(getSession('test-user', id).status).toBe('failed');
-  });
-
-  it('returns number of affected sessions', () => {
-    // All currently running sessions were already recovered above.
-    // Create two new running sessions:
-    createSession('test-user', 'recover me 1');
-    createSession('test-user', 'recover me 2');
-
-    const changed = recoverStaleSessions();
-    expect(changed).toBeGreaterThanOrEqual(2);
-  });
-
-  it('returns 0 when no running sessions exist', () => {
-    // After previous recovery, none should be running
-    const changed = recoverStaleSessions();
+  it('returns 0 when no running sessions exist', async () => {
+    mockFromHandler = () => createChainable({ data: [], error: null });
+    const changed = await recoverStaleSessions();
     expect(changed).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// deleteSession
+// ---------------------------------------------------------------------------
+
+describe('deleteSession', () => {
+  it('deletes session and returns true when found', async () => {
+    let eqCalls = [];
+    mockFromHandler = () => {
+      const chain = createChainable({ data: [{ id: 'sid-1' }], error: null });
+      chain.eq = vi.fn((col, val) => {
+        eqCalls.push({ col, val });
+        return chain;
+      });
+      return chain;
+    };
+
+    const result = await deleteSession('del-user', 'sid-1');
+    expect(result).toBe(true);
+    expect(eqCalls).toContainEqual({ col: 'id', val: 'sid-1' });
+    expect(eqCalls).toContainEqual({ col: 'user_id', val: 'del-user' });
+  });
+
+  it('returns false for non-existent session', async () => {
+    mockFromHandler = () => createChainable({ data: [], error: null });
+    const result = await deleteSession('del-user', '00000000-0000-0000-0000-000000000000');
+    expect(result).toBe(false);
+  });
+
+  it('enforces user ownership via user_id eq filter', async () => {
+    let eqCalls = [];
+    mockFromHandler = () => {
+      const chain = createChainable({ data: [], error: null });
+      chain.eq = vi.fn((col, val) => {
+        eqCalls.push({ col, val });
+        return chain;
+      });
+      return chain;
+    };
+
+    const result = await deleteSession('other-user', 'sid-owned-by-someone');
+    expect(result).toBe(false);
+    expect(eqCalls).toContainEqual({ col: 'user_id', val: 'other-user' });
   });
 });
 
@@ -331,37 +511,8 @@ describe('recoverStaleSessions', () => {
 // close
 // ---------------------------------------------------------------------------
 
-// ---------------------------------------------------------------------------
-// Atomic delete (C1 fix)
-// ---------------------------------------------------------------------------
-
-describe('deleteSession', () => {
-  it('atomically deletes session and all its events', () => {
-    const sid = createSession('del-user', 'to be deleted');
-    insertEvent(sid, 'user', { text: 'hello' });
-    insertEvent(sid, 'assistant', { text: 'world' });
-    expect(getEvents(sid)).toHaveLength(2);
-
-    const result = deleteSession('del-user', sid);
-    expect(result).toBe(true);
-    expect(getSession('del-user', sid)).toBeFalsy();
-    expect(getEvents(sid)).toHaveLength(0);
-  });
-
-  it('returns false for non-existent session', () => {
-    expect(deleteSession('del-user', '00000000-0000-0000-0000-000000000000')).toBe(false);
-  });
-
-  it('enforces user ownership', () => {
-    const sid = createSession('owner', 'my session');
-    expect(deleteSession('other-user', sid)).toBe(false);
-    expect(getSession('owner', sid)).not.toBeNull();
-  });
-});
-
 describe('close', () => {
-  it('does not throw', () => {
-    // Run close last since it closes the database
-    expect(() => close()).not.toThrow();
+  it('does not throw (no-op for Supabase)', async () => {
+    await expect(close()).resolves.not.toThrow();
   });
 });

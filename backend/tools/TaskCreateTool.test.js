@@ -1,13 +1,17 @@
-import { describe, it, expect, vi } from 'vitest';
-import { agentEvents } from '../agentManager.js';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { agentEvents, startAgent } from '../agentManager.js';
 import { TaskCreateTool } from './TaskCreateTool.js';
 
 vi.mock('../agentManager.js', async (importOriginal) => {
   const mod = await importOriginal();
   return {
     ...mod,
-    startAgent: vi.fn(() => 'test-session-id'),
+    startAgent: vi.fn(async () => 'test-session-id'),
   };
+});
+
+beforeEach(() => {
+  startAgent.mockImplementation(async () => 'test-session-id');
 });
 
 describe('TaskCreateTool', () => {
@@ -63,5 +67,18 @@ describe('TaskCreateTool', () => {
     expect(result.isError).toBe(false);
     expect(result.content[0].text).toContain('[Sub-Agent Task Completed Successfully]');
     expect(result.content[0].text).toContain('Analysis complete.');
+  });
+
+  it('cleans up listener and timer when startAgent rejects', async () => {
+    const tool = new TaskCreateTool();
+    const listenerCountBefore = agentEvents.listenerCount('event');
+
+    startAgent.mockRejectedValue(new Error('launch failure'));
+
+    const result = await tool.call({ task_description: 'will fail' }, { userId: 'u1' });
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain('launch failure');
+    expect(agentEvents.listenerCount('event')).toBe(listenerCountBefore);
   });
 });

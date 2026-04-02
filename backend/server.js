@@ -108,43 +108,43 @@ app.use(
 app.use(express.json());
 app.use(authMiddleware);
 
-function hasOwnedSession(userId, sessionId) {
-  return Boolean(sessionId && getSession(userId, sessionId));
+async function hasOwnedSession(userId, sessionId) {
+  return Boolean(sessionId && (await getSession(userId, sessionId)));
 }
 
-function hasOwnedWorkflowRun(userId, runId) {
-  return Boolean(runId && getWorkflowRun(userId, runId));
+async function hasOwnedWorkflowRun(userId, runId) {
+  return Boolean(runId && (await getWorkflowRun(userId, runId)));
 }
 
 // --- REST API ---
 
-app.get('/api/sessions', validateQuery(sessionsQuerySchema), (req, res) => {
+app.get('/api/sessions', validateQuery(sessionsQuerySchema), async (req, res) => {
   const { limit, offset } = req.query;
-  const sessions = listSessionsPaged(req.user.id, limit, offset);
-  const total = countSessions(req.user.id);
+  const sessions = await listSessionsPaged(req.user.id, limit, offset);
+  const total = await countSessions(req.user.id);
   res.json({ sessions, total, limit, offset });
 });
 
-app.get('/api/sessions/:id', (req, res) => {
-  const session = getSession(req.user.id, req.params.id);
+app.get('/api/sessions/:id', async (req, res) => {
+  const session = await getSession(req.user.id, req.params.id);
   if (!session) return res.status(404).json({ error: 'session not found' });
-  const events = getEvents(req.params.id); // Events don't need user_id strictly if session checked
-  const eventCount = countEvents(req.params.id);
+  const events = await getEvents(req.params.id); // Events don't need user_id strictly if session checked
+  const eventCount = await countEvents(req.params.id);
   res.json({ ...session, events, eventCount });
 });
 
 // Delete a session and its events (stops running agent first)
-app.delete('/api/sessions/:id', (req, res) => {
-  if (!hasOwnedSession(req.user.id, req.params.id)) {
+app.delete('/api/sessions/:id', async (req, res) => {
+  if (!(await hasOwnedSession(req.user.id, req.params.id))) {
     return res.status(404).json({ error: 'session not found' });
   }
   stopAgent(req.params.id);
-  const deleted = deleteSession(req.user.id, req.params.id);
+  const deleted = await deleteSession(req.user.id, req.params.id);
   res.json({ deleted });
 });
 
 // Batch delete sessions
-app.post('/api/sessions/batch-delete', (req, res) => {
+app.post('/api/sessions/batch-delete', async (req, res) => {
   const { ids } = req.body;
   if (!Array.isArray(ids) || ids.length === 0) {
     return res.status(400).json({ error: 'ids array required' });
@@ -154,16 +154,16 @@ app.post('/api/sessions/batch-delete', (req, res) => {
   }
   let count = 0;
   for (const id of ids) {
-    if (hasOwnedSession(req.user.id, id)) {
+    if (await hasOwnedSession(req.user.id, id)) {
       stopAgent(id);
-      if (deleteSession(req.user.id, id)) count++;
+      if (await deleteSession(req.user.id, id)) count++;
     }
   }
   res.json({ deleted: count });
 });
 
-app.post('/api/sessions/:id/stop', (req, res) => {
-  if (!hasOwnedSession(req.user.id, req.params.id)) {
+app.post('/api/sessions/:id/stop', async (req, res) => {
+  if (!(await hasOwnedSession(req.user.id, req.params.id))) {
     return res.status(404).json({ error: 'session not found' });
   }
   const stopped = stopAgent(req.params.id);
@@ -192,7 +192,7 @@ app.get('/api/config/permissions', (_req, res) => {
 // Stream control -- dispatch actions to a running agent's stream
 app.post('/api/sessions/:id/control', validate(controlActionSchema), async (req, res) => {
   const { action } = req.body;
-  if (!hasOwnedSession(req.user.id, req.params.id)) {
+  if (!(await hasOwnedSession(req.user.id, req.params.id))) {
     return res.status(404).json({ error: 'session not found' });
   }
   const stream = getAgentStream(req.params.id);
@@ -238,57 +238,57 @@ app.post('/api/sessions/:id/control', validate(controlActionSchema), async (req,
 
 // --- Workflow API ---
 
-app.get('/api/workflows', (req, res) => {
+app.get('/api/workflows', async (req, res) => {
   const limit = Math.min(Math.max(parseInt(req.query.limit) || 20, 1), 100);
   const offset = Math.max(parseInt(req.query.offset) || 0, 0);
-  const workflows = listWorkflows(req.user.id, limit, offset);
-  const total = countWorkflows(req.user.id);
+  const workflows = await listWorkflows(req.user.id, limit, offset);
+  const total = await countWorkflows(req.user.id);
   res.json({ workflows, total, limit, offset });
 });
 
-app.get('/api/workflows/:id', (req, res) => {
-  const workflow = getWorkflow(req.user.id, req.params.id);
+app.get('/api/workflows/:id', async (req, res) => {
+  const workflow = await getWorkflow(req.user.id, req.params.id);
   if (!workflow) return res.status(404).json({ error: 'workflow not found' });
   res.json(workflow);
 });
 
-app.post('/api/workflows', validate(workflowSchema), (req, res) => {
+app.post('/api/workflows', validate(workflowSchema), async (req, res) => {
   const { name, description, definition } = req.body;
   const validation = validateWorkflow(definition);
   if (!validation.valid) {
     return res.status(400).json({ error: 'invalid workflow', details: validation.errors });
   }
-  const id = createWorkflow(req.user.id, name, description, definition);
+  const id = await createWorkflow(req.user.id, name, description, definition);
   res.status(201).json({ id });
 });
 
-app.put('/api/workflows/:id', validate(workflowSchema), (req, res) => {
+app.put('/api/workflows/:id', validate(workflowSchema), async (req, res) => {
   const { name, description, definition } = req.body;
   const validation = validateWorkflow(definition);
   if (!validation.valid) {
     return res.status(400).json({ error: 'invalid workflow', details: validation.errors });
   }
-  const updated = updateWorkflow(req.user.id, req.params.id, name, description, definition);
+  const updated = await updateWorkflow(req.user.id, req.params.id, name, description, definition);
   if (!updated) return res.status(404).json({ error: 'workflow not found' });
   res.json({ updated: true });
 });
 
-app.delete('/api/workflows/:id', (req, res) => {
+app.delete('/api/workflows/:id', async (req, res) => {
   // Abort any active runs for this workflow before deleting
   const activeRuns = getActiveWorkflowRuns(req.user.id);
-  const runs = listWorkflowRuns(req.user.id, req.params.id, 100, 0);
+  const runs = await listWorkflowRuns(req.user.id, req.params.id, 100, 0);
   for (const run of runs) {
     if (activeRuns.includes(run.id)) {
       abortWorkflow(run.id);
     }
   }
-  const deleted = deleteWorkflow(req.user.id, req.params.id);
+  const deleted = await deleteWorkflow(req.user.id, req.params.id);
   if (!deleted) return res.status(404).json({ error: 'workflow not found' });
   res.json({ deleted: true });
 });
 
 // Batch delete workflows
-app.post('/api/workflows/batch-delete', (req, res) => {
+app.post('/api/workflows/batch-delete', async (req, res) => {
   const { ids } = req.body;
   if (!Array.isArray(ids) || ids.length === 0) {
     return res.status(400).json({ error: 'ids array required' });
@@ -300,11 +300,11 @@ app.post('/api/workflows/batch-delete', (req, res) => {
   let count = 0;
   for (const id of ids) {
     try {
-      const runs = listWorkflowRuns(req.user.id, id, 100, 0);
+      const runs = await listWorkflowRuns(req.user.id, id, 100, 0);
       for (const run of runs) {
         if (activeRuns.includes(run.id)) abortWorkflow(run.id);
       }
-      if (deleteWorkflow(req.user.id, id)) count++;
+      if (await deleteWorkflow(req.user.id, id)) count++;
     } catch {
       /* ignore individual failures */
     }
@@ -313,11 +313,11 @@ app.post('/api/workflows/batch-delete', (req, res) => {
 });
 
 app.post('/api/workflows/:id/run', validate(workflowRunRequestSchema), async (req, res) => {
-  const workflow = getWorkflow(req.user.id, req.params.id);
+  const workflow = await getWorkflow(req.user.id, req.params.id);
   if (!workflow) return res.status(404).json({ error: 'workflow not found' });
   const inputContext = req.body.context || {};
   const requestedRunId = req.body.runId;
-  const runId = createWorkflowRun(req.user.id, req.params.id, inputContext, requestedRunId);
+  const runId = await createWorkflowRun(req.user.id, req.params.id, inputContext, requestedRunId);
   res.status(202).json({ message: 'workflow started', workflowId: req.params.id, runId });
   executeWorkflow(req.params.id, workflow.definition, inputContext, runId, req.user.id).catch(
     (err) => {
@@ -326,8 +326,8 @@ app.post('/api/workflows/:id/run', validate(workflowRunRequestSchema), async (re
   );
 });
 
-app.post('/api/workflow-runs/:id/abort', (req, res) => {
-  if (!hasOwnedWorkflowRun(req.user.id, req.params.id)) {
+app.post('/api/workflow-runs/:id/abort', async (req, res) => {
+  if (!(await hasOwnedWorkflowRun(req.user.id, req.params.id))) {
     return res.status(404).json({ error: 'run not found' });
   }
   const aborted = abortWorkflow(req.params.id);
@@ -335,15 +335,15 @@ app.post('/api/workflow-runs/:id/abort', (req, res) => {
   res.json({ aborted: true });
 });
 
-app.get('/api/workflows/:id/runs', (req, res) => {
+app.get('/api/workflows/:id/runs', async (req, res) => {
   const limit = Math.min(Math.max(parseInt(req.query.limit) || 20, 1), 100);
   const offset = Math.max(parseInt(req.query.offset) || 0, 0);
-  const runs = listWorkflowRuns(req.user.id, req.params.id, limit, offset);
+  const runs = await listWorkflowRuns(req.user.id, req.params.id, limit, offset);
   res.json({ runs });
 });
 
-app.get('/api/workflow-runs/:id', (req, res) => {
-  const run = getWorkflowRun(req.user.id, req.params.id);
+app.get('/api/workflow-runs/:id', async (req, res) => {
+  const run = await getWorkflowRun(req.user.id, req.params.id);
   if (!run) return res.status(404).json({ error: 'run not found' });
   res.json(run);
 });
@@ -391,49 +391,49 @@ app.get('/api/experiment-templates', (_req, res) => {
   res.json({ templates });
 });
 
-app.get('/api/experiments', (req, res) => {
+app.get('/api/experiments', async (req, res) => {
   const limit = Math.min(Math.max(parseInt(req.query.limit) || 20, 1), 100);
   const offset = Math.max(parseInt(req.query.offset) || 0, 0);
-  const experiments = listExperiments(req.user.id, limit, offset);
-  const total = countExperiments(req.user.id);
+  const experiments = await listExperiments(req.user.id, limit, offset);
+  const total = await countExperiments(req.user.id);
   res.json({ experiments, total, limit, offset });
 });
 
-app.get('/api/experiments/:id', (req, res) => {
-  const experiment = getExperiment(req.user.id, req.params.id);
+app.get('/api/experiments/:id', async (req, res) => {
+  const experiment = await getExperiment(req.user.id, req.params.id);
   if (!experiment) return res.status(404).json({ error: 'experiment not found' });
   res.json(experiment);
 });
 
-app.post('/api/experiments', validate(experimentSchema), (req, res) => {
+app.post('/api/experiments', validate(experimentSchema), async (req, res) => {
   const { name, description, plan } = req.body;
   const validation = validatePlan(plan);
   if (!validation.valid) {
     return res.status(400).json({ error: 'invalid experiment plan', details: validation.errors });
   }
-  const id = createExperiment(req.user.id, name, description, plan);
+  const id = await createExperiment(req.user.id, name, description, plan);
   res.status(201).json({ id });
 });
 
-app.put('/api/experiments/:id', validate(experimentSchema), (req, res) => {
+app.put('/api/experiments/:id', validate(experimentSchema), async (req, res) => {
   const { name, description, plan } = req.body;
   const validation = validatePlan(plan);
   if (!validation.valid) {
     return res.status(400).json({ error: 'invalid experiment plan', details: validation.errors });
   }
-  const updated = updateExperiment(req.user.id, req.params.id, name, description, plan);
+  const updated = await updateExperiment(req.user.id, req.params.id, name, description, plan);
   if (!updated) return res.status(404).json({ error: 'experiment not found' });
   res.json({ updated: true });
 });
 
-app.delete('/api/experiments/:id', (req, res) => {
-  const deleted = deleteExperiment(req.user.id, req.params.id);
+app.delete('/api/experiments/:id', async (req, res) => {
+  const deleted = await deleteExperiment(req.user.id, req.params.id);
   if (!deleted) return res.status(404).json({ error: 'experiment not found' });
   res.json({ deleted: true });
 });
 
 app.post('/api/experiments/:id/run', validate(experimentRunSchema), async (req, res) => {
-  const experiment = getExperiment(req.user.id, req.params.id);
+  const experiment = await getExperiment(req.user.id, req.params.id);
   if (!experiment) return res.status(404).json({ error: 'experiment not found' });
 
   // Use workspace/sessions/ for experiment isolation (Q2 decision)
@@ -444,7 +444,7 @@ app.post('/api/experiments/:id/run', validate(experimentRunSchema), async (req, 
     `experiment-${req.params.id}-${Date.now()}`,
   );
 
-  const runId = createExperimentRun(req.user.id, req.params.id);
+  const runId = await createExperimentRun(req.user.id, req.params.id);
 
   res.status(202).json({ message: 'experiment started', experimentId: req.params.id, runId });
 
@@ -455,14 +455,14 @@ app.post('/api/experiments/:id/run', validate(experimentRunSchema), async (req, 
   );
 });
 
-app.get('/api/experiment-runs/:id', (req, res) => {
-  const run = getExperimentRunOwned(req.user.id, req.params.id);
+app.get('/api/experiment-runs/:id', async (req, res) => {
+  const run = await getExperimentRunOwned(req.user.id, req.params.id);
   if (!run) return res.status(404).json({ error: 'run not found' });
   res.json(run);
 });
 
-app.post('/api/experiment-runs/:id/abort', (req, res) => {
-  if (!getExperimentRunOwned(req.user.id, req.params.id)) {
+app.post('/api/experiment-runs/:id/abort', async (req, res) => {
+  if (!(await getExperimentRunOwned(req.user.id, req.params.id))) {
     return res.status(404).json({ error: 'run not found' });
   }
   const aborted = abortExperiment(req.params.id);
@@ -470,20 +470,20 @@ app.post('/api/experiment-runs/:id/abort', (req, res) => {
   res.json({ aborted: true });
 });
 
-app.get('/api/experiments/:id/runs', (req, res) => {
+app.get('/api/experiments/:id/runs', async (req, res) => {
   const limit = Math.min(Math.max(parseInt(req.query.limit) || 20, 1), 100);
   const offset = Math.max(parseInt(req.query.offset) || 0, 0);
-  const runs = listExperimentRuns(req.user.id, req.params.id, limit, offset);
+  const runs = await listExperimentRuns(req.user.id, req.params.id, limit, offset);
   res.json({ runs });
 });
 
-app.get('/api/experiment-runs/:id/trials', (req, res) => {
-  if (!getExperimentRunOwned(req.user.id, req.params.id)) {
+app.get('/api/experiment-runs/:id/trials', async (req, res) => {
+  if (!(await getExperimentRunOwned(req.user.id, req.params.id))) {
     return res.status(404).json({ error: 'run not found' });
   }
   const limit = Math.min(Math.max(parseInt(req.query.limit) || 200, 1), 1000);
   const offset = Math.max(parseInt(req.query.offset) || 0, 0);
-  const trials = listTrials(req.params.id, limit, offset);
+  const trials = await listTrials(req.params.id, limit, offset);
   res.json({ trials });
 });
 
@@ -499,8 +499,8 @@ app.get('/api/experiment-status', (_req, res) => {
  * Request body may override swarm-level settings:
  *   { branches?: number, branch_budget?: { max_experiments, time_per_branch }, top_k?: number }
  */
-app.post('/api/experiments/:id/swarm', (req, res) => {
-  const experiment = getExperiment(req.user.id, req.params.id);
+app.post('/api/experiments/:id/swarm', async (req, res) => {
+  const experiment = await getExperiment(req.user.id, req.params.id);
   if (!experiment) return res.status(404).json({ error: 'experiment not found' });
 
   // Merge request-body swarm overrides into plan
@@ -534,7 +534,7 @@ app.post('/api/experiments/:id/swarm', (req, res) => {
     return res.status(500).json({ error: `workspace setup failed: ${err.message}` });
   }
 
-  const runId = createExperimentRun(req.user.id, req.params.id);
+  const runId = await createExperimentRun(req.user.id, req.params.id);
 
   res.status(202).json({
     message: 'swarm started',
@@ -552,11 +552,11 @@ app.post('/api/experiments/:id/swarm', (req, res) => {
  * GET /api/experiment-runs/:id/branches
  * List all research branches for a swarm run.
  */
-app.get('/api/experiment-runs/:id/branches', (req, res) => {
-  if (!getExperimentRunOwned(req.user.id, req.params.id)) {
+app.get('/api/experiment-runs/:id/branches', async (req, res) => {
+  if (!(await getExperimentRunOwned(req.user.id, req.params.id))) {
     return res.status(404).json({ error: 'run not found' });
   }
-  const branches = listSwarmBranches(req.params.id);
+  const branches = await listSwarmBranches(req.params.id);
   res.json({ branches });
 });
 
@@ -564,11 +564,11 @@ app.get('/api/experiment-runs/:id/branches', (req, res) => {
  * GET /api/experiment-runs/:id/coordinator-decisions
  * Return full Coordinator audit trail for a swarm run.
  */
-app.get('/api/experiment-runs/:id/coordinator-decisions', (req, res) => {
-  if (!getExperimentRunOwned(req.user.id, req.params.id)) {
+app.get('/api/experiment-runs/:id/coordinator-decisions', async (req, res) => {
+  if (!(await getExperimentRunOwned(req.user.id, req.params.id))) {
     return res.status(404).json({ error: 'run not found' });
   }
-  const decisions = listCoordinatorDecisions(req.params.id);
+  const decisions = await listCoordinatorDecisions(req.params.id);
   res.json({ decisions });
 });
 
@@ -576,8 +576,8 @@ app.get('/api/experiment-runs/:id/coordinator-decisions', (req, res) => {
  * POST /api/experiment-runs/:id/abort-swarm
  * Abort a running swarm (will abort all active branches).
  */
-app.post('/api/experiment-runs/:id/abort-swarm', (req, res) => {
-  if (!getExperimentRunOwned(req.user.id, req.params.id)) {
+app.post('/api/experiment-runs/:id/abort-swarm', async (req, res) => {
+  if (!(await getExperimentRunOwned(req.user.id, req.params.id))) {
     return res.status(404).json({ error: 'run not found' });
   }
   const aborted = abortSwarm(req.params.id);
@@ -589,8 +589,8 @@ app.post('/api/experiment-runs/:id/abort-swarm', (req, res) => {
  * GET /api/experiment-runs/:id/swarm-status
  * Check whether a swarm run is currently active.
  */
-app.get('/api/experiment-runs/:id/swarm-status', (req, res) => {
-  if (!getExperimentRunOwned(req.user.id, req.params.id)) {
+app.get('/api/experiment-runs/:id/swarm-status', async (req, res) => {
+  if (!(await getExperimentRunOwned(req.user.id, req.params.id))) {
     return res.status(404).json({ error: 'run not found' });
   }
   res.json({ active: isSwarmActive(req.params.id) });
@@ -621,7 +621,7 @@ wss.on('connection', (ws, req) => {
 
   ws.userId = req.userId;
 
-  ws.on('message', (raw) => {
+  ws.on('message', async (raw) => {
     if (raw.toString() === 'ping') {
       ws.send(JSON.stringify({ type: 'pong' }));
       return;
@@ -649,7 +649,7 @@ wss.on('connection', (ws, req) => {
           return;
         }
         try {
-          const sessionId = startAgent(msg.prompt, {
+          const sessionId = await startAgent(msg.prompt, {
             userId: ws.userId,
             permissionMode: msg.permissionMode,
             maxTurns: msg.maxTurns,
@@ -667,7 +667,7 @@ wss.on('connection', (ws, req) => {
           ws.send(JSON.stringify({ error: 'sessionId is required' }));
           return;
         }
-        if (!hasOwnedSession(ws.userId, msg.sessionId)) {
+        if (!(await hasOwnedSession(ws.userId, msg.sessionId))) {
           ws.send(JSON.stringify({ error: 'session not found' }));
           return;
         }
@@ -686,11 +686,11 @@ wss.on('connection', (ws, req) => {
           ws.send(JSON.stringify({ error: 'no active session to continue' }));
           return;
         }
-        if (!hasOwnedSession(ws.userId, targetSid)) {
+        if (!(await hasOwnedSession(ws.userId, targetSid))) {
           ws.send(JSON.stringify({ error: 'session not found' }));
           return;
         }
-        const resumed = continueAgent(targetSid, msg.prompt, {
+        const resumed = await continueAgent(targetSid, msg.prompt, {
           userId: ws.userId,
           permissionMode: msg.permissionMode,
           maxTurns: msg.maxTurns,
@@ -707,7 +707,7 @@ wss.on('connection', (ws, req) => {
       case 'stop': {
         const sid = msg.sessionId || subscriptions.get(ws);
         if (sid) {
-          if (!hasOwnedSession(ws.userId, sid)) {
+          if (!(await hasOwnedSession(ws.userId, sid))) {
             ws.send(JSON.stringify({ error: 'session not found' }));
             return;
           }
@@ -729,9 +729,9 @@ wss.on('connection', (ws, req) => {
       }
 
       case 'subscribe_workflow': {
-        const hasExistingRun = hasOwnedWorkflowRun(ws.userId, msg.runId);
+        const hasExistingRun = await hasOwnedWorkflowRun(ws.userId, msg.runId);
         const hasOwnedWorkflow = msg.workflowId
-          ? Boolean(getWorkflow(ws.userId, msg.workflowId))
+          ? Boolean(await getWorkflow(ws.userId, msg.workflowId))
           : false;
         if (!hasExistingRun && !hasOwnedWorkflow) {
           ws.send(JSON.stringify({ error: 'run not found' }));
@@ -755,7 +755,7 @@ wss.on('connection', (ws, req) => {
 
       case 'subscribe_experiment': {
         // Validate runId ownership -- runId is the authoritative boundary
-        if (!msg.runId || !getExperimentRunOwned(ws.userId, msg.runId)) {
+        if (!msg.runId || !(await getExperimentRunOwned(ws.userId, msg.runId))) {
           ws.send(JSON.stringify({ error: 'experiment run not found' }));
           return;
         }
@@ -887,8 +887,8 @@ initSwarmBus(agentEvents);
 // --- Start ---
 
 // Recover stale sessions/runs from previous crashes
-recoverStaleSessions();
-recoverStaleRuns();
+await recoverStaleSessions();
+await recoverStaleRuns();
 
 server.listen(config.port, () => {
   console.log(`AgentBoard backend listening on http://localhost:${config.port}`);
@@ -903,7 +903,7 @@ server.listen(config.port, () => {
 
 // --- Graceful Shutdown ---
 
-function shutdown(signal) {
+async function shutdown(signal) {
   console.log(`\n[${signal}] Shutting down...`);
 
   // Stop all active agents
@@ -917,11 +917,11 @@ function shutdown(signal) {
   }
 
   // Close HTTP server, then databases
-  server.close(() => {
-    closeDb();
-    closeWorkflowDb();
-    closeMemoryDb();
-    closeExperimentDb();
+  server.close(async () => {
+    await closeDb();
+    await closeWorkflowDb();
+    await closeMemoryDb();
+    await closeExperimentDb();
     console.log('Shutdown complete.');
     process.exit(0);
   });

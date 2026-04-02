@@ -193,7 +193,7 @@ function runCoordinatorAgent(prompt, workspaceDir, userId, signal) {
 
     // Listen directly on agentEvents bus (no re-emit layer needed)
     const onAgentEvent = (evt) => {
-      if (evt.sessionId !== sessionId) return;
+      if (!sessionId || evt.sessionId !== sessionId) return;
 
       // Capture the last assistant text — this is the Coordinator's structured output
       if (evt.type === 'message' && evt.content?.role === 'assistant') {
@@ -227,20 +227,20 @@ function runCoordinatorAgent(prompt, workspaceDir, userId, signal) {
     _agentEventsBus.on('event', onAgentEvent);
     signal?.addEventListener('abort', onAbort);
 
-    try {
-      sessionId = startAgent(prompt, {
-        userId,
-        cwd: workspaceDir,
-        maxTurns: 10,
-        permissionMode: 'bypassPermissions',
-        // Coordinator only needs Read access + shell inspection; no Write/Edit.
-        // COORDINATOR_SYSTEM_PROMPT is appended via the systemPrompt.append field.
-        systemPromptExtra: COORDINATOR_SYSTEM_PROMPT,
-        _toolOverride: ['Read', 'Bash', 'Glob', 'Grep'],
+    startAgent(prompt, {
+      userId,
+      cwd: workspaceDir,
+      maxTurns: 10,
+      permissionMode: 'bypassPermissions',
+      systemPromptExtra: COORDINATOR_SYSTEM_PROMPT,
+      _toolOverride: ['Read', 'Bash', 'Glob', 'Grep'],
+    })
+      .then((sid) => {
+        sessionId = sid;
+      })
+      .catch((err) => {
+        finish(err);
       });
-    } catch (err) {
-      finish(err);
-    }
   });
 }
 
@@ -341,7 +341,7 @@ async function runBranch(
   try {
     // 1. Clone base workspace into isolated branch directory
     cloneBranchWorkspace(baseWorkspaceDir, branchDir);
-    updateSwarmBranchStatus(branchId, 'running');
+    await updateSwarmBranchStatus(branchId, 'running');
 
     // 2. Inject hypothesis into the plan's agent instructions
     const branchBudget = plan.swarm?.branch_budget || {};
@@ -387,7 +387,7 @@ async function runBranch(
     //    and getRun() can read back metrics after the loop finishes.
     //    runExperimentLoop creates its own internal abortController, so we bridge
     //    the swarm-level signal to it via abortExperiment().
-    const branchRunId = createRun(userId, experimentId);
+    const branchRunId = await createRun(userId, experimentId);
     const onSwarmAbort = () => abortExperiment(branchRunId);
     signal?.addEventListener('abort', onSwarmAbort);
     try {
@@ -397,7 +397,7 @@ async function runBranch(
     }
 
     if (signal?.aborted) {
-      updateSwarmBranchStatus(branchId, 'failed');
+      await updateSwarmBranchStatus(branchId, 'failed');
       return {
         branchIndex,
         branchId,
@@ -411,13 +411,13 @@ async function runBranch(
     }
 
     // 5. Read final metrics from the branch run
-    const run = getRun(branchRunId);
-    const bestMetric = run?.best_metric ?? null;
-    const totalTrials = run?.total_trials ?? 0;
-    const acceptedTrials = run?.accepted_trials ?? 0;
+    const runData = await getRun(branchRunId);
+    const bestMetric = runData?.best_metric ?? null;
+    const totalTrials = runData?.total_trials ?? 0;
+    const acceptedTrials = runData?.accepted_trials ?? 0;
 
-    updateSwarmBranchStatus(branchId, 'completed');
-    updateSwarmBranchMetrics(branchId, bestMetric, totalTrials, acceptedTrials);
+    await updateSwarmBranchStatus(branchId, 'completed');
+    await updateSwarmBranchMetrics(branchId, bestMetric, totalTrials, acceptedTrials);
 
     swarmEvents.emit('swarm_branch_complete', {
       runId: swarmRunId,
@@ -440,7 +440,7 @@ async function runBranch(
       status: 'completed',
     };
   } catch (err) {
-    updateSwarmBranchStatus(branchId, 'failed');
+    await updateSwarmBranchStatus(branchId, 'failed');
 
     swarmEvents.emit('swarm_branch_complete', {
       runId: swarmRunId,
@@ -518,7 +518,7 @@ async function coordinatorDecompose(plan, workspaceDir, userId, runId, signal) {
   }
 
   // Persist decision
-  saveCoordinatorDecision(runId, 'decompose', {
+  await saveCoordinatorDecision(runId, 'decompose', {
     inputSummary: `branches=${branchCount}, plan="${plan.name}"`,
     outputRaw: output,
     parsedResult: hypotheses,
@@ -585,7 +585,7 @@ async function coordinatorSynthesize(plan, branchResults, userId, runId, signal)
   }
 
   // Persist decision
-  saveCoordinatorDecision(runId, 'synthesize', {
+  await saveCoordinatorDecision(runId, 'synthesize', {
     inputSummary: branchSummaries
       .map((b) => `Branch ${b.branchIndex}: ${b.bestMetric ?? 'failed'}`)
       .join(', '),
@@ -633,8 +633,10 @@ export async function runResearchSwarm(experimentId, plan, userId, workspaceDir,
     if (signal.aborted) return;
 
     // ── Phase 2: Register branches in DB and run in parallel ────────────────
-    const branchIds = hypotheses.map((hyp, i) =>
-      createSwarmBranch(runId, i, hyp.text, `${workspaceDir}-branch-${i}`),
+    const branchIds = await Promise.all(
+      hypotheses.map((hyp, i) =>
+        createSwarmBranch(runId, i, hyp.text, `${workspaceDir}-branch-${i}`),
+      ),
     );
 
     const branchPromises = hypotheses.map((hyp, i) =>
@@ -664,7 +666,7 @@ export async function runResearchSwarm(experimentId, plan, userId, workspaceDir,
       branchResults.find((b) => b.branchIndex === selectedId) ?? branchResults[0];
     const selectedBranchId = branchIds[selectedBranch.branchIndex];
 
-    selectSwarmBranch(selectedBranchId);
+    await selectSwarmBranch(selectedBranchId);
 
     // Merge best branch files back into main workspace
     if (selectedBranch.branchDir && fs.existsSync(selectedBranch.branchDir)) {
@@ -675,7 +677,7 @@ export async function runResearchSwarm(experimentId, plan, userId, workspaceDir,
     for (const branch of branchResults) {
       if (branch.branchIndex === selectedBranch.branchIndex) continue;
       const branchId = branchIds[branch.branchIndex];
-      rejectSwarmBranch(
+      await rejectSwarmBranch(
         branchId,
         branch.branchIndex === selectedId ? null : `Not selected. ${reasoning}`,
       );
@@ -685,8 +687,8 @@ export async function runResearchSwarm(experimentId, plan, userId, workspaceDir,
     // Update top-level swarm run status so the frontend can show it in history
     const totalTrials = branchResults.reduce((s, b) => s + (b.totalTrials || 0), 0);
     const acceptedTrials = branchResults.reduce((s, b) => s + (b.acceptedTrials || 0), 0);
-    updateRunStatus(runId, 'completed');
-    updateRunMetrics(runId, selectedBranch.bestMetric, totalTrials, acceptedTrials);
+    await updateRunStatus(runId, 'completed');
+    await updateRunMetrics(runId, selectedBranch.bestMetric, totalTrials, acceptedTrials);
 
     emit('swarm_complete', {
       selectedBranchIndex: selectedBranch.branchIndex,
@@ -703,7 +705,7 @@ export async function runResearchSwarm(experimentId, plan, userId, workspaceDir,
       reasoning,
     };
   } catch (err) {
-    updateRunStatus(runId, 'failed');
+    await updateRunStatus(runId, 'failed');
     emit('swarm_error', { error: err.message });
     throw err;
   } finally {

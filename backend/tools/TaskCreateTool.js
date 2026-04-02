@@ -35,32 +35,29 @@ export class TaskCreateTool extends Tool {
     const fullPrompt = `<context>\n${context_summary || 'No context.'}\n</context>\n<task>\n${task_description}\n</task>\n\nExecute this task autonomously. Return ONLY the final result or answer.`;
 
     try {
-      // Dispatch sub-agent in an isolated SQLite session
-      const targetSessionId = startAgent(fullPrompt, {
-        userId,
-        permissionMode: 'bypassPermissions',
-        maxTurns: 30,
-      });
-
+      let targetSessionId = null;
       let finalResult = 'No result returned.';
       const SUB_AGENT_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
+      let pendingTimeout;
+      let pendingHandler;
 
+      // Register listener BEFORE startAgent to prevent missing fast-completing done events
       const completionPromise = new Promise((resolve, reject) => {
-        const timeoutId = setTimeout(() => {
-          agentEvents.off('event', onEvent);
+        pendingTimeout = setTimeout(() => {
+          agentEvents.off('event', pendingHandler);
           reject(new Error('Sub-agent timed out'));
         }, SUB_AGENT_TIMEOUT_MS);
 
-        function onEvent(event) {
-          if (event.sessionId !== targetSessionId) return;
+        pendingHandler = function onEvent(event) {
+          if (!targetSessionId || event.sessionId !== targetSessionId) return;
 
           if (event.type === 'result') {
             finalResult = event.content?.result || event.content?.last_assistant_message || '';
           }
 
           if (event.type === 'done') {
-            clearTimeout(timeoutId);
-            agentEvents.off('event', onEvent);
+            clearTimeout(pendingTimeout);
+            agentEvents.off('event', pendingHandler);
             const status = event.content?.status || 'completed';
             if (status === 'completed') {
               resolve(finalResult);
@@ -68,9 +65,21 @@ export class TaskCreateTool extends Tool {
               reject(new Error(`Sub-agent ended with status: ${status}`));
             }
           }
-        }
-        agentEvents.on('event', onEvent);
+        };
+        agentEvents.on('event', pendingHandler);
       });
+
+      try {
+        targetSessionId = await startAgent(fullPrompt, {
+          userId,
+          permissionMode: 'bypassPermissions',
+          maxTurns: 30,
+        });
+      } catch (err) {
+        clearTimeout(pendingTimeout);
+        agentEvents.off('event', pendingHandler);
+        throw err;
+      }
 
       const outcome = await completionPromise;
 

@@ -42,34 +42,31 @@ export class BatchTool extends Tool {
 
     try {
       // Launch all agents
-      const taskPromises = activeTasks.map((taskDesc) => {
+      const taskPromises = activeTasks.map(async (taskDesc) => {
         const fullPrompt = `<context>\n${common_context}\n</context>\n<task>\n${taskDesc}\n</task>\n\nExecute this independently. Return ONLY the final output.`;
 
-        const targetSessionId = startAgent(fullPrompt, {
-          userId,
-          permissionMode: 'bypassPermissions',
-          maxTurns: 20,
-        });
-
+        let targetSessionId = null;
         let finalResult = 'No result returned.';
         const SUB_AGENT_TIMEOUT_MS = 10 * 60 * 1000;
+        let pendingTimeout;
+        let pendingHandler;
 
-        return new Promise((resolve) => {
-          const timeoutId = setTimeout(() => {
-            agentEvents.off('event', onEvent);
+        const completionPromise = new Promise((resolve) => {
+          pendingTimeout = setTimeout(() => {
+            agentEvents.off('event', pendingHandler);
             resolve({ task: taskDesc, result: '[Timed out]' });
           }, SUB_AGENT_TIMEOUT_MS);
 
-          function onEvent(event) {
-            if (event.sessionId !== targetSessionId) return;
+          pendingHandler = function onEvent(event) {
+            if (!targetSessionId || event.sessionId !== targetSessionId) return;
 
             if (event.type === 'result') {
               finalResult = event.content?.result || event.content?.last_assistant_message || '';
             }
 
             if (event.type === 'done') {
-              clearTimeout(timeoutId);
-              agentEvents.off('event', onEvent);
+              clearTimeout(pendingTimeout);
+              agentEvents.off('event', pendingHandler);
               const status = event.content?.status || 'completed';
               if (status === 'completed') {
                 resolve({ task: taskDesc, result: finalResult });
@@ -77,9 +74,23 @@ export class BatchTool extends Tool {
                 resolve({ task: taskDesc, result: `[Failed: ${status}]` });
               }
             }
-          }
-          agentEvents.on('event', onEvent);
+          };
+          agentEvents.on('event', pendingHandler);
         });
+
+        try {
+          targetSessionId = await startAgent(fullPrompt, {
+            userId,
+            permissionMode: 'bypassPermissions',
+            maxTurns: 20,
+          });
+        } catch (err) {
+          clearTimeout(pendingTimeout);
+          agentEvents.off('event', pendingHandler);
+          return { task: taskDesc, result: `[Failed to start: ${err.message}]` };
+        }
+
+        return completionPromise;
       });
 
       const outcomes = await Promise.all(taskPromises);

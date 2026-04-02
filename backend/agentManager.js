@@ -179,7 +179,7 @@ export function selectBuiltinTools(prompt) {
 /**
  * Build the base options shared between startAgent and continueAgent.
  */
-function buildBaseOptions(sessionId, permMode, prompt, userId, cwdOverride) {
+async function buildBaseOptions(sessionId, permMode, prompt, userId, cwdOverride) {
   const needsSkip = permMode === 'bypassPermissions';
   const userWorkspace = cwdOverride || getSessionWorkspace(userId, sessionId);
 
@@ -202,6 +202,21 @@ function buildBaseOptions(sessionId, permMode, prompt, userId, cwdOverride) {
   };
   uniqueAllowedTools.push('mcp__agentboard_native__*');
 
+  // Fetch pinned context from DB (async)
+  let pinnedContexts = [];
+  const s = await getSession(userId, sessionId);
+  if (s && s.pinned_context) {
+    pinnedContexts = Array.isArray(s.pinned_context)
+      ? s.pinned_context
+      : (() => {
+          try {
+            return JSON.parse(s.pinned_context);
+          } catch {
+            return [];
+          }
+        })();
+  }
+
   return {
     cwd: userWorkspace,
     permissionMode: permMode,
@@ -216,17 +231,7 @@ function buildBaseOptions(sessionId, permMode, prompt, userId, cwdOverride) {
       append: getSystemPromptAppend(
         userWorkspace,
         !fs.existsSync(resolve(userWorkspace, 'CLAUDE.md')),
-        (function () {
-          const s = getSession(userId, sessionId);
-          if (s && s.pinned_context) {
-            try {
-              return JSON.parse(s.pinned_context);
-            } catch {
-              /* ignore */
-            }
-          }
-          return [];
-        })(),
+        pinnedContexts,
       ),
     },
     settingSources: [],
@@ -278,7 +283,7 @@ function consumeStream(sessionId, stream, abortController, userId = 'default') {
           timestamp: Date.now(),
         };
 
-        insertEvent(sessionId, msg.type, msg);
+        await insertEvent(sessionId, msg.type, msg);
         agentEvents.emit('event', wrapped);
 
         if (msg.type === 'message' && msg.role === 'assistant') {
@@ -293,14 +298,18 @@ function consumeStream(sessionId, stream, abortController, userId = 'default') {
                 : '';
           const pinMatches = [...text.matchAll(/<pin_context>([\s\S]*?)<\/pin_context>/g)];
           if (pinMatches.length > 0) {
-            const sessionInfo = getSession(userId, sessionId);
+            const sessionInfo = await getSession(userId, sessionId);
             let pinned = [];
             if (sessionInfo && sessionInfo.pinned_context) {
-              try {
-                pinned = JSON.parse(sessionInfo.pinned_context);
-              } catch {
-                /* ignore */
-              }
+              pinned = Array.isArray(sessionInfo.pinned_context)
+                ? sessionInfo.pinned_context
+                : (() => {
+                    try {
+                      return JSON.parse(sessionInfo.pinned_context);
+                    } catch {
+                      return [];
+                    }
+                  })();
             }
             for (const m of pinMatches) {
               const val = m[1].trim();
@@ -308,7 +317,7 @@ function consumeStream(sessionId, stream, abortController, userId = 'default') {
                 pinned.push(val);
               }
             }
-            if (pinned.length > 0) updatePinnedContext(sessionId, pinned);
+            if (pinned.length > 0) await updatePinnedContext(sessionId, pinned);
           }
         }
 
@@ -323,7 +332,7 @@ function consumeStream(sessionId, stream, abortController, userId = 'default') {
             num_turns: msg.num_turns || 0,
             model: config.llm.model,
           };
-          updateSessionStats(sessionId, stats);
+          await updateSessionStats(sessionId, stats);
         }
       }
     } catch (err) {
@@ -334,7 +343,7 @@ function consumeStream(sessionId, stream, abortController, userId = 'default') {
         content: { text: err.message || String(err) },
         timestamp: Date.now(),
       };
-      insertEvent(sessionId, 'stderr', { text: err.message });
+      await insertEvent(sessionId, 'stderr', { text: err.message });
       agentEvents.emit('event', errEvent);
     } finally {
       const entry = activeAgents.get(sessionId);
@@ -344,7 +353,7 @@ function consumeStream(sessionId, stream, abortController, userId = 'default') {
       }
       activeAgents.delete(sessionId);
       cleanupSessionLoopState(sessionId);
-      updateSessionStatus(sessionId, finalStatus);
+      await updateSessionStatus(sessionId, finalStatus);
       agentEvents.emit('event', {
         sessionId,
         type: 'done',
@@ -363,8 +372,8 @@ function consumeStream(sessionId, stream, abortController, userId = 'default') {
  * @param {number} [opts.maxTurns] - 最大轮次
  * @returns {string} sessionId
  */
-export function startAgent(prompt, opts = {}) {
-  const sessionId = createSession(opts.userId, prompt);
+export async function startAgent(prompt, opts = {}) {
+  const sessionId = await createSession(opts.userId, prompt);
   const permMode = PERMISSION_MODES.includes(opts.permissionMode)
     ? opts.permissionMode
     : 'bypassPermissions';
@@ -372,7 +381,7 @@ export function startAgent(prompt, opts = {}) {
   const abortController = new AbortController();
   let stream;
   try {
-    const baseOpts = buildBaseOptions(sessionId, permMode, prompt, opts.userId, opts.cwd);
+    const baseOpts = await buildBaseOptions(sessionId, permMode, prompt, opts.userId, opts.cwd);
     stream = query({
       prompt,
       options: {
@@ -384,7 +393,7 @@ export function startAgent(prompt, opts = {}) {
     });
   } catch (err) {
     console.error(`[agentManager] startAgent sync failure: ${err.message}`);
-    updateSessionStatus(sessionId, 'failed');
+    await updateSessionStatus(sessionId, 'failed');
     cleanupSessionLoopState(sessionId);
     agentEvents.emit('event', {
       sessionId,
@@ -407,7 +416,7 @@ export function startAgent(prompt, opts = {}) {
  * @param {object} [opts] - 选项
  * @returns {boolean} 是否成功启动
  */
-export function continueAgent(sessionId, prompt, opts = {}) {
+export async function continueAgent(sessionId, prompt, opts = {}) {
   // Cannot continue if session is currently running -- guard + immediate claim to prevent TOCTOU
   if (activeAgents.has(sessionId)) {
     return false;
@@ -429,12 +438,12 @@ export function continueAgent(sessionId, prompt, opts = {}) {
     : 'bypassPermissions';
 
   // Update session status back to running and append the follow-up prompt
-  updateSessionStatus(sessionId, 'running');
-  insertEvent(sessionId, 'user', { type: 'user', text: prompt, timestamp: Date.now() });
+  await updateSessionStatus(sessionId, 'running');
+  await insertEvent(sessionId, 'user', { type: 'user', text: prompt, timestamp: Date.now() });
 
   let stream;
   try {
-    const baseOpts = buildBaseOptions(sessionId, permMode, prompt, opts.userId);
+    const baseOpts = await buildBaseOptions(sessionId, permMode, prompt, opts.userId);
     stream = query({
       prompt,
       options: {
@@ -446,7 +455,7 @@ export function continueAgent(sessionId, prompt, opts = {}) {
     });
   } catch (err) {
     activeAgents.delete(sessionId);
-    updateSessionStatus(sessionId, 'failed');
+    await updateSessionStatus(sessionId, 'failed');
     cleanupSessionLoopState(sessionId);
     agentEvents.emit('event', {
       sessionId,

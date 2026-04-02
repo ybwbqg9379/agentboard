@@ -1,246 +1,413 @@
 /**
- * swarmStore.test.js
+ * Unit tests for Supabase-based swarm store (P3 Research Swarm).
  *
- * Unit tests for the swarmStore CRUD layer.
- * Uses an in-memory SQLite path to avoid polluting the real DB.
+ * Mocks the Supabase client to avoid real network calls.
+ * All store functions are async -- every call uses await.
+ * Does NOT import experimentDb (no longer exists).
  */
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import Database from 'better-sqlite3';
-import { randomUUID } from 'node:crypto';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+// randomUUID not needed -- store generates IDs internally
 
-// ── Inline re-implementation of swarmStore logic against a test DB ────────────
-// We don't import the real module (which opens the production DB path).
-// Instead we replicate the table schema and stmts in test scope.
+// ---------------------------------------------------------------------------
+// Supabase mock
+// ---------------------------------------------------------------------------
 
-let db;
-let stmts;
+let mockFromHandler;
 
-beforeAll(() => {
-  // In-memory SQLite — discarded after test run
-  db = new Database(':memory:');
-  db.pragma('journal_mode = WAL');
-  db.pragma('foreign_keys = ON');
+vi.mock('./supabaseClient.js', () => {
+  const createChainable = (resolvedValue = { data: null, error: null }) => {
+    const target = {};
 
-  // Create minimal dependency table so FK constraint doesn't break
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS experiment_runs (
-      id   TEXT PRIMARY KEY,
-      user_id TEXT NOT NULL DEFAULT 'default',
-      status TEXT NOT NULL DEFAULT 'running'
-    );
+    const proxy = new Proxy(target, {
+      get(t, prop) {
+        if (prop === 'then') {
+          return (cb) => Promise.resolve(resolvedValue).then(cb);
+        }
+        if (prop === 'single' || prop === 'maybeSingle') {
+          return t[prop] || (() => Promise.resolve(resolvedValue));
+        }
+        if (t[prop]) return t[prop];
+        return () => proxy;
+      },
+      set(t, prop, value) {
+        t[prop] = value;
+        return true;
+      },
+    });
 
-    CREATE TABLE IF NOT EXISTS swarm_branches (
-      id              TEXT    PRIMARY KEY,
-      run_id          TEXT    NOT NULL REFERENCES experiment_runs(id) ON DELETE CASCADE,
-      branch_index    INTEGER NOT NULL,
-      hypothesis      TEXT    NOT NULL,
-      workspace_dir   TEXT    NOT NULL,
-      status          TEXT    NOT NULL DEFAULT 'running',
-      best_metric     REAL,
-      total_trials    INTEGER NOT NULL DEFAULT 0,
-      accepted_trials INTEGER NOT NULL DEFAULT 0,
-      is_selected     INTEGER NOT NULL DEFAULT 0,
-      rejection_reason TEXT,
-      created_at      TEXT    NOT NULL DEFAULT (datetime('now')),
-      completed_at    TEXT
-    );
+    const methods = [
+      'select',
+      'insert',
+      'update',
+      'delete',
+      'upsert',
+      'eq',
+      'order',
+      'limit',
+      'range',
+    ];
+    for (const m of methods) {
+      target[m] = vi.fn().mockReturnValue(proxy);
+    }
+    target.single = vi.fn().mockResolvedValue(resolvedValue);
+    target.maybeSingle = vi.fn().mockResolvedValue(resolvedValue);
 
-    CREATE TABLE IF NOT EXISTS swarm_coordinator_decisions (
-      id               TEXT PRIMARY KEY,
-      run_id           TEXT NOT NULL REFERENCES experiment_runs(id) ON DELETE CASCADE,
-      phase            TEXT NOT NULL,
-      input_summary    TEXT,
-      output_raw       TEXT,
-      parsed_result    TEXT,
-      agent_session_id TEXT,
-      created_at       TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-  `);
+    return proxy;
+  };
 
-  stmts = {
-    insertRun: db.prepare(`INSERT INTO experiment_runs (id) VALUES (?)`),
-    createBranch: db.prepare(`
-      INSERT INTO swarm_branches (id, run_id, branch_index, hypothesis, workspace_dir)
-      VALUES (?, ?, ?, ?, ?)
-    `),
-    updateBranchStatus: db.prepare(`
-      UPDATE swarm_branches
-      SET status = ?,
-          completed_at = CASE WHEN ? IN ('completed','failed') THEN datetime('now') ELSE completed_at END
-      WHERE id = ?
-    `),
-    updateBranchMetrics: db.prepare(`
-      UPDATE swarm_branches SET best_metric = ?, total_trials = ?, accepted_trials = ? WHERE id = ?
-    `),
-    selectBranch: db.prepare(`UPDATE swarm_branches SET is_selected = 1 WHERE id = ?`),
-    rejectBranch: db.prepare(`
-      UPDATE swarm_branches SET is_selected = 0, rejection_reason = ? WHERE id = ?
-    `),
-    listBranches: db.prepare(`SELECT * FROM swarm_branches WHERE run_id = ? ORDER BY branch_index`),
-    saveDecision: db.prepare(`
-      INSERT INTO swarm_coordinator_decisions (id, run_id, phase, input_summary, output_raw, parsed_result, agent_session_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `),
-    listDecisions: db.prepare(
-      `SELECT * FROM swarm_coordinator_decisions WHERE run_id = ? ORDER BY created_at`,
-    ),
+  return {
+    default: {
+      from: vi.fn((...args) => {
+        if (mockFromHandler) return mockFromHandler(...args);
+        return createChainable({ data: [], error: null });
+      }),
+      _createChainable: createChainable,
+    },
   };
 });
 
-afterAll(() => {
-  db.close();
+const supabase = (await import('./supabaseClient.js')).default;
+const createChainable = supabase._createChainable;
+
+const {
+  createSwarmBranch,
+  updateSwarmBranchStatus,
+  updateSwarmBranchMetrics,
+  selectSwarmBranch,
+  rejectSwarmBranch,
+  getSwarmBranch,
+  listSwarmBranches,
+  getSelectedSwarmBranch,
+  saveCoordinatorDecision,
+  listCoordinatorDecisions,
+} = await import('./swarmStore.js');
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  mockFromHandler = undefined;
 });
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function seedRun() {
-  const runId = randomUUID();
-  stmts.insertRun.run(runId);
-  return runId;
-}
-
-function seedBranch(runId, overrides = {}) {
-  const branchId = randomUUID();
-  stmts.createBranch.run(
-    branchId,
-    runId,
-    overrides.branchIndex ?? 0,
-    overrides.hypothesis ?? 'Test hypothesis',
-    overrides.workspaceDir ?? '/tmp/workspace-test',
-  );
-  return branchId;
-}
-
-// ── Branch CRUD ───────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
+// swarm_branches CRUD
+// ---------------------------------------------------------------------------
 
 describe('swarm_branches CRUD', () => {
-  it('creates a branch and reads it back', () => {
-    const runId = seedRun();
-    const branchId = seedBranch(runId, { branchIndex: 0, hypothesis: 'Tune LR' });
-
-    const rows = stmts.listBranches.all(runId);
-    expect(rows).toHaveLength(1);
-    expect(rows[0].id).toBe(branchId);
-    expect(rows[0].hypothesis).toBe('Tune LR');
-    expect(rows[0].status).toBe('running');
-    expect(rows[0].is_selected).toBe(0);
+  it('creates a branch and returns a UUID', async () => {
+    mockFromHandler = () => createChainable({ data: null, error: null });
+    const branchId = await createSwarmBranch('run-1', 0, 'Tune LR', '/tmp/workspace-test');
+    expect(branchId).toBeDefined();
+    expect(branchId.length).toBe(36);
   });
 
-  it('updates status to completed and records completed_at', () => {
-    const runId = seedRun();
-    const branchId = seedBranch(runId);
+  it('inserts with correct fields', async () => {
+    let capturedRow;
+    mockFromHandler = () => {
+      const chain = createChainable({ data: null, error: null });
+      chain.insert = vi.fn((row) => {
+        capturedRow = row;
+        return chain;
+      });
+      return chain;
+    };
 
-    stmts.updateBranchStatus.run('completed', 'completed', branchId);
-
-    const rows = stmts.listBranches.all(runId);
-    expect(rows[0].status).toBe('completed');
-    expect(rows[0].completed_at).toBeTruthy();
+    await createSwarmBranch('run-1', 0, 'Tune LR', '/tmp/workspace-test');
+    expect(capturedRow.run_id).toBe('run-1');
+    expect(capturedRow.branch_index).toBe(0);
+    expect(capturedRow.hypothesis).toBe('Tune LR');
+    expect(capturedRow.workspace_dir).toBe('/tmp/workspace-test');
   });
 
-  it('updates status to failed and records completed_at', () => {
-    const runId = seedRun();
-    const branchId = seedBranch(runId);
+  it('reads back a branch via getSwarmBranch', async () => {
+    const fakeBranch = {
+      id: 'br-1',
+      run_id: 'run-1',
+      branch_index: 0,
+      hypothesis: 'Tune LR',
+      workspace_dir: '/tmp/workspace-test',
+      status: 'running',
+      best_metric: null,
+      total_trials: 0,
+      accepted_trials: 0,
+      is_selected: false,
+      rejection_reason: null,
+      created_at: '2025-01-01T00:00:00Z',
+      completed_at: null,
+    };
+    mockFromHandler = () => createChainable({ data: fakeBranch, error: null });
 
-    stmts.updateBranchStatus.run('failed', 'failed', branchId);
-
-    const rows = stmts.listBranches.all(runId);
-    expect(rows[0].status).toBe('failed');
-    expect(rows[0].completed_at).toBeTruthy();
+    const branch = await getSwarmBranch('br-1');
+    expect(branch.id).toBe('br-1');
+    expect(branch.hypothesis).toBe('Tune LR');
+    expect(branch.status).toBe('running');
+    // is_selected is boolean in Supabase (not integer 0/1)
+    expect(branch.is_selected).toBe(false);
   });
 
-  it('updates metric values', () => {
-    const runId = seedRun();
-    const branchId = seedBranch(runId);
+  it('updates status to completed with completed_at', async () => {
+    let capturedUpdate;
+    mockFromHandler = () => {
+      const chain = createChainable({ data: null, error: null });
+      chain.update = vi.fn((row) => {
+        capturedUpdate = row;
+        return chain;
+      });
+      return chain;
+    };
 
-    stmts.updateBranchMetrics.run(0.42, 10, 4, branchId);
-
-    const rows = stmts.listBranches.all(runId);
-    expect(rows[0].best_metric).toBeCloseTo(0.42);
-    expect(rows[0].total_trials).toBe(10);
-    expect(rows[0].accepted_trials).toBe(4);
+    await updateSwarmBranchStatus('br-1', 'completed');
+    expect(capturedUpdate.status).toBe('completed');
+    expect(capturedUpdate.completed_at).toBeDefined();
   });
 
-  it('marks a branch as selected', () => {
-    const runId = seedRun();
-    const b0 = seedBranch(runId, { branchIndex: 0 });
-    const b1 = seedBranch(runId, { branchIndex: 1 });
+  it('updates status to failed with completed_at', async () => {
+    let capturedUpdate;
+    mockFromHandler = () => {
+      const chain = createChainable({ data: null, error: null });
+      chain.update = vi.fn((row) => {
+        capturedUpdate = row;
+        return chain;
+      });
+      return chain;
+    };
 
-    stmts.selectBranch.run(b1);
-
-    const rows = stmts.listBranches.all(runId);
-    const selected = rows.find((r) => r.id === b1);
-    const other = rows.find((r) => r.id === b0);
-    expect(selected.is_selected).toBe(1);
-    expect(other.is_selected).toBe(0);
+    await updateSwarmBranchStatus('br-1', 'failed');
+    expect(capturedUpdate.status).toBe('failed');
+    expect(capturedUpdate.completed_at).toBeDefined();
   });
 
-  it('rejects a branch with a reason', () => {
-    const runId = seedRun();
-    const branchId = seedBranch(runId);
+  it('updates status to running without completed_at', async () => {
+    let capturedUpdate;
+    mockFromHandler = () => {
+      const chain = createChainable({ data: null, error: null });
+      chain.update = vi.fn((row) => {
+        capturedUpdate = row;
+        return chain;
+      });
+      return chain;
+    };
 
-    stmts.rejectBranch.run('Not selected — metric was worse', branchId);
-
-    const rows = stmts.listBranches.all(runId);
-    expect(rows[0].is_selected).toBe(0);
-    expect(rows[0].rejection_reason).toBe('Not selected — metric was worse');
+    await updateSwarmBranchStatus('br-1', 'running');
+    expect(capturedUpdate.status).toBe('running');
+    expect(capturedUpdate.completed_at).toBeUndefined();
   });
 
-  it('lists multiple branches ordered by branch_index', () => {
-    const runId = seedRun();
-    seedBranch(runId, { branchIndex: 2, hypothesis: 'C' });
-    seedBranch(runId, { branchIndex: 0, hypothesis: 'A' });
-    seedBranch(runId, { branchIndex: 1, hypothesis: 'B' });
+  it('updates metric values', async () => {
+    let capturedUpdate;
+    mockFromHandler = () => {
+      const chain = createChainable({ data: null, error: null });
+      chain.update = vi.fn((row) => {
+        capturedUpdate = row;
+        return chain;
+      });
+      return chain;
+    };
 
-    const rows = stmts.listBranches.all(runId);
+    await updateSwarmBranchMetrics('br-1', 0.42, 10, 4);
+    expect(capturedUpdate.best_metric).toBeCloseTo(0.42);
+    expect(capturedUpdate.total_trials).toBe(10);
+    expect(capturedUpdate.accepted_trials).toBe(4);
+  });
+
+  it('marks a branch as selected (boolean true)', async () => {
+    let capturedUpdate;
+    mockFromHandler = () => {
+      const chain = createChainable({ data: null, error: null });
+      chain.update = vi.fn((row) => {
+        capturedUpdate = row;
+        return chain;
+      });
+      return chain;
+    };
+
+    await selectSwarmBranch('br-1');
+    // is_selected is boolean true in Supabase, not integer 1
+    expect(capturedUpdate.is_selected).toBe(true);
+  });
+
+  it('rejects a branch with a reason (is_selected = false)', async () => {
+    let capturedUpdate;
+    mockFromHandler = () => {
+      const chain = createChainable({ data: null, error: null });
+      chain.update = vi.fn((row) => {
+        capturedUpdate = row;
+        return chain;
+      });
+      return chain;
+    };
+
+    await rejectSwarmBranch('br-1', 'Not selected -- metric was worse');
+    expect(capturedUpdate.is_selected).toBe(false);
+    expect(capturedUpdate.rejection_reason).toBe('Not selected -- metric was worse');
+  });
+
+  it('lists multiple branches ordered by branch_index', async () => {
+    const fakeBranches = [
+      { id: 'b0', branch_index: 0, hypothesis: 'A', status: 'running' },
+      { id: 'b1', branch_index: 1, hypothesis: 'B', status: 'running' },
+      { id: 'b2', branch_index: 2, hypothesis: 'C', status: 'running' },
+    ];
+    let capturedOrder;
+    mockFromHandler = () => {
+      const chain = createChainable({ data: fakeBranches, error: null });
+      chain.order = vi.fn((col, opts) => {
+        capturedOrder = { col, opts };
+        return chain;
+      });
+      return chain;
+    };
+
+    const rows = await listSwarmBranches('run-1');
+    expect(rows).toHaveLength(3);
     expect(rows.map((r) => r.branch_index)).toEqual([0, 1, 2]);
+    expect(capturedOrder.col).toBe('branch_index');
+    expect(capturedOrder.opts).toEqual({ ascending: true });
   });
 
-  it('cascade-deletes branches when the run is deleted', () => {
-    const runId = seedRun();
-    seedBranch(runId, { branchIndex: 0 });
-    seedBranch(runId, { branchIndex: 1 });
+  it('getSelectedSwarmBranch filters by is_selected=true', async () => {
+    const selected = {
+      id: 'b1',
+      run_id: 'run-1',
+      branch_index: 1,
+      is_selected: true,
+      hypothesis: 'Winner',
+    };
+    let eqCalls = [];
+    mockFromHandler = () => {
+      const chain = createChainable({ data: selected, error: null });
+      chain.eq = vi.fn((col, val) => {
+        eqCalls.push({ col, val });
+        return chain;
+      });
+      return chain;
+    };
 
-    db.prepare(`DELETE FROM experiment_runs WHERE id = ?`).run(runId);
+    const branch = await getSelectedSwarmBranch('run-1');
+    expect(branch).not.toBeNull();
+    expect(branch.id).toBe('b1');
+    expect(branch.is_selected).toBe(true);
+    expect(eqCalls).toContainEqual({ col: 'run_id', val: 'run-1' });
+    expect(eqCalls).toContainEqual({ col: 'is_selected', val: true });
+  });
 
-    const rows = stmts.listBranches.all(runId);
-    expect(rows).toHaveLength(0);
+  it('getSelectedSwarmBranch returns null when none selected', async () => {
+    mockFromHandler = () => createChainable({ data: null, error: null });
+    const branch = await getSelectedSwarmBranch('run-1');
+    expect(branch).toBeNull();
   });
 });
 
-// ── Coordinator decision audit ────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
+// Coordinator decision audit
+// ---------------------------------------------------------------------------
 
 describe('swarm_coordinator_decisions', () => {
-  it('inserts and reads back a decompose decision', () => {
-    const runId = seedRun();
+  it('saves a decompose decision and returns an ID', async () => {
+    let capturedRow;
+    mockFromHandler = () => {
+      const chain = createChainable({ data: null, error: null });
+      chain.insert = vi.fn((row) => {
+        capturedRow = row;
+        return chain;
+      });
+      return chain;
+    };
 
-    stmts.saveDecision.run(
-      randomUUID(),
-      runId,
-      'decompose',
-      'branches=3',
-      '<hypothesis id="0">foo</hypothesis>',
-      JSON.stringify([{ id: 0, text: 'foo' }]),
-      'session-abc',
-    );
+    const decisionId = await saveCoordinatorDecision('run-1', 'decompose', {
+      inputSummary: 'branches=3',
+      outputRaw: '<hypothesis id="0">foo</hypothesis>',
+      parsedResult: [{ id: 0, text: 'foo' }],
+      agentSessionId: 'session-abc',
+    });
 
-    const rows = stmts.listDecisions.all(runId);
-    expect(rows).toHaveLength(1);
-    expect(rows[0].phase).toBe('decompose');
-    expect(rows[0].agent_session_id).toBe('session-abc');
-    const parsed = JSON.parse(rows[0].parsed_result);
-    expect(parsed[0].text).toBe('foo');
+    expect(decisionId).toBeDefined();
+    expect(decisionId.length).toBe(36);
+    expect(capturedRow.run_id).toBe('run-1');
+    expect(capturedRow.phase).toBe('decompose');
+    expect(capturedRow.input_summary).toBe('branches=3');
+    expect(capturedRow.output_raw).toBe('<hypothesis id="0">foo</hypothesis>');
+    // JSONB: parsed_result stored as native object
+    expect(capturedRow.parsed_result).toEqual([{ id: 0, text: 'foo' }]);
+    expect(capturedRow.agent_session_id).toBe('session-abc');
   });
 
-  it('stores both phases and returns them in chronological order', () => {
-    const runId = seedRun();
+  it('lists decisions in chronological order', async () => {
+    const fakeDecisions = [
+      {
+        id: 'd1',
+        run_id: 'run-1',
+        phase: 'decompose',
+        input_summary: null,
+        output_raw: null,
+        parsed_result: null,
+        agent_session_id: null,
+        created_at: '2025-01-01T00:00:00Z',
+      },
+      {
+        id: 'd2',
+        run_id: 'run-1',
+        phase: 'synthesize',
+        input_summary: null,
+        output_raw: null,
+        parsed_result: null,
+        agent_session_id: null,
+        created_at: '2025-01-01T01:00:00Z',
+      },
+    ];
+    let capturedOrder;
+    mockFromHandler = () => {
+      const chain = createChainable({ data: fakeDecisions, error: null });
+      chain.order = vi.fn((col, opts) => {
+        capturedOrder = { col, opts };
+        return chain;
+      });
+      return chain;
+    };
 
-    stmts.saveDecision.run(randomUUID(), runId, 'decompose', null, null, null, null);
-    stmts.saveDecision.run(randomUUID(), runId, 'synthesize', null, null, null, null);
-
-    const rows = stmts.listDecisions.all(runId);
+    const rows = await listCoordinatorDecisions('run-1');
     expect(rows).toHaveLength(2);
     expect(rows[0].phase).toBe('decompose');
     expect(rows[1].phase).toBe('synthesize');
+    expect(capturedOrder.col).toBe('created_at');
+    expect(capturedOrder.opts).toEqual({ ascending: true });
+  });
+
+  it('listCoordinatorDecisions maps parsed_result to parsedResult', async () => {
+    const fakeDecisions = [
+      {
+        id: 'd1',
+        run_id: 'run-1',
+        phase: 'decompose',
+        parsed_result: [{ id: 0, text: 'foo' }],
+        input_summary: null,
+        output_raw: null,
+        agent_session_id: 'session-abc',
+        created_at: '2025-01-01T00:00:00Z',
+      },
+    ];
+    mockFromHandler = () => createChainable({ data: fakeDecisions, error: null });
+
+    const rows = await listCoordinatorDecisions('run-1');
+    expect(rows[0].parsedResult).toEqual([{ id: 0, text: 'foo' }]);
+    expect(rows[0].agent_session_id).toBe('session-abc');
+  });
+
+  it('saves decision with null optional fields', async () => {
+    let capturedRow;
+    mockFromHandler = () => {
+      const chain = createChainable({ data: null, error: null });
+      chain.insert = vi.fn((row) => {
+        capturedRow = row;
+        return chain;
+      });
+      return chain;
+    };
+
+    await saveCoordinatorDecision('run-1', 'synthesize');
+    expect(capturedRow.phase).toBe('synthesize');
+    expect(capturedRow.input_summary).toBeNull();
+    expect(capturedRow.output_raw).toBeNull();
+    expect(capturedRow.parsed_result).toBeNull();
+    expect(capturedRow.agent_session_id).toBeNull();
   });
 });

@@ -305,47 +305,42 @@ function runAgentNode(prompt, nodeConfig, runId, workflowId, nodeId, userId) {
     // Register listener BEFORE startAgent to prevent missing fast-completing done events
     agentEvents.on('event', onEvent);
 
-    let sessionId;
-    try {
-      sessionId = startAgent(prompt, {
-        userId,
-        permissionMode: nodeConfig.permissionMode || 'bypassPermissions',
-        maxTurns: nodeConfig.maxTurns || 30,
+    startAgent(prompt, {
+      userId,
+      permissionMode: nodeConfig.permissionMode || 'bypassPermissions',
+      maxTurns: nodeConfig.maxTurns || 30,
+    })
+      .then((sessionId) => {
+        capturedSessionId = sessionId;
+        workflowEvents.emit('agent_started', { runId, workflowId, nodeId, sessionId });
+        const entry = activeRuns.get(runId);
+        if (entry) {
+          entry.currentAgentSessionId = sessionId;
+          entry.currentAgentListener = onEvent;
+        }
+      })
+      .catch((err) => {
+        if (!settled) {
+          settled = true;
+          cleanup();
+          reject(new Error(`Agent node "${nodeId}" failed to start: ${err.message}`));
+        }
       });
-    } catch (err) {
-      if (!settled) {
-        settled = true;
-        cleanup();
-        reject(new Error(`Agent node "${nodeId}" failed to start: ${err.message}`));
-      }
-      return;
-    }
-    capturedSessionId = sessionId;
-
-    workflowEvents.emit('agent_started', { runId, workflowId, nodeId, sessionId });
-
-    // Register with activeRuns so abort can stop this agent
-    const entry = activeRuns.get(runId);
-    if (entry) {
-      entry.currentAgentSessionId = sessionId;
-      entry.currentAgentListener = onEvent;
-    }
   });
 }
 
-function runExperimentNode(nodeConfig, runId, workflowId, nodeId, userId) {
+async function runExperimentNode(nodeConfig, runId, workflowId, nodeId, userId) {
   const experimentId = nodeConfig.experimentId;
   if (!experimentId) {
-    return Promise.reject(new Error('Missing experimentId configuration'));
+    throw new Error('Missing experimentId configuration');
   }
 
-  const experiment = getExperiment(userId, experimentId);
+  const experiment = await getExperiment(userId, experimentId);
   if (!experiment) {
-    return Promise.reject(new Error('Experiment not found'));
+    throw new Error('Experiment not found');
   }
 
-  // Create the run ID synchronously so listeners can match events immediately
-  const expRunId = createExpRun(userId, experimentId);
+  const expRunId = await createExpRun(userId, experimentId);
 
   const workspaceDir = resolve(
     config.workspaceDir,
@@ -438,11 +433,11 @@ export async function executeWorkflow(
   preCreatedRunId,
   userId = 'default',
 ) {
-  const runId = preCreatedRunId || createWorkflowRun(userId, workflowId, inputContext);
+  const runId = preCreatedRunId || (await createWorkflowRun(userId, workflowId, inputContext));
 
   if (!definition || !Array.isArray(definition.nodes) || !Array.isArray(definition.edges)) {
     const errorMsg = 'Invalid workflow definition: missing nodes or edges';
-    completeWorkflowRun(runId, { status: 'failed', nodeResults: {}, error: errorMsg });
+    await completeWorkflowRun(runId, { status: 'failed', nodeResults: {}, error: errorMsg });
     workflowEvents.emit('run_complete', { runId, workflowId, status: 'failed', error: errorMsg });
     return { runId, status: 'failed', nodeResults: {}, context: inputContext, error: errorMsg };
   }
@@ -455,7 +450,11 @@ export async function executeWorkflow(
   const nodeMap = new Map(nodes.map((n) => [n.id, n]));
   const sorted = topologicalSort(nodes, edges);
   if (!sorted) {
-    completeWorkflowRun(runId, { status: 'failed', nodeResults: {}, error: 'Cycle detected' });
+    await completeWorkflowRun(runId, {
+      status: 'failed',
+      nodeResults: {},
+      error: 'Cycle detected',
+    });
     workflowEvents.emit('run_complete', {
       runId,
       workflowId,
@@ -527,10 +526,10 @@ export async function executeWorkflow(
       }
 
       // Persist progress
-      updateWorkflowRun(runId, { status: 'running', context, nodeResults });
+      await updateWorkflowRun(runId, { status: 'running', context, nodeResults });
     }
 
-    completeWorkflowRun(runId, { status: 'completed', nodeResults });
+    await completeWorkflowRun(runId, { status: 'completed', nodeResults });
     workflowEvents.emit('run_complete', {
       runId,
       workflowId,
@@ -542,7 +541,7 @@ export async function executeWorkflow(
     return { runId, status: 'completed', nodeResults, context };
   } catch (err) {
     const errorMsg = err.message || String(err);
-    completeWorkflowRun(runId, { status: 'failed', nodeResults, error: errorMsg });
+    await completeWorkflowRun(runId, { status: 'failed', nodeResults, error: errorMsg });
     workflowEvents.emit('run_complete', { runId, workflowId, status: 'failed', error: errorMsg });
     activeRuns.delete(runId);
     return { runId, status: 'failed', nodeResults, context, error: errorMsg };

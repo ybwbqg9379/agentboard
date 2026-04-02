@@ -31,8 +31,9 @@ const config = {
   // 插件目录
   pluginsDir: resolve(process.env.PLUGINS_DIR || resolve(__dirname, '..', 'plugins')),
 
-  // SQLite 数据库路径
-  dbPath: resolve(process.env.DB_PATH || resolve(__dirname, '..', 'data', 'agentboard.db')),
+  // Supabase (secret key for server-side, bypasses RLS)
+  supabaseUrl: process.env.SUPABASE_URL || '',
+  supabaseServiceKey: process.env.SUPABASE_SECRET_KEY || '',
 
   // Agent 进程超时（ms）-- 默认 10 分钟
   agentTimeout: parseInt(process.env.AGENT_TIMEOUT || '600000', 10),

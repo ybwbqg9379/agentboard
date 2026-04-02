@@ -1,97 +1,81 @@
-import Database from 'better-sqlite3';
-import crypto from 'node:crypto';
-import { mkdirSync } from 'node:fs';
-import { dirname } from 'node:path';
-import config from './config.js';
-
-const memoryDbPath = config.dbPath.replace('.db', '-memory.db');
-mkdirSync(dirname(memoryDbPath), { recursive: true });
-
-const db = new Database(memoryDbPath);
-db.pragma('journal_mode = WAL');
-
-// Initialize Memory Knowledge Graph Tables
-// We use a simple Entity-Relation-Entity graph architecture
-db.exec(`
-  CREATE TABLE IF NOT EXISTS memory_entities (
-    id TEXT PRIMARY KEY,
-    user_id TEXT NOT NULL,
-    name TEXT NOT NULL,
-    type TEXT NOT NULL,
-    content TEXT,
-    created_at INTEGER NOT NULL,
-    updated_at INTEGER NOT NULL,
-    UNIQUE(user_id, name, type)
-  );
-
-  CREATE TABLE IF NOT EXISTS memory_relations (
-    id TEXT PRIMARY KEY,
-    user_id TEXT NOT NULL,
-    source_entity_name TEXT NOT NULL,
-    target_entity_name TEXT NOT NULL,
-    relation_type TEXT NOT NULL,
-    created_at INTEGER NOT NULL,
-    UNIQUE(user_id, source_entity_name, target_entity_name, relation_type)
-  );
-
-  CREATE INDEX IF NOT EXISTS idx_mem_entities_user ON memory_entities(user_id);
-  CREATE INDEX IF NOT EXISTS idx_mem_relations_user ON memory_relations(user_id);
-`);
+import { randomUUID } from 'node:crypto';
+import supabase from './supabaseClient.js';
 
 /**
  * Save an entity to the user's specific memory.
  */
-export function saveEntity(userId, name, type, content) {
-  const stmt = db.prepare(`
-    INSERT INTO memory_entities (id, user_id, name, type, content, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-    ON CONFLICT(user_id, name, type) DO UPDATE SET
-      content = excluded.content,
-      updated_at = excluded.updated_at
-  `);
-  stmt.run(crypto.randomUUID(), userId, name, type, content, Date.now(), Date.now());
+export async function saveEntity(userId, name, type, content) {
+  const now = Date.now();
+  const { error } = await supabase
+    .from('memory_entities')
+    .upsert(
+      { id: randomUUID(), user_id: userId, name, type, content, created_at: now, updated_at: now },
+      { onConflict: 'user_id,name,type' },
+    );
+  if (error) {
+    console.error(`[memoryStore] saveEntity failed: ${error.message}`);
+    throw error;
+  }
   return true;
 }
 
 /**
  * Save a relation between two entities.
  */
-export function saveRelation(userId, sourceName, targetName, relationType) {
-  const stmt = db.prepare(`
-    INSERT OR IGNORE INTO memory_relations (id, user_id, source_entity_name, target_entity_name, relation_type, created_at)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `);
-  const info = stmt.run(
-    crypto.randomUUID(),
-    userId,
-    sourceName,
-    targetName,
-    relationType,
-    Date.now(),
+export async function saveRelation(userId, sourceName, targetName, relationType) {
+  const { error } = await supabase.from('memory_relations').upsert(
+    {
+      id: randomUUID(),
+      user_id: userId,
+      source_entity_name: sourceName,
+      target_entity_name: targetName,
+      relation_type: relationType,
+      created_at: Date.now(),
+    },
+    {
+      onConflict: 'user_id,source_entity_name,target_entity_name,relation_type',
+      ignoreDuplicates: true,
+    },
   );
-  return info.changes > 0;
+  if (error) {
+    console.error(`[memoryStore] saveRelation failed: ${error.message}`);
+    return false;
+  }
+  return true;
 }
 
 /**
  * Extract full context graph (Entities + Relations) for a given user.
- * In a massive environment we would retrieve by keyword, but a simple user scope is sufficient for small personal graphs.
  */
-export function getUserMemoryGraph(userId) {
-  const entities = db
-    .prepare('SELECT name, type, content FROM memory_entities WHERE user_id = ?')
-    .all(userId);
-  const relations = db
-    .prepare(
-      'SELECT source_entity_name as source, target_entity_name as target, relation_type as relation FROM memory_relations WHERE user_id = ?',
-    )
-    .all(userId);
-  return { entities, relations };
+export async function getUserMemoryGraph(userId) {
+  const { data: entities, error: eErr } = await supabase
+    .from('memory_entities')
+    .select('name, type, content')
+    .eq('user_id', userId);
+  if (eErr) {
+    console.error(`[memoryStore] getUserMemoryGraph entities failed: ${eErr.message}`);
+    return { entities: [], relations: [] };
+  }
+
+  const { data: relations, error: rErr } = await supabase
+    .from('memory_relations')
+    .select('source_entity_name, target_entity_name, relation_type')
+    .eq('user_id', userId);
+  if (rErr) {
+    console.error(`[memoryStore] getUserMemoryGraph relations failed: ${rErr.message}`);
+    return { entities, relations: [] };
+  }
+
+  return {
+    entities,
+    relations: relations.map((r) => ({
+      source: r.source_entity_name,
+      target: r.target_entity_name,
+      relation: r.relation_type,
+    })),
+  };
 }
 
-export function closeMemoryDb() {
-  try {
-    db.close();
-  } catch {
-    /* ignore */
-  }
+export async function closeMemoryDb() {
+  // No-op: Supabase client manages its own lifecycle
 }

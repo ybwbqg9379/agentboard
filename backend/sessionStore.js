@@ -1,212 +1,168 @@
-import Database from 'better-sqlite3';
-import { mkdirSync } from 'node:fs';
-import { dirname } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import config from './config.js';
+import supabase from './supabaseClient.js';
 
-mkdirSync(dirname(config.dbPath), { recursive: true });
-
-const db = new Database(config.dbPath);
-db.pragma('journal_mode = WAL');
-db.pragma('foreign_keys = ON');
-
-db.exec(`
-  CREATE TABLE IF NOT EXISTS sessions (
-    id        TEXT PRIMARY KEY,
-    user_id   TEXT NOT NULL DEFAULT 'default',
-    prompt    TEXT NOT NULL,
-    status    TEXT NOT NULL DEFAULT 'pending',
-    stats     TEXT,
-    pinned_context TEXT,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
-  );
-
-  CREATE TABLE IF NOT EXISTS events (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    session_id TEXT NOT NULL REFERENCES sessions(id),
-    type       TEXT NOT NULL,
-    content    TEXT NOT NULL,
-    timestamp  INTEGER NOT NULL
-  );
-
-  CREATE INDEX IF NOT EXISTS idx_events_session ON events(session_id);
-`);
-
-try {
-  // Migration for user_id
-  const tableInfo = db.pragma('table_info(sessions)');
-  if (!tableInfo.some((col) => col.name === 'user_id')) {
-    db.exec(`ALTER TABLE sessions ADD COLUMN user_id TEXT NOT NULL DEFAULT 'default'`);
-  }
-  if (!tableInfo.some((col) => col.name === 'pinned_context')) {
-    db.exec(`ALTER TABLE sessions ADD COLUMN pinned_context TEXT`);
-  }
-} catch (e) {
-  console.error('[sessionStore] Migration failed:', e);
-}
-
-const stmts = {
-  createSession: db.prepare(
-    'INSERT INTO sessions (id, user_id, prompt, status) VALUES (?, ?, ?, ?)',
-  ),
-  updateStatus: db.prepare('UPDATE sessions SET status = ? WHERE id = ?'),
-  updateStats: db.prepare('UPDATE sessions SET stats = ? WHERE id = ?'),
-  updatePinnedContext: db.prepare('UPDATE sessions SET pinned_context = ? WHERE id = ?'),
-  getSession: db.prepare('SELECT * FROM sessions WHERE id = ? AND user_id = ?'),
-  listSessions: db.prepare(
-    'SELECT * FROM sessions WHERE user_id = ? ORDER BY created_at DESC LIMIT ?',
-  ),
-  listSessionsPaged: db.prepare(
-    'SELECT * FROM sessions WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?',
-  ),
-  countSessions: db.prepare('SELECT count(*) as total FROM sessions WHERE user_id = ?'),
-  recoverStale: db.prepare("UPDATE sessions SET status = 'interrupted' WHERE status = 'running'"),
-  insertEvent: db.prepare(
-    'INSERT INTO events (session_id, type, content, timestamp) VALUES (?, ?, ?, ?)',
-  ),
-  getEvents: db.prepare('SELECT * FROM events WHERE session_id = ? ORDER BY timestamp ASC'),
-  countEvents: db.prepare('SELECT count(*) as total FROM events WHERE session_id = ?'),
-  deleteEvents: db.prepare('DELETE FROM events WHERE session_id = ?'),
-  deleteSession: db.prepare('DELETE FROM sessions WHERE id = ? AND user_id = ?'),
-};
-
-export function createSession(userId, prompt) {
+export async function createSession(userId, prompt) {
   const id = randomUUID();
-  try {
-    stmts.createSession.run(id, userId || 'default', prompt, 'running');
-  } catch (err) {
-    console.error(`[sessionStore] createSession failed: ${err.message}`);
-    throw err;
+  const { error } = await supabase
+    .from('sessions')
+    .insert({ id, user_id: userId || 'default', prompt, status: 'running' });
+  if (error) {
+    console.error(`[sessionStore] createSession failed: ${error.message}`);
+    throw error;
   }
   return id;
 }
 
-export function updateSessionStatus(id, status) {
-  try {
-    stmts.updateStatus.run(status, id);
-  } catch (err) {
-    console.error(`[sessionStore] updateSessionStatus failed: ${err.message}`);
+export async function updateSessionStatus(id, status) {
+  const { error } = await supabase.from('sessions').update({ status }).eq('id', id);
+  if (error) {
+    console.error(`[sessionStore] updateSessionStatus failed: ${error.message}`);
   }
 }
 
-export function updateSessionStats(id, stats) {
-  try {
-    stmts.updateStats.run(JSON.stringify(stats), id);
-  } catch (err) {
-    console.error(`[sessionStore] updateSessionStats failed: ${err.message}`);
+export async function updateSessionStats(id, stats) {
+  const { error } = await supabase.from('sessions').update({ stats }).eq('id', id);
+  if (error) {
+    console.error(`[sessionStore] updateSessionStats failed: ${error.message}`);
   }
 }
 
-export function updatePinnedContext(id, pinnedContextArray) {
-  try {
-    stmts.updatePinnedContext.run(JSON.stringify(pinnedContextArray), id);
-  } catch (err) {
-    console.error(`[sessionStore] updatePinnedContext failed: ${err.message}`);
+export async function updatePinnedContext(id, pinnedContextArray) {
+  const { error } = await supabase
+    .from('sessions')
+    .update({ pinned_context: pinnedContextArray })
+    .eq('id', id);
+  if (error) {
+    console.error(`[sessionStore] updatePinnedContext failed: ${error.message}`);
   }
 }
 
-export function getSession(userId, id) {
-  try {
-    return stmts.getSession.get(id, userId || 'default');
-  } catch (err) {
-    console.error(`[sessionStore] getSession failed: ${err.message}`);
+export async function getSession(userId, id) {
+  const { data, error } = await supabase
+    .from('sessions')
+    .select('*')
+    .eq('id', id)
+    .eq('user_id', userId || 'default')
+    .maybeSingle();
+  if (error) {
+    console.error(`[sessionStore] getSession failed: ${error.message}`);
     return null;
   }
+  return data;
 }
 
-export function listSessions(userId, limit = 50) {
-  try {
-    return stmts.listSessions.all(userId || 'default', limit);
-  } catch (err) {
-    console.error(`[sessionStore] listSessions failed: ${err.message}`);
+export async function listSessions(userId, limit = 50) {
+  const { data, error } = await supabase
+    .from('sessions')
+    .select('*')
+    .eq('user_id', userId || 'default')
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (error) {
+    console.error(`[sessionStore] listSessions failed: ${error.message}`);
     return [];
   }
+  return data;
 }
 
-export function insertEvent(sessionId, type, content) {
-  try {
-    stmts.insertEvent.run(sessionId, type, JSON.stringify(content), Date.now());
-  } catch (err) {
-    console.error(`[sessionStore] insertEvent failed: ${err.message}`);
+export async function insertEvent(sessionId, type, content) {
+  const { error } = await supabase
+    .from('events')
+    .insert({ session_id: sessionId, type, content, timestamp: Date.now() });
+  if (error) {
+    console.error(`[sessionStore] insertEvent failed: ${error.message}`);
   }
 }
 
-export function getEvents(sessionId) {
-  try {
-    const rows = stmts.getEvents.all(sessionId);
-    return rows.map((r) => ({ ...r, content: JSON.parse(r.content) }));
-  } catch (err) {
-    console.error(`[sessionStore] getEvents failed: ${err.message}`);
+export async function getEvents(sessionId) {
+  const { data, error } = await supabase
+    .from('events')
+    .select('*')
+    .eq('session_id', sessionId)
+    .order('timestamp', { ascending: true });
+  if (error) {
+    console.error(`[sessionStore] getEvents failed: ${error.message}`);
     return [];
   }
+  return data;
 }
 
 /**
  * Mark any "running" sessions as "interrupted" -- called on startup to clean stale state.
  */
-export function recoverStaleSessions() {
-  try {
-    const result = stmts.recoverStale.run();
-    if (result.changes > 0) {
-      console.log(`[sessionStore] Recovered ${result.changes} stale session(s)`);
-    }
-    return result.changes;
-  } catch (err) {
-    console.error(`[sessionStore] recoverStaleSessions failed: ${err.message}`);
+export async function recoverStaleSessions() {
+  const { data, error } = await supabase
+    .from('sessions')
+    .update({ status: 'interrupted' })
+    .eq('status', 'running')
+    .select('id');
+  if (error) {
+    console.error(`[sessionStore] recoverStaleSessions failed: ${error.message}`);
     return 0;
   }
+  const changes = data?.length || 0;
+  if (changes > 0) {
+    console.log(`[sessionStore] Recovered ${changes} stale session(s)`);
+  }
+  return changes;
 }
 
-export function listSessionsPaged(userId, limit = 20, offset = 0) {
-  try {
-    return stmts.listSessionsPaged.all(userId || 'default', limit, offset);
-  } catch (err) {
-    console.error(`[sessionStore] listSessionsPaged failed: ${err.message}`);
+export async function listSessionsPaged(userId, limit = 20, offset = 0) {
+  const { data, error } = await supabase
+    .from('sessions')
+    .select('*')
+    .eq('user_id', userId || 'default')
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1);
+  if (error) {
+    console.error(`[sessionStore] listSessionsPaged failed: ${error.message}`);
     return [];
   }
+  return data;
 }
 
-export function countSessions(userId) {
-  try {
-    return stmts.countSessions.get(userId || 'default')?.total || 0;
-  } catch (err) {
-    console.error(`[sessionStore] countSessions failed: ${err.message}`);
+export async function countSessions(userId) {
+  const { count, error } = await supabase
+    .from('sessions')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId || 'default');
+  if (error) {
+    console.error(`[sessionStore] countSessions failed: ${error.message}`);
     return 0;
   }
+  return count || 0;
 }
 
-export function countEvents(sessionId) {
-  try {
-    return stmts.countEvents.get(sessionId)?.total || 0;
-  } catch (err) {
-    console.error(`[sessionStore] countEvents failed: ${err.message}`);
+export async function countEvents(sessionId) {
+  const { count, error } = await supabase
+    .from('events')
+    .select('*', { count: 'exact', head: true })
+    .eq('session_id', sessionId);
+  if (error) {
+    console.error(`[sessionStore] countEvents failed: ${error.message}`);
     return 0;
   }
+  return count || 0;
 }
 
 /**
- * Delete a session and all its events atomically.
- * Returns true if a session was deleted.
+ * Delete a session and all its events.
+ * Events are cascade-deleted by the FK constraint in PostgreSQL.
  */
-const deleteSessionTx = db.transaction((userId, sessionId) => {
-  stmts.deleteEvents.run(sessionId);
-  const result = stmts.deleteSession.run(sessionId, userId || 'default');
-  return result.changes > 0;
-});
-
-export function deleteSession(userId, sessionId) {
-  try {
-    return deleteSessionTx(userId, sessionId);
-  } catch (err) {
-    console.error(`[sessionStore] deleteSession failed: ${err.message}`);
+export async function deleteSession(userId, sessionId) {
+  const { data, error } = await supabase
+    .from('sessions')
+    .delete()
+    .eq('id', sessionId)
+    .eq('user_id', userId || 'default')
+    .select('id');
+  if (error) {
+    console.error(`[sessionStore] deleteSession failed: ${error.message}`);
     return false;
   }
+  return (data?.length || 0) > 0;
 }
 
-export function close() {
-  try {
-    db.close();
-  } catch (err) {
-    console.error(`[sessionStore] close failed: ${err.message}`);
-  }
+export async function close() {
+  // No-op: Supabase client manages its own lifecycle
 }

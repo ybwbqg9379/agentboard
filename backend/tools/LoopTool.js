@@ -43,38 +43,51 @@ export class LoopTool extends Tool {
       for (const item of activeItems) {
         const fullPrompt = `<task>\n${instruction}\n</task>\n<target_item>\n${item}\n</target_item>\n\nExecute this independently. Return ONLY the final output.`;
 
-        const targetSessionId = startAgent(fullPrompt, {
-          userId,
-          permissionMode: 'bypassPermissions',
-          maxTurns: 20,
-        });
-
+        let targetSessionId = null;
         let finalResult = 'No result returned.';
         const SUB_AGENT_TIMEOUT_MS = 10 * 60 * 1000;
+        let pendingTimeout;
+        let pendingHandler;
 
-        await new Promise((resolve) => {
-          const timeoutId = setTimeout(() => {
-            agentEvents.off('event', onEvent);
+        // Register listener BEFORE startAgent to prevent missing fast-completing done events
+        const completionPromise = new Promise((resolve) => {
+          pendingTimeout = setTimeout(() => {
+            agentEvents.off('event', pendingHandler);
             outcomes.push({ item, result: '[Timed out]' });
             resolve();
           }, SUB_AGENT_TIMEOUT_MS);
 
-          function onEvent(event) {
-            if (event.sessionId !== targetSessionId) return;
+          pendingHandler = function onEvent(event) {
+            if (!targetSessionId || event.sessionId !== targetSessionId) return;
 
             if (event.type === 'result') {
               finalResult = event.content?.result || event.content?.last_assistant_message || '';
             }
 
             if (event.type === 'done') {
-              clearTimeout(timeoutId);
-              agentEvents.off('event', onEvent);
+              clearTimeout(pendingTimeout);
+              agentEvents.off('event', pendingHandler);
               outcomes.push({ item, result: finalResult });
               resolve();
             }
-          }
-          agentEvents.on('event', onEvent);
+          };
+          agentEvents.on('event', pendingHandler);
         });
+
+        try {
+          targetSessionId = await startAgent(fullPrompt, {
+            userId,
+            permissionMode: 'bypassPermissions',
+            maxTurns: 20,
+          });
+        } catch (err) {
+          clearTimeout(pendingTimeout);
+          agentEvents.off('event', pendingHandler);
+          outcomes.push({ item, result: `[Failed to start: ${err.message}]` });
+          continue;
+        }
+
+        await completionPromise;
       }
 
       const formatted = outcomes

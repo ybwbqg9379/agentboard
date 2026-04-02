@@ -23,8 +23,8 @@ const workflowEvents = new EventEmitter();
 const experimentEvents = new EventEmitter();
 
 vi.mock('./agentManager.js', () => ({
-  startAgent: vi.fn(() => 'mock-session-id'),
-  continueAgent: vi.fn(() => true),
+  startAgent: vi.fn().mockResolvedValue('mock-session-id'),
+  continueAgent: vi.fn().mockResolvedValue(true),
   stopAgent: vi.fn(() => true),
   getActiveAgents: vi.fn(() => []),
   getAgentStream: vi.fn(() => null),
@@ -33,14 +33,14 @@ vi.mock('./agentManager.js', () => ({
 }));
 
 vi.mock('./sessionStore.js', () => ({
-  listSessionsPaged: vi.fn(() => []),
-  countSessions: vi.fn(() => 0),
-  getSession: vi.fn(() => null),
-  getEvents: vi.fn(() => []),
-  countEvents: vi.fn(() => 0),
-  recoverStaleSessions: vi.fn(() => 0),
-  deleteSession: vi.fn(() => true),
-  close: vi.fn(),
+  listSessionsPaged: vi.fn().mockResolvedValue([]),
+  countSessions: vi.fn().mockResolvedValue(0),
+  getSession: vi.fn().mockResolvedValue(null),
+  getEvents: vi.fn().mockResolvedValue([]),
+  countEvents: vi.fn().mockResolvedValue(0),
+  recoverStaleSessions: vi.fn().mockResolvedValue(0),
+  deleteSession: vi.fn().mockResolvedValue(true),
+  close: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock('./mcpHealth.js', () => ({
@@ -48,64 +48,67 @@ vi.mock('./mcpHealth.js', () => ({
 }));
 
 vi.mock('./memoryStore.js', () => ({
-  closeMemoryDb: vi.fn(),
+  closeMemoryDb: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock('./workflowStore.js', () => ({
-  createWorkflow: vi.fn(),
-  createWorkflowRun: vi.fn(),
-  updateWorkflow: vi.fn(),
-  getWorkflow: vi.fn(() => null),
-  listWorkflows: vi.fn(() => []),
-  countWorkflows: vi.fn(() => 0),
-  deleteWorkflow: vi.fn(() => true),
-  getWorkflowRun: vi.fn(() => null),
-  listWorkflowRuns: vi.fn(() => []),
-  closeWorkflowDb: vi.fn(),
+  createWorkflow: vi.fn().mockResolvedValue(undefined),
+  createWorkflowRun: vi.fn().mockResolvedValue(undefined),
+  updateWorkflow: vi.fn().mockResolvedValue(undefined),
+  getWorkflow: vi.fn().mockResolvedValue(null),
+  listWorkflows: vi.fn().mockResolvedValue([]),
+  countWorkflows: vi.fn().mockResolvedValue(0),
+  deleteWorkflow: vi.fn().mockResolvedValue(true),
+  getWorkflowRun: vi.fn().mockResolvedValue(null),
+  listWorkflowRuns: vi.fn().mockResolvedValue([]),
+  closeWorkflowDb: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock('./workflowEngine.js', () => ({
   validateWorkflow: vi.fn(() => ({ valid: true, errors: [] })),
-  executeWorkflow: vi.fn(),
+  executeWorkflow: vi.fn().mockResolvedValue(undefined),
   abortWorkflow: vi.fn(() => true),
   getActiveWorkflowRuns: vi.fn(() => []),
   workflowEvents,
 }));
 
 vi.mock('./experimentStore.js', () => ({
-  createExperiment: vi.fn(),
+  createExperiment: vi.fn().mockResolvedValue(undefined),
   getExperiment: vi.fn((userId, id) =>
-    userId === 'default' && id === ownedExperimentId ? { id, user_id: userId } : null,
+    Promise.resolve(
+      userId === 'default' && id === ownedExperimentId ? { id, user_id: userId } : null,
+    ),
   ),
-  listExperiments: vi.fn(() => []),
-  countExperiments: vi.fn(() => 0),
-  updateExperiment: vi.fn(() => true),
-  deleteExperiment: vi.fn(() => true),
-  createRun: vi.fn(() => ownedRunId),
-  listRuns: vi.fn(() => []),
-  listTrials: vi.fn(() => []),
+  listExperiments: vi.fn().mockResolvedValue([]),
+  countExperiments: vi.fn().mockResolvedValue(0),
+  updateExperiment: vi.fn().mockResolvedValue(true),
+  deleteExperiment: vi.fn().mockResolvedValue(true),
+  createRun: vi.fn().mockResolvedValue(ownedRunId),
+  listRuns: vi.fn().mockResolvedValue([]),
+  listTrials: vi.fn().mockResolvedValue([]),
   getRunOwned: vi.fn((userId, runId) =>
-    userId === 'default' && runId === ownedRunId
-      ? { id: runId, user_id: userId, status: 'aborted' }
-      : null,
+    Promise.resolve(
+      userId === 'default' && runId === ownedRunId
+        ? { id: runId, user_id: userId, status: 'aborted' }
+        : null,
+    ),
   ),
-  recoverStaleRuns: vi.fn(() => 0),
-  closeExperimentDb: vi.fn(),
-  experimentDb: {},
+  recoverStaleRuns: vi.fn().mockResolvedValue(0),
+  closeExperimentDb: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock('./experimentEngine.js', () => ({
-  runExperimentLoop: vi.fn(),
+  runExperimentLoop: vi.fn().mockResolvedValue(undefined),
   abortExperiment: vi.fn(() => true),
   getActiveExperiments: vi.fn(() => []),
   validatePlan: vi.fn(() => ({ valid: true, errors: [] })),
-  prepareWorkspace: vi.fn(),
+  prepareWorkspace: vi.fn().mockResolvedValue(undefined),
   experimentEvents,
 }));
 
 // P3: Mock swarm modules to prevent DB table creation issues in test environment
 vi.mock('./researchSwarm.js', () => ({
-  runResearchSwarm: vi.fn(),
+  runResearchSwarm: vi.fn().mockResolvedValue(undefined),
   abortSwarm: vi.fn(() => false),
   isSwarmActive: vi.fn(() => false),
   swarmEvents: new EventEmitter(),
@@ -113,8 +116,8 @@ vi.mock('./researchSwarm.js', () => ({
 }));
 
 vi.mock('./swarmStore.js', () => ({
-  listSwarmBranches: vi.fn(() => []),
-  listCoordinatorDecisions: vi.fn(() => []),
+  listSwarmBranches: vi.fn().mockResolvedValue([]),
+  listCoordinatorDecisions: vi.fn().mockResolvedValue([]),
 }));
 
 const { app, server } = await import('./server.js');

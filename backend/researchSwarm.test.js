@@ -15,7 +15,7 @@ import { describe, it, expect, vi } from 'vitest';
 // the exported swarm store / experimentEngine calls via vi.mock.
 
 vi.mock('./agentManager.js', () => ({
-  startAgent: vi.fn(() => 'mock-session-id'),
+  startAgent: vi.fn().mockResolvedValue('mock-session-id'),
   agentEvents: { on: vi.fn(), removeListener: vi.fn() },
 }));
 
@@ -26,20 +26,19 @@ vi.mock('./experimentEngine.js', () => ({
 }));
 
 vi.mock('./swarmStore.js', () => ({
-  createSwarmBranch: vi.fn(() => 'mock-branch-id'),
-  updateSwarmBranchStatus: vi.fn(),
-  updateSwarmBranchMetrics: vi.fn(),
-  selectSwarmBranch: vi.fn(),
-  rejectSwarmBranch: vi.fn(),
-  saveCoordinatorDecision: vi.fn(),
+  createSwarmBranch: vi.fn().mockResolvedValue('mock-branch-id'),
+  updateSwarmBranchStatus: vi.fn().mockResolvedValue(undefined),
+  updateSwarmBranchMetrics: vi.fn().mockResolvedValue(undefined),
+  selectSwarmBranch: vi.fn().mockResolvedValue(undefined),
+  rejectSwarmBranch: vi.fn().mockResolvedValue(undefined),
+  saveCoordinatorDecision: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock('./experimentStore.js', () => ({
-  getRun: vi.fn(() => ({ best_metric: 0.85, total_trials: 5, accepted_trials: 2 })),
-  createRun: vi.fn(() => 'mock-branch-run-id'),
-  updateRunStatus: vi.fn(),
-  updateRunMetrics: vi.fn(),
-  experimentDb: {},
+  getRun: vi.fn().mockResolvedValue({ best_metric: 0.85, total_trials: 5, accepted_trials: 2 }),
+  createRun: vi.fn().mockResolvedValue('mock-branch-run-id'),
+  updateRunStatus: vi.fn().mockResolvedValue(undefined),
+  updateRunMetrics: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock('node:fs', () => ({

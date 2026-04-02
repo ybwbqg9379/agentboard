@@ -20,12 +20,12 @@ AgentBoard 已演进为支持**单 Agent 对话**、**多 Agent DAG 协作**与*
 | +-------------------+ +-----------------------+ |       | +----------|----------------------------------+
 +-------------------------------------------------+       +----------|----------------------------------+
                                                                      |
-                               +----------------+                    | (Claude Agent SDK async iter)
-                               |  SQLite DBs    |                    |
-                               |  - agentboard  | <------------------+
-                               |  - workflows   |                    |      +---------------------+
-                               |  - memoryStore |                    |      | MCP Servers (Core)  |
-                               +----------------+                    +----> | filesystem/playwright|
+                               +-------------------+                 | (Claude Agent SDK async iter)
+                               | Supabase (PgSQL)  |                 |
+                               | 10 tables, JSONB  | <---------------+
+                               | RLS + FK cascade  |                 |      +---------------------+
+                               +-------------------+                 |      | MCP Servers (Core)  |
+                                                                     +----> | filesystem/playwright|
                                                                      |      | memory/github       |
                                                                      |      +---------------------+
                                                                      |      | MCP Servers (Search) |
@@ -53,11 +53,11 @@ AgentBoard 已演进为支持**单 Agent 对话**、**多 Agent DAG 协作**与*
 3. `server.js` 移交 `agentManager.js` 创建 `sessionId`。
 4. 调用 Agent SDK，经过 `proxy.js` 将 Anthropic 格式转译为通用的 OpenAI 格式以调用远端 LLM。Proxy 层同时执行 System Prompt 压缩（60KB→3KB）、Thinking Block 剥离、Tool Schema 截断等优化。
 5. SDK 产出 `SDKMessage` 事件流，由 `hooks` 进行截获处理（过滤高危 bash 路径，记录 MCP Token 耗时等）。
-6. 事件同步写入 SQLite (sessions / events 表)，并通过 WebSocket 广播给前端。每个 Session 的文件操作限制在 `workspace/sessions/{sessionId}/` 独立目录中。
+6. 事件异步写入 Supabase PostgreSQL (sessions / events 表)，并通过 WebSocket 广播给前端。每个 Session 的文件操作限制在 `workspace/sessions/{sessionId}/` 独立目录中。
 
 ### 2. Workflow 工作流引擎渲染流
 
-1. 用户在 `WorkflowEditor` 拖拽连线生成 `nodes` 和 `edges` 的 JSON DAG，REST `/api/workflows` 将其存入 `workflows.db`。
+1. 用户在 `WorkflowEditor` 拖拽连线生成 `nodes` 和 `edges` 的 JSON DAG，REST `/api/workflows` 将其存入 Supabase PostgreSQL。
 2. 触发执行 `POST /run`，`workflowEngine.js` 锁定执行。
 3. `workflowEngine.js` 对所有节点执行**拓扑排序 (Topological Sort)** 以决定依赖顺序。
 4. 节点开始流水线流转：
@@ -101,10 +101,10 @@ AgentBoard 已演进为支持**单 Agent 对话**、**多 Agent DAG 协作**与*
 | **搜索/爬取 MCP 层**          | `mcpConfig.js` (Search/Crawl tier)           | 6 个条件加载的 MCP Server：搜索引擎 (Tavily / Exa / Brave Search)、爬取器 (Firecrawl / Fetch / Jina Reader)。API Key 存在时激活，不存在时静默跳过。Jina Reader 使用 SSE 远程传输。                                                                                                                                                                               |
 | **自愈拦截引擎**              | `schemaValidator.js` / `hooks.js`            | **(Harness Engineering)** 搭载本地 Zod Schema 强校验网关闭环屏蔽模型传参幻觉；配备 Semantic Loop Watchdog。当系统检测到模型深陷“重试死循环”（连续多次 ToolHash 碰撞对应出错）时，Harness 免人类介入、自发下达 `<harness_override>` 破壁指令，底层设 Circuit Breaker 异常熔断。                                                                                   |
 | **实验与评测 (AutoResearch)** | `experimentEngine.js` / `metricExtractor.js` | 新增的核心实验引擎。在 host 环境内基于白名单创建临时隔离 `workspace`，内部执行带状态恢复机制 (Git Ratchet) 的 "提议-度量-回滚/提交" 循环打分流程。baseline / guard / benchmark 采用异步可中断执行，避免长命令阻塞服务主线程；对会派生 worker 的命令，abort/timeout 会按进程组清理整个命令树。支持直接正则/解析提取命令行输出指标，自动向 WS 事件总线广播演进度。 |
-| **研究 Swarm (P3)**           | `researchSwarm.js` / `swarmStore.js`         | Coordinator/Worker 并行研究编排器。Coordinator 拆解假说、综合选优；Worker 并行跑 P1 Ratchet Loop；Branch 隔离（git clone + PORT）；`spawnSync` 防注入；abort 桥接；状态/指标回写。`swarmStore` 共享 `experimentDb` 连接。                                                                                                                                        |
+| **研究 Swarm (P3)**           | `researchSwarm.js` / `swarmStore.js`         | Coordinator/Worker 并行研究编排器。Coordinator 拆解假说、综合选优；Worker 并行跑 P1 Ratchet Loop；Branch 隔离（git clone + PORT）；`spawnSync` 防注入；abort 桥接；状态/指标回写。`swarmStore` 使用共享 Supabase 客户端直接访问数据库。                                                                                                                          |
 | **安全沙箱**                  | `hooks.js` / `dockerSandbox.js`              | `PreToolUse` Bash双层围栏防穿透。执行 Python/Node 代码时，引擎自动下卷分配基于 `dockerode` 的无网络零信任按需生成容器，完全隔离宿主机并施加 256MB/50 PIDs 的熔断保护。                                                                                                                                                                                           |
 | **微服务器组**                | `nativeMcpServer.js`                         | 基于官方 `@modelcontextprotocol/sdk` 实现的后端驻留子进程，向模型动态注册高级中间件原生工具 (如 `TaskCreateTool` 分发子代理、`BatchTool`、`LoopTool` 并发调度与多维执行)。                                                                                                                                                                                       |
-| **持久层**                    | `sessionStore.js` / `experimentStore.js`     | 核心多模块 SQLite 接口，采用 WAL 读写模式，全面强制化附带 `user_id` 分区设计。支持断线恢复与基于租户强隔离。`experimentDb` 导出供 `swarmStore` 共享。                                                                                                                                                                                                            |
+| **持久层**                    | `sessionStore.js` / `experimentStore.js`     | Supabase PostgreSQL 异步持久层。10 张表统一托管于云端 PostgreSQL，JSONB 列自动序列化，FK 级联删除，RLS 行级安全策略。`@supabase/supabase-js` 纯 JS 客户端，零原生编译依赖。                                                                                                                                                                                      |
 
 ### Frontend
 
@@ -120,98 +120,93 @@ AgentBoard 已演进为支持**单 Agent 对话**、**多 Agent DAG 协作**与*
 
 ## 数据库 Schema 设计
 
-系统由三组 SQLite 持久化表构成（其中 sessions 与 experiments 共享 `agentboard.db`）：
+系统由 Supabase PostgreSQL 统一托管的 10 张表构成（单一云端数据库，RLS 行级安全）：
 
-### 1. `agentboard.db` (单 Agent 游历库)
+### Supabase PostgreSQL
 
 ```sql
+-- Agent 会话
 CREATE TABLE sessions (
   id         TEXT PRIMARY KEY,
   user_id    TEXT NOT NULL,
   prompt     TEXT NOT NULL,
   status     TEXT DEFAULT 'pending',
-  created_at TEXT,
-  stats      TEXT
+  created_at TIMESTAMPTZ,
+  stats      JSONB
 );
 
 CREATE TABLE events (
-  id         INTEGER PRIMARY KEY AUTOINCREMENT,
-  session_id TEXT REFERENCES sessions(id),
+  id         BIGSERIAL PRIMARY KEY,
+  session_id TEXT REFERENCES sessions(id) ON DELETE CASCADE,
   type       TEXT NOT NULL,
-  content    TEXT NOT NULL,
-  timestamp  INTEGER NOT NULL
+  content    JSONB NOT NULL,
+  timestamp  BIGINT NOT NULL
 );
-```
 
-### 2. `workflows.db` (DAG 流程图库)
-
-```sql
+-- DAG 工作流
 CREATE TABLE workflows (
   id          TEXT PRIMARY KEY,
   user_id     TEXT NOT NULL DEFAULT 'default',
   name        TEXT NOT NULL,
   description TEXT DEFAULT '',
-  definition  TEXT NOT NULL,         -- 存储完整的 {nodes, edges} 拓扑结构JSON
-  created_at  TEXT,
-  updated_at  TEXT
+  definition  JSONB NOT NULL,        -- 存储完整的 {nodes, edges} 拓扑结构JSON
+  created_at  TIMESTAMPTZ,
+  updated_at  TIMESTAMPTZ
 );
 
 CREATE TABLE workflow_runs (
   id           TEXT PRIMARY KEY,
   user_id      TEXT NOT NULL DEFAULT 'default',
-  workflow_id  TEXT NOT NULL REFERENCES workflows(id),
+  workflow_id  TEXT NOT NULL REFERENCES workflows(id) ON DELETE CASCADE,
   status       TEXT NOT NULL DEFAULT 'pending',
-  context      TEXT DEFAULT '{}',    -- 存储运行时随节点滚动累积的数据字典
-  node_results TEXT DEFAULT '{}',    -- 子节点执行完成的 Snapshot
+  context      JSONB DEFAULT '{}',   -- 存储运行时随节点滚动累积的数据字典
+  node_results JSONB DEFAULT '{}',   -- 子节点执行完成的 Snapshot
   error        TEXT,
-  created_at   TEXT,
-  completed_at TEXT
+  created_at   TIMESTAMPTZ,
+  completed_at TIMESTAMPTZ
 );
-```
 
-### 3. `agentboard.db` 附加表 (实验评测体系)
-
-```sql
+-- 实验评测体系
 CREATE TABLE experiments (
   id          TEXT PRIMARY KEY,
   user_id     TEXT NOT NULL DEFAULT 'default',
   name        TEXT NOT NULL,
   description TEXT,
-  plan        TEXT NOT NULL,
+  plan        JSONB NOT NULL,
   status      TEXT NOT NULL DEFAULT 'draft',
-  created_at  TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE experiment_runs (
   id              TEXT PRIMARY KEY,
-  experiment_id   TEXT NOT NULL REFERENCES experiments(id),
+  experiment_id   TEXT NOT NULL REFERENCES experiments(id) ON DELETE CASCADE,
   user_id         TEXT NOT NULL DEFAULT 'default',
   status          TEXT NOT NULL DEFAULT 'running',
-  best_metric     REAL,
-  baseline_metric REAL,
+  best_metric     DOUBLE PRECISION,
+  baseline_metric DOUBLE PRECISION,
   total_trials    INTEGER NOT NULL DEFAULT 0,
   accepted_trials INTEGER NOT NULL DEFAULT 0,
   error_message   TEXT,
-  started_at      TEXT NOT NULL DEFAULT (datetime('now')),
-  completed_at    TEXT
+  started_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  completed_at    TIMESTAMPTZ
 );
 
 CREATE TABLE trials (
   id               TEXT PRIMARY KEY,
-  run_id           TEXT NOT NULL REFERENCES experiment_runs(id),
+  run_id           TEXT NOT NULL REFERENCES experiment_runs(id) ON DELETE CASCADE,
   trial_number     INTEGER NOT NULL,
-  accepted         INTEGER NOT NULL DEFAULT 0,
-  primary_metric   REAL,
-  all_metrics      TEXT,
+  accepted         BOOLEAN NOT NULL DEFAULT FALSE,
+  primary_metric   DOUBLE PRECISION,
+  all_metrics      JSONB,
   diff             TEXT,
   agent_session_id TEXT,
   reason           TEXT,
   duration_ms      INTEGER,
-  created_at       TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- P3 Research Swarm 扩展表（共享 agentboard.db 连接）
+-- P3 Research Swarm
 CREATE TABLE swarm_branches (
   id              TEXT    PRIMARY KEY,
   run_id          TEXT    NOT NULL REFERENCES experiment_runs(id) ON DELETE CASCADE,
@@ -219,13 +214,13 @@ CREATE TABLE swarm_branches (
   hypothesis      TEXT    NOT NULL,
   workspace_dir   TEXT    NOT NULL,
   status          TEXT    NOT NULL DEFAULT 'running',  -- running | completed | failed
-  best_metric     REAL,
+  best_metric     DOUBLE PRECISION,
   total_trials    INTEGER NOT NULL DEFAULT 0,
   accepted_trials INTEGER NOT NULL DEFAULT 0,
-  is_selected     INTEGER NOT NULL DEFAULT 0,
+  is_selected     BOOLEAN NOT NULL DEFAULT FALSE,
   rejection_reason TEXT,
-  created_at      TEXT    NOT NULL DEFAULT (datetime('now')),
-  completed_at    TEXT
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  completed_at    TIMESTAMPTZ
 );
 
 CREATE TABLE swarm_coordinator_decisions (
@@ -234,9 +229,9 @@ CREATE TABLE swarm_coordinator_decisions (
   phase            TEXT NOT NULL,         -- 'decompose' | 'synthesize'
   input_summary    TEXT,
   output_raw       TEXT,
-  parsed_result    TEXT,                  -- JSON
+  parsed_result    JSONB,
   agent_session_id TEXT,
-  created_at       TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 ```
 

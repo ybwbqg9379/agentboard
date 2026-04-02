@@ -15,7 +15,8 @@
 
 > [!NOTE]  
 > 您 **不需要** 在全局安装原始的 `claude-code` CLI。我们的引擎在底层直接桥接了 `@anthropic-ai/claude-agent-sdk` 依赖包。
-> 您 **不需要** 安装 PostgreSQL 或 Redis。系统所有的状态追踪和会话历史数据都通过极致轻量的本地文件级数据库 **SQLite** (`workflows.db` 和 `agentboard.db`) 自动管理。
+> 系统数据存储使用团队共享的 **Supabase** 云端 PostgreSQL，无需本地安装任何数据库。向团队管理员获取 `SUPABASE_URL` 和 `SUPABASE_SECRET_KEY` 即可。
+> 如需自建 Supabase 实例，请在 [Supabase](https://supabase.com) 创建项目后，执行 `backend/migrations/` 下的 SQL 文件初始化表结构。
 
 ---
 
@@ -61,6 +62,10 @@ AgentBoard 会通过项目内置的智能拦截层 `proxy.js` 与各类大语言
 
    # 3. 指定 Agent 引擎将要调用的具体模型名
    LLM_MODEL=gpt-4o-mini
+
+   # 4. Supabase 数据库连接 (向团队管理员获取，或自建后填写)
+   SUPABASE_URL=https://your-project-ref.supabase.co
+   SUPABASE_SECRET_KEY=sb_secret_your-secret-key
    ```
 
    **[可选] Web 搜索与爬取能力：** 填写以下 API Key 后，对应的 MCP Server 会自动激活，不填则跳过：
@@ -99,7 +104,7 @@ npm run dev
 启动后，您的终端中会亮起三种颜色的日志流：
 
 1. 🟡 `[proxy]` (端口 4000): LLM 通信代理，负责执行请求翻译和包体透传。
-2. 🔵 `[back]` (端口 3001): Express + WebSocket 服务中枢，挂载着 DAG 调度引擎以及 SQLite 会话数据库。
+2. 🔵 `[back]` (端口 3001): Express + WebSocket 服务中枢，挂载着 DAG 调度引擎以及 Supabase 云端数据库。
 3. 🟢 `[front]` (端口 5173): Vite React 前端 SPA 数据驾驶舱。
 
 **下一步**: 您的应用现已启动。请打开浏览器并访问 **[http://localhost:5173](http://localhost:5173)**。
@@ -132,6 +137,6 @@ npm run dev
 大功告成，您现在已经完全掌握了项目结构！如果您打算在底层做修改或提交 PR，我们为您准备了以下路标文档：
 
 - **内部架构透视**: 好奇 `workflowEngine.js` 如何调度工作流？WebSocket 的 5 种状态机是如何流转的？搜索/爬取 MCP 是如何分层激活的？请参阅位于根目录的 [`ARCHITECTURE.md`](ARCHITECTURE.md)。
-- **代码规范与自动化测试**: 我们对于入库的代码执行极严标准并保持着 528+ 个 Vitest 自动化测试的体量。提交代码或发起 PR 之前，不要忘记看一眼 [`CONTRIBUTING.md`](CONTRIBUTING.md) 以了解如何运行 `npm run check` 拦截关卡。
+- **代码规范与自动化测试**: 我们对于入库的代码执行极严标准并保持着 597 个 Vitest 自动化测试的体量。提交代码或发起 PR 之前，不要忘记看一眼 [`CONTRIBUTING.md`](CONTRIBUTING.md) 以了解如何运行 `npm run check` 拦截关卡。
 
 开心编程，尽情打造您的超级 Agent 平台！🚀
