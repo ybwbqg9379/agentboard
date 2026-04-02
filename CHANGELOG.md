@@ -10,6 +10,36 @@
 - **实时实验仪表台**: `ExperimentView.jsx` 正式上线。具备双联大屏：左侧支持 JSON 在线编排 ResearchPlan 并发散执行；右侧搭载随 WS 实时回传刷新的打分监控图与各 Trial 最新通过状态，彻底实现量化指标的可视化统筹。
 - **DAG 管线实验节点映射 (`workflowEngine.js`)**: **`experiment`** 现已正式作为平台支持的原生图谱节点并入 `WorkflowEditor`。用户可在可视化画布中拖曳出实验节点，以实现“当主工作流运转至此，阻断抛交后台进行多轮基数优化，待指标收敛后自动将 Best Metric 携带至下一工作流节点”的管线闭环构想。
 - **实验三级持久化网络**: 引入 `experimentStore.js`。内置表结构（`experiments` 模板、`experiment_runs` 场次与 `experiment_trials` 具体试运行尝试），确保每一次科研数据都能被永久检索和审查。
+- **指标折线图 (P1 补完)**: `ExperimentView.jsx` Live Dashboard 新增纯 SVG 折线图，实时展示 primary metric 随 trial 序号变化的曲线；Accept 点以主题色圆点标注，Reject 点以红色圆点标注；附带 Y/X 轴刻度与图例，数据不足 2 点时显示占位提示。
+- **ResearchPlan 预置模板 (P2 补完)**: 新建 `backend/templates/` 目录，包含 5 个生产级 JSON 模板（ml-training / performance-optimization / bundle-size / ci-quality / security-fuzz）；后端新增 `GET /api/experiment-templates/:filename` 路由安全提供模板文件（文件名严格正则白名单）；ExperimentView 侧栏新增"Start from template"模板快选区，点击一键填充 JSON 编辑器并跳转到编辑视图。
+
+### 15 项实验引擎六轮审查修复 (Experiment Engine Audit Round 6 — 3C + 5I + 4T + 3Test)
+
+#### Fixed -- Critical
+
+- **R6-C1** `ExperimentView.jsx` -- SVG gradient `id="areaGrad"` 为全局 DOM ID，多实例渲染时冲突；改用 `useId()` 生成唯一 ID
+- **R6-C2** `ExperimentView.module.css` -- `rgba(var(--status-running-rgb,...), 0.15)` 变量缺失时整条声明失效；改为 `color-mix(in srgb, ...)` 方案
+- **R6-C3** `ExperimentView.jsx` -- 事件列表 `.reverse()` + `key={idx}` 导致所有 key 随新增事件偏移；改为 CSS `flex-direction: column-reverse` + 稳定复合 key
+
+#### Fixed -- Important
+
+- **R6-I1** `ExperimentView.jsx` -- 4 处 `console.error` 违反项目 logger 规则且错误被静默吞掉；移除并补充注释
+- **R6-I2** `ExperimentView.jsx` -- 模板加载失败静默回退空白，用户无感知；新增 `templateError` state 和内联错误提示
+- **R6-I3** `ExperimentView.jsx` -- `selectedExperiment.plan` 可能 undefined 致 `JSON.stringify(undefined)` 破坏受控 textarea；加 `?? {}` 保护
+- **R6-I4** `ExperimentView.jsx` -- 切换实验时未清空 runs 状态，短暂显示旧数据；`handleSelectExperiment` 首行立即 `setRuns([])`
+- **R6-I5** `server.js` -- `existsSync` + `readFileSync` TOCTOU 竞态；移除预检，改为 try/catch + `err.code === 'ENOENT'` 映射 404
+
+#### Fixed -- Template
+
+- **R6-T1** `bundle-size.json` -- guard 重复执行 build 导致双倍耗时；改为 `node --check` 轻量语法检查
+- **R6-T2** `bundle-size.json` -- `chunk_count` direction 设为 minimize 与 code-splitting 指令矛盾；改为 maximize
+- **R6-T3** `security-fuzz.json` -- guard 用 `--grep`（Mocha 专属），通用模板不应假定 runner；改为 `npm test`
+- **R6-T4** `ml-training.json` -- `--epochs 5 --eval-only` 参数矛盾；拆分为独立 `evaluate.py` 调用
+
+#### Tests
+
+- 新增根级 `vitest.config.js`（`test.projects`）解决根目录 `npx vitest run` 时 frontend setupFiles 不加载的问题
+- `ChatInput.test.jsx` / `SessionDrawer.test.jsx` 改用原生 vitest 断言替代 jest-dom matchers，消除跨 workspace 兼容性问题
 
 ### 1 项实验引擎五轮审查修复 (Experiment Engine Audit Round 5 — 1M)
 

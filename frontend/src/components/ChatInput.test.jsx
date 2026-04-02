@@ -24,7 +24,7 @@ describe('ChatInput', () => {
       target: { value: 'run task' },
     });
 
-    expect(screen.getByRole('button', { name: 'Run' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Run' }).disabled).toBe(true);
   });
 
   it('disables stop when disconnected during a running session', () => {
@@ -39,6 +39,6 @@ describe('ChatInput', () => {
       />,
     );
 
-    expect(screen.getByRole('button', { name: 'Stop' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Stop' }).disabled).toBe(true);
   });
 });

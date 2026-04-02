@@ -1,0 +1,41 @@
+{
+  "name": "Security Hardening",
+  "description": "Iteratively harden input validation and API security boundaries. Reduces attack surface by maximizing fuzz test pass rate and input rejection coverage.",
+  "target": {
+    "files": ["src/validators/", "src/middleware/", "src/sanitizers/"],
+    "readonly": ["src/db/", "tests/security/", "src/models/"],
+    "constraints": [
+      "All valid inputs must continue to be accepted",
+      "Error messages must not leak sensitive implementation details",
+      "Rate limiting must remain in place"
+    ]
+  },
+  "metrics": {
+    "primary": {
+      "command": "node tests/security/fuzz-runner.js --iterations 500 2>&1 | tail -3",
+      "extract": "vulnerabilities_found: (\\d+)",
+      "type": "regex",
+      "direction": "minimize"
+    },
+    "secondary": [
+      {
+        "name": "rejection_rate",
+        "command": "node tests/security/fuzz-runner.js --iterations 500 2>&1 | tail -3",
+        "extract": "rejection_rate: ([\\d.]+)%",
+        "type": "regex",
+        "direction": "maximize"
+      }
+    ],
+    "guard": {
+      "command": "npm test",
+      "success_pattern": "passing|passed|ok"
+    }
+  },
+  "budget": {
+    "time_per_experiment": "8m",
+    "max_experiments": 15,
+    "max_consecutive_failures": 3,
+    "total_time": "3h"
+  },
+  "agent_instructions": "You are hardening API security. Focus on: (1) input validation — reject malformed JSON, oversized payloads, unexpected field types, (2) injection prevention — validate and sanitize all user-supplied strings used in queries or file paths, (3) boundary checking — enforce min/max lengths/values on all fields, (4) error handling — ensure error responses never include stack traces or internal paths. Focus on one attack vector per trial."
+}

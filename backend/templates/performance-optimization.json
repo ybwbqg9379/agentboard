@@ -1,0 +1,41 @@
+{
+  "name": "API Performance Optimization",
+  "description": "Systematically reduce API response latency (p99) or increase throughput (QPS) through code-level optimizations.",
+  "target": {
+    "files": ["src/server.js", "src/router.js", "src/middleware.js", "src/cache.js"],
+    "readonly": ["src/db/", "src/models/", "tests/"],
+    "constraints": [
+      "All existing API contracts must remain intact",
+      "Memory usage must stay below 512MB",
+      "No external dependency additions without justification"
+    ]
+  },
+  "metrics": {
+    "primary": {
+      "command": "node scripts/benchmark.js --requests 1000 --concurrency 50",
+      "extract": "p99_latency_ms: ([\\d.]+)",
+      "type": "regex",
+      "direction": "minimize"
+    },
+    "secondary": [
+      {
+        "name": "throughput_qps",
+        "command": "node scripts/benchmark.js --requests 1000 --concurrency 50",
+        "extract": "qps: ([\\d.]+)",
+        "type": "regex",
+        "direction": "maximize"
+      }
+    ],
+    "guard": {
+      "command": "npm test",
+      "success_pattern": "passing"
+    }
+  },
+  "budget": {
+    "time_per_experiment": "5m",
+    "max_experiments": 30,
+    "max_consecutive_failures": 8,
+    "total_time": "4h"
+  },
+  "agent_instructions": "You are optimizing API server performance. Focus on: (1) caching hot paths (in-memory LRU), (2) eliminating N+1 database queries, (3) async/await optimizations (avoid sequential awaits that can be parallelized), (4) response compression, (5) connection pooling. Make one targeted change per trial and explain the expected performance impact."
+}

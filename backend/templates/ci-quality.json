@@ -1,0 +1,41 @@
+{
+  "name": "CI Quality Gate Improvement",
+  "description": "Systematically improve test coverage, reduce lint warnings, and improve overall code quality metrics.",
+  "target": {
+    "files": ["src/", "tests/", ".eslintrc.js", "jest.config.js"],
+    "readonly": ["docs/", ".github/"],
+    "constraints": [
+      "Do not lower coverage thresholds",
+      "All existing tests must continue to pass",
+      "New tests must be meaningful, not trivial assertions"
+    ]
+  },
+  "metrics": {
+    "primary": {
+      "command": "npm run test -- --coverage --coverageReporters=json-summary 2>&1 | tail -5",
+      "extract": "Lines\\s*:\\s*([\\d.]+)%",
+      "type": "regex",
+      "direction": "maximize"
+    },
+    "secondary": [
+      {
+        "name": "lint_warnings",
+        "command": "npm run lint 2>&1 | grep -c 'warning' || echo '0'",
+        "extract": "^(\\d+)$",
+        "type": "regex",
+        "direction": "minimize"
+      }
+    ],
+    "guard": {
+      "command": "npm test",
+      "success_pattern": "passing|passed"
+    }
+  },
+  "budget": {
+    "time_per_experiment": "5m",
+    "max_experiments": 20,
+    "max_consecutive_failures": 4,
+    "total_time": "2h"
+  },
+  "agent_instructions": "You are improving code quality metrics. For coverage: (1) identify uncovered branches/lines using coverage reports, (2) write unit tests for error paths and edge cases, (3) add integration tests for critical flows. For lint: (1) fix unused variables, (2) resolve 'any' type usages, (3) correct style issues. Each trial should add targeted tests or fix lint warnings. Do not write low-value tests just to inflate coverage."
+}

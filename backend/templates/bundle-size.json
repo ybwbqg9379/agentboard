@@ -1,0 +1,41 @@
+{
+  "name": "Frontend Bundle Size Optimization",
+  "description": "Reduce JavaScript bundle size for faster page loads through tree-shaking, code splitting, and dependency optimization.",
+  "target": {
+    "files": ["src/", "vite.config.js", "package.json"],
+    "readonly": ["public/", "tests/"],
+    "constraints": [
+      "All existing UI features must remain functional",
+      "No visual regressions in core components",
+      "Do not remove any user-facing functionality"
+    ]
+  },
+  "metrics": {
+    "primary": {
+      "command": "npm run build 2>&1 && cat dist/stats.json | node -e \"const d=require('fs').readFileSync('/dev/stdin','utf8');const s=JSON.parse(d);console.log('bundle_kb:',Math.round(s.totalSize/1024))\"",
+      "extract": "bundle_kb: ([\\d.]+)",
+      "type": "regex",
+      "direction": "minimize"
+    },
+    "secondary": [
+      {
+        "name": "chunk_count",
+        "command": "ls dist/assets/*.js 2>/dev/null | wc -l | tr -d ' ' | xargs -I{} echo 'chunks: {}'",
+        "extract": "chunks: ([\\d]+)",
+        "type": "regex",
+        "direction": "maximize"
+      }
+    ],
+    "guard": {
+      "command": "node --check src/*.js src/**/*.js 2>&1 || echo 'syntax ok'",
+      "success_pattern": "built in|syntax ok"
+    }
+  },
+  "budget": {
+    "time_per_experiment": "3m",
+    "max_experiments": 25,
+    "max_consecutive_failures": 5,
+    "total_time": "2h"
+  },
+  "agent_instructions": "You are reducing the JavaScript bundle size. Focus on: (1) replacing heavy libraries with lighter alternatives (e.g., date-fns instead of moment), (2) dynamic imports for lazy-loaded routes, (3) tree-shaking unused exports by reviewing named vs default imports, (4) removing unused dependencies from package.json, (5) configuring Vite/Rollup manual chunks to split the bundle into more parallel-loadable chunks (more chunks = better, measured by chunk_count). Make one change per trial."
+}

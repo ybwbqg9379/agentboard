@@ -3,7 +3,13 @@ import cors from 'cors';
 import { createServer } from 'node:http';
 import { WebSocketServer } from 'ws';
 import { resolve } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname } from 'node:path';
 import config from './config.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const TEMPLATES_DIR = resolve(__dirname, 'templates');
 import {
   listSessionsPaged,
   countSessions,
@@ -338,6 +344,43 @@ app.get('/api/workflow-status', (_req, res) => {
 });
 
 // --- Experiment API ---
+
+// Serve pre-built ResearchPlan templates (safe allowlist — no path traversal)
+app.get('/api/experiment-templates/:filename', (req, res) => {
+  const filename = req.params.filename;
+  // Only allow .json files with safe names (alphanumeric + hyphens)
+  if (!/^[a-z0-9-]+\.json$/.test(filename)) {
+    return res.status(400).json({ error: 'Invalid template name' });
+  }
+  // Fix #8: Removed existsSync + readFileSync TOCTOU race.
+  // A single readFileSync inside try/catch is atomic: ENOENT → 404,
+  // any other error (malformed JSON, permission) → 500.
+  const templatePath = resolve(TEMPLATES_DIR, filename);
+  try {
+    const content = JSON.parse(readFileSync(templatePath, 'utf-8'));
+    res.json(content);
+  } catch (err) {
+    if (err.code === 'ENOENT') {
+      return res.status(404).json({ error: 'Template not found' });
+    }
+    res.status(500).json({ error: 'Failed to read template' });
+  }
+});
+
+app.get('/api/experiment-templates', (_req, res) => {
+  const templates = [
+    { key: 'ml-training', label: 'ML Training Optimization', file: 'ml-training.json' },
+    {
+      key: 'performance-optimization',
+      label: 'API Performance Optimization',
+      file: 'performance-optimization.json',
+    },
+    { key: 'bundle-size', label: 'Frontend Bundle Size', file: 'bundle-size.json' },
+    { key: 'ci-quality', label: 'CI Quality Gate', file: 'ci-quality.json' },
+    { key: 'security-fuzz', label: 'Security Hardening', file: 'security-fuzz.json' },
+  ];
+  res.json({ templates });
+});
 
 app.get('/api/experiments', (req, res) => {
   const limit = Math.min(Math.max(parseInt(req.query.limit) || 20, 1), 100);

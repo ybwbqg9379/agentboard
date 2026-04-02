@@ -51,7 +51,7 @@ describe('SessionDrawer', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
 
     await waitFor(() => expect(fetch).toHaveBeenCalledTimes(3));
-    expect(await screen.findByText('39')).toBeInTheDocument();
-    expect(screen.getByText('Second session')).toBeInTheDocument();
+    expect(await screen.findByText('39')).toBeTruthy();
+    expect(screen.getByText('Second session')).toBeTruthy();
   });
 });

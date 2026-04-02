@@ -6,12 +6,16 @@
   color: var(--text-primary);
 }
 
+/* ─── Sidebar ──────────────────────────────────────────────────────────────── */
+
 .sidebar {
-  width: 300px;
+  width: 280px;
+  min-width: 280px;
   background-color: var(--bg-secondary);
   border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .sidebarHeader {
@@ -20,11 +24,12 @@
   justify-content: space-between;
   align-items: center;
   border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
 }
 
 .sidebarHeader h3 {
   margin: 0;
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 600;
 }
 
@@ -32,16 +37,69 @@
   background: var(--bg-accent);
   color: white;
   border: none;
-  padding: 6px 12px;
-  border-radius: 4px;
+  padding: 5px 11px;
+  border-radius: 6px;
   cursor: pointer;
-  font-size: 0.85rem;
-  transition: opacity 0.2s;
+  font-size: 0.8rem;
+  transition: opacity 0.15s;
 }
 
 .sidebarHeader button:hover {
-  opacity: 0.9;
+  opacity: 0.85;
 }
+
+/* ─── Template Section ─────────────────────────────────────────────────────── */
+
+.templateSection {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.templateLabel {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-tertiary);
+  margin-bottom: 8px;
+}
+
+.templateGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.templateBtn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 6px 10px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 0.82rem;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.templateBtn:hover {
+  background-color: var(--bg-hover);
+  border-color: var(--bg-accent);
+}
+
+.templateBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ─── Experiment List ──────────────────────────────────────────────────────── */
 
 .experimentList {
   flex: 1;
@@ -49,17 +107,17 @@
 }
 
 .experimentItem {
-  padding: 12px 16px;
+  padding: 11px 16px;
   cursor: pointer;
   border-bottom: 1px solid var(--border-color);
-  transition: background-color 0.2s;
+  transition: background-color 0.15s;
 }
 
 .experimentId {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   color: var(--text-tertiary);
   font-family: monospace;
-  margin-top: 2px;
+  margin-top: 3px;
 }
 
 .experimentItem:hover {
@@ -71,6 +129,8 @@
   border-left: 3px solid var(--bg-accent);
 }
 
+/* ─── Main Content ─────────────────────────────────────────────────────────── */
+
 .mainContent {
   flex: 1;
   display: flex;
@@ -79,65 +139,85 @@
   position: relative;
 }
 
+/* ─── Empty State ──────────────────────────────────────────────────────────── */
+
 .emptyState {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   height: 100%;
+  gap: 16px;
   color: var(--text-tertiary);
-  font-size: 1.2rem;
+  font-size: 1rem;
 }
+
+.emptyIcon {
+  font-size: 3rem;
+  opacity: 0.5;
+}
+
+/* ─── Editor ───────────────────────────────────────────────────────────────── */
 
 .editor {
   padding: 24px;
   display: flex;
   flex-direction: column;
   height: 100%;
+  box-sizing: border-box;
+}
+
+.editor h2 {
+  margin: 0 0 12px 0;
+  font-size: 1.1rem;
 }
 
 .textarea {
   flex: 1;
   width: 100%;
-  font-family: monospace;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.85rem;
+  line-height: 1.6;
   background-color: var(--bg-secondary);
   color: var(--text-primary);
   border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 16px;
-  margin-top: 16px;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
   resize: none;
+  tab-size: 2;
 }
 
 .saveError {
   color: var(--status-error, #e53935);
-  font-size: 0.9rem;
-  margin-bottom: 8px;
+  font-size: 0.85rem;
+  margin-bottom: 10px;
   padding: 8px 12px;
   background: rgba(229, 57, 53, 0.08);
-  border-radius: 4px;
+  border-radius: 6px;
 }
 
 .actions {
   display: flex;
   justify-content: flex-end;
-  gap: 12px;
+  gap: 10px;
 }
 
 .actions button {
-  padding: 8px 16px;
+  padding: 8px 18px;
   border: 1px solid var(--border-color);
   background: transparent;
   color: var(--text-primary);
-  border-radius: 4px;
+  border-radius: 6px;
   cursor: pointer;
+  transition: background-color 0.15s;
 }
 
-.actions button.primary {
-  background: var(--bg-accent);
-  color: white;
-  border-color: var(--bg-accent);
+.actions button:hover {
+  background-color: var(--bg-hover);
 }
+
+/* ─── Dashboard ────────────────────────────────────────────────────────────── */
 
 .dashboard {
   flex: 1;
@@ -145,69 +225,151 @@
   padding: 24px;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 20px;
 }
 
 .headerRow {
   background-color: var(--bg-secondary);
-  padding: 24px;
+  padding: 20px 24px;
   border-radius: 12px;
   border: 1px solid var(--border-color);
 }
 
 .headerRow h2 {
-  margin: 0 0 8px 0;
+  margin: 0 0 4px 0;
+  font-size: 1.25rem;
 }
 
 .headerRow p {
   color: var(--text-secondary);
-  margin: 0 0 16px 0;
+  margin: 0 0 12px 0;
+  font-size: 0.9rem;
 }
 
-.headerRow button {
-  margin-right: 12px;
+.headerActions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.headerActions button {
   padding: 8px 16px;
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: 6px;
   border: 1px solid var(--border-color);
   background: transparent;
   color: var(--text-primary);
+  font-size: 0.875rem;
+  transition: background-color 0.15s;
 }
 
-.headerRow button.primary {
+.headerActions button:hover {
+  background-color: var(--bg-hover);
+}
+
+.headerActions button.primary {
   background: var(--bg-accent, #007aff);
   color: white;
   border-color: var(--bg-accent, #007aff);
 }
 
+/* ─── Recent Runs ──────────────────────────────────────────────────────────── */
+
 .runsCont {
   background-color: var(--bg-secondary);
-  padding: 24px;
+  padding: 20px 24px;
   border-radius: 12px;
   border: 1px solid var(--border-color);
+}
+
+.runsCont h3 {
+  margin: 0 0 14px 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.runsEmpty {
+  color: var(--text-tertiary);
+  font-size: 0.875rem;
+  padding: 12px 0;
 }
 
 .runRow {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 12px;
+  gap: 16px;
+  padding: 10px 0;
   border-bottom: 1px solid var(--border-color);
+  font-size: 0.875rem;
 }
 
 .runRow:last-child {
   border-bottom: none;
 }
 
-.runRow button {
-  padding: 4px 12px;
-  border-radius: 4px;
-  cursor: pointer;
+.runStatus {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
 }
+
+/* Fix #2: rgba(var(--status-running-rgb,…)) requires the variable to
+   contain raw comma-separated RGB values; if it’s undefined the whole
+   declaration silently fails. Use color-mix() which degrades gracefully
+   and doesn’t depend on a separate RGB-channel variable. */
+.status_running {
+  background: color-mix(in srgb, var(--bg-accent, #007aff) 15%, transparent);
+  color: var(--bg-accent, #007aff);
+}
+
+.status_completed {
+  background: rgba(52, 199, 89, 0.15);
+  color: #34c759;
+}
+
+.status_failed,
+.status_aborted {
+  background: rgba(229, 57, 53, 0.12);
+  color: var(--status-error, #e53935);
+}
+
+.status_interrupted {
+  background: rgba(255, 159, 10, 0.12);
+  color: #ff9f0a;
+}
+
+.runActions {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+}
+
+.runActions button {
+  padding: 4px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-primary);
+  transition: background-color 0.15s;
+}
+
+.runActions button:hover {
+  background-color: var(--bg-hover);
+}
+
+/* ─── Live Dashboard ───────────────────────────────────────────────────────── */
 
 .liveDashboard {
   background-color: var(--bg-secondary);
-  padding: 24px;
+  padding: 20px 24px;
   border-radius: 12px;
   border: 1px solid var(--border-color);
   display: flex;
@@ -221,63 +383,208 @@
   align-items: center;
 }
 
-.liveHeader button.danger {
-  background: var(--status-error);
-  color: white;
-  border: none;
+.liveHeader h3 {
+  margin: 0;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
+
+.statusBadge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+}
+
+/* Fix #2 (same pattern): replace rgba(var(--status-running-rgb,…)) */
+.statusBadge[data-status='running'] {
+  background: color-mix(in srgb, var(--bg-accent, #007aff) 15%, transparent);
+  color: var(--bg-accent, #007aff);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.statusBadge[data-status='completed'] {
+  background: rgba(52, 199, 89, 0.15);
+  color: #34c759;
+}
+
+.statusBadge[data-status='failed'] {
+  background: rgba(229, 57, 53, 0.12);
+  color: var(--status-error, #e53935);
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+.liveControls {
+  display: flex;
+  gap: 8px;
+}
+
+.liveControls button {
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-primary);
+  transition: background-color 0.15s;
+}
+
+.liveControls button:hover {
+  background-color: var(--bg-hover);
+}
+
+.liveControls button.danger {
+  background: var(--status-error, #e53935);
+  color: white;
+  border-color: var(--status-error, #e53935);
+}
+
+/* ─── KPI Cards ────────────────────────────────────────────────────────────── */
 
 .metricsBar {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
+  gap: 12px;
 }
 
 .metricCard {
   background-color: var(--bg-primary);
   border: 1px solid var(--border-color);
-  border-radius: 8px;
-  padding: 16px;
+  border-radius: 10px;
+  padding: 14px 16px;
   text-align: center;
 }
 
 .metricCard label {
+  display: block;
   color: var(--text-secondary);
-  font-size: 0.9rem;
+  font-size: 0.75rem;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.6px;
+  margin-bottom: 6px;
 }
 
 .metricValue {
-  font-size: 2rem;
-  font-weight: bold;
-  margin-top: 8px;
+  font-size: 1.6rem;
+  font-weight: 700;
   color: var(--bg-accent);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ─── SVG Chart ────────────────────────────────────────────────────────────── */
+
+.chartWrapper {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 16px;
+}
+
+.chartTitle {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+
+.chart {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.chartEmpty {
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: 0.875rem;
+  padding: 32px 0;
+}
+
+/* ─── Event Log ────────────────────────────────────────────────────────────── */
+
+/* Inline error shown under template buttons when load fails */
+.templateError {
+  margin-top: 6px;
+  padding: 6px 10px;
+  font-size: 0.78rem;
+  color: var(--status-error, #e53935);
+  background: rgba(229, 57, 53, 0.08);
+  border-radius: 5px;
 }
 
 .eventsList {
+  /* Fix #3: newest events displayed at top without reversing the array.
+     flex-direction: column-reverse reverses visual order while keeping
+     the original array order — no key index shifting on new events. */
   display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-height: 400px;
+  flex-direction: column-reverse;
+  gap: 2px;
+  max-height: 360px;
   overflow-y: auto;
   border: 1px solid var(--border-color);
   border-radius: 8px;
-  padding: 12px;
+  padding: 10px;
+  background: var(--bg-primary);
+}
+
+.eventsEmpty {
+  color: var(--text-tertiary);
+  font-size: 0.85rem;
+  text-align: center;
+  padding: 16px 0;
 }
 
 .eventRow {
-  font-family: monospace;
-  font-size: 0.9rem;
-  padding: 4px 0;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.8rem;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background-color 0.1s;
+}
+
+.eventRow:hover {
+  background-color: var(--bg-hover);
+}
+
+.eventAccepted {
+  border-left: 3px solid #34c759;
+  padding-left: 6px;
+}
+
+.eventRejected {
+  border-left: 3px solid var(--status-error, #e53935);
+  padding-left: 6px;
+  opacity: 0.75;
 }
 
 .eventRow .time {
   color: var(--text-tertiary);
-  margin-right: 12px;
+  margin-right: 10px;
 }
 
 .eventRow .type {
   color: var(--bg-accent);
-  margin-right: 12px;
+  margin-right: 10px;
+}
+
+.eventRow .info {
+  color: var(--text-primary);
 }

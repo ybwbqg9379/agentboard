@@ -1,0 +1,41 @@
+{
+  "name": "ML Training Optimization",
+  "description": "Iteratively optimize a training script to minimize validation loss or maximize accuracy. Inspired by Karpathy's AutoResearch paradigm.",
+  "target": {
+    "files": ["train.py", "model.py", "config.py"],
+    "readonly": ["data/", "evaluate.py"],
+    "constraints": [
+      "Do not change the dataset loading logic",
+      "Keep batch size within memory limits",
+      "Validation accuracy must not drop below 80%"
+    ]
+  },
+  "metrics": {
+    "primary": {
+      "command": "python evaluate.py --checkpoint latest",
+      "extract": "val_loss: ([\\d.]+)",
+      "type": "regex",
+      "direction": "minimize"
+    },
+    "secondary": [
+      {
+        "name": "val_accuracy",
+        "command": "python evaluate.py --checkpoint latest",
+        "extract": "val_acc: ([\\d.]+)",
+        "type": "regex",
+        "direction": "maximize"
+      }
+    ],
+    "guard": {
+      "command": "python -m pytest tests/ -x -q",
+      "success_pattern": "passed"
+    }
+  },
+  "budget": {
+    "time_per_experiment": "10m",
+    "max_experiments": 20,
+    "max_consecutive_failures": 5,
+    "total_time": "3h"
+  },
+  "agent_instructions": "You are optimizing a machine learning training script. Focus on: (1) learning rate schedules, (2) optimizer choice (Adam vs SGD vs AdamW), (3) regularization techniques (dropout, weight decay), (4) architecture tweaks (layer sizes, activation functions). Make ONE focused change per trial. Always verify changes don't break existing tests."
+}
