@@ -11,6 +11,18 @@
 - **DAG 管线实验节点映射 (`workflowEngine.js`)**: **`experiment`** 现已正式作为平台支持的原生图谱节点并入 `WorkflowEditor`。用户可在可视化画布中拖曳出实验节点，以实现“当主工作流运转至此，阻断抛交后台进行多轮基数优化，待指标收敛后自动将 Best Metric 携带至下一工作流节点”的管线闭环构想。
 - **实验三级持久化网络**: 引入 `experimentStore.js`。内置表结构（`experiments` 模板、`experiment_runs` 场次与 `experiment_trials` 具体试运行尝试），确保每一次科研数据都能被永久检索和审查。
 
+### 1 项实验引擎四轮审查修复 (Experiment Engine Audit Round 4 — 1M)
+
+#### Fixed -- Major
+
+- **R4-M1** `experimentEngine.js` -- 虽然给 `execSync` 传入了 `AbortSignal`，但 baseline/guard/benchmark 仍然同步阻塞 Node.js 事件循环，导致 `/abort` 请求在命令执行期间根本无法被处理；`runCommand` 现已改为基于异步 `exec` 的非阻塞执行，并在 abort 时立即结束当前命令与 trial
+
+#### Tests
+
+- 新增 `experimentEngine.test.js`，覆盖 symlink 越界拦截与长时间 baseline 的中途 abort
+- 新增 `server.experiment.test.js`，覆盖 `subscribe_experiment` 的 runId 归属校验与 `GET /api/experiment-runs/:id`
+- `useWebSocket.test.jsx` 新增历史运行真实 status 恢复与仅对 running run 重连订阅的回归用例
+
 ### 4 项实验引擎三轮审查修复 (Experiment Engine Audit Round 3 — 2C + 2M)
 
 #### Fixed -- Critical

@@ -72,7 +72,7 @@ AgentBoard 已演进为支持**单 Agent 对话**、**多 Agent DAG 协作**与*
 1. 用指定的配置 (ResearchPlan，例如目标文件白名单、测评主命令等) 在前端发起一轮 Experiment Run。
 2. `experimentEngine.js` 开始执行 **Ratchet Loop**:
    - `Modify`: 代理分析日志和当前指标，对代码提出一项假说修改，并在本地隔离的 host (`workspace/sessions/...`) 环境写入。
-   - `Execute & Measure`: 拦截调用基准测试 (如 `npm mix tests`)、通过 `metricExtractor.js` 解析命令行输出 (regex/JSON_path)。
+   - `Execute & Measure`: 以**异步、可中断**的方式执行 baseline / guard / benchmark 命令 (如 `npm test`)，通过 `metricExtractor.js` 解析命令行输出 (regex/JSON_path)。命令运行期间后端事件循环保持可响应，因此 `/abort` 可以在测评中途立即生效。
    - `Judge & Commit`: 若修改通过了 guard 指标、并且主要 metric 有提升，则通过本地 git 命令执行 `git commit` (Accept)，否则撤销修改 (Reject)。
 3. 在连续 Reject 阈值耗尽或者指标达到最大收敛后，得出稳定的调优变体，向客户端下发最终的 `diff` 或结束通知。
 
@@ -80,16 +80,16 @@ AgentBoard 已演进为支持**单 Agent 对话**、**多 Agent DAG 协作**与*
 
 ### Backend
 
-| **模块**                      | **文件**                                     | **职责**                                                                                                                                                                                                                                                                       |
-| ----------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **API与鉴权**                 | `server.js` / `middleware.js`                | HTTP REST + WS 入口；拦截校验 Headers 中 `x-user-id` 及 Token，执行基于 JWT/Token 的多租户身份隔离验证。                                                                                                                                                                       |
-| **意图路由编排**              | `registry.js` / `router.js`                  | 双通意图分类引擎：Pass 1 — 正则意图模式（web-research / web-scraping / url-reading / data-analysis）多命中评分；Pass 2 — 按类别（search / crawl / core）批量共激活对应 MCP 服务器组与 Skill，取代逐关键词单点匹配。                                                            |
-| **搜索/爬取 MCP 层**          | `mcpConfig.js` (Search/Crawl tier)           | 6 个条件加载的 MCP Server：搜索引擎 (Tavily / Exa / Brave Search)、爬取器 (Firecrawl / Fetch / Jina Reader)。API Key 存在时激活，不存在时静默跳过。Jina Reader 使用 SSE 远程传输。                                                                                             |
-| **自愈拦截引擎**              | `schemaValidator.js` / `hooks.js`            | **(Harness Engineering)** 搭载本地 Zod Schema 强校验网关闭环屏蔽模型传参幻觉；配备 Semantic Loop Watchdog。当系统检测到模型深陷“重试死循环”（连续多次 ToolHash 碰撞对应出错）时，Harness 免人类介入、自发下达 `<harness_override>` 破壁指令，底层设 Circuit Breaker 异常熔断。 |
-| **实验与评测 (AutoResearch)** | `experimentEngine.js` / `metricExtractor.js` | 新增的核心实验引擎。在 host 环境内基于白名单创建临时隔离 `workspace`，内部执行带状态恢复机制 (Git Ratchet) 的 "提议-度量-回滚/提交" 循环打分流程。支持直接正则/解析提取命令行输出指标，自动向 WS 事件总线广播演进度。                                                          |
-| **安全沙箱**                  | `hooks.js` / `dockerSandbox.js`              | `PreToolUse` Bash双层围栏防穿透。执行 Python/Node 代码时，引擎自动下卷分配基于 `dockerode` 的无网络零信任按需生成容器，完全隔离宿主机并施加 256MB/50 PIDs 的熔断保护。                                                                                                         |
-| **微服务器组**                | `nativeMcpServer.js`                         | 基于官方 `@modelcontextprotocol/sdk` 实现的后端驻留子进程，向模型动态注册高级中间件原生工具 (如 `TaskCreateTool` 分发子代理、`BatchTool`、`LoopTool` 并发调度与多维执行)。                                                                                                     |
-| **持久层**                    | `sessionStore.js` / `experimentStore.js`     | 核心多模块 SQLite 接口，采用 WAL 读写模式，全面强制化附带 `user_id` 分区设计。支持断线恢复与基于租户强隔离。                                                                                                                                                                   |
+| **模块**                      | **文件**                                     | **职责**                                                                                                                                                                                                                                                                                         |
+| ----------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **API与鉴权**                 | `server.js` / `middleware.js`                | HTTP REST + WS 入口；拦截校验 Headers 中 `x-user-id` 及 Token，执行基于 JWT/Token 的多租户身份隔离验证。                                                                                                                                                                                         |
+| **意图路由编排**              | `registry.js` / `router.js`                  | 双通意图分类引擎：Pass 1 — 正则意图模式（web-research / web-scraping / url-reading / data-analysis）多命中评分；Pass 2 — 按类别（search / crawl / core）批量共激活对应 MCP 服务器组与 Skill，取代逐关键词单点匹配。                                                                              |
+| **搜索/爬取 MCP 层**          | `mcpConfig.js` (Search/Crawl tier)           | 6 个条件加载的 MCP Server：搜索引擎 (Tavily / Exa / Brave Search)、爬取器 (Firecrawl / Fetch / Jina Reader)。API Key 存在时激活，不存在时静默跳过。Jina Reader 使用 SSE 远程传输。                                                                                                               |
+| **自愈拦截引擎**              | `schemaValidator.js` / `hooks.js`            | **(Harness Engineering)** 搭载本地 Zod Schema 强校验网关闭环屏蔽模型传参幻觉；配备 Semantic Loop Watchdog。当系统检测到模型深陷“重试死循环”（连续多次 ToolHash 碰撞对应出错）时，Harness 免人类介入、自发下达 `<harness_override>` 破壁指令，底层设 Circuit Breaker 异常熔断。                   |
+| **实验与评测 (AutoResearch)** | `experimentEngine.js` / `metricExtractor.js` | 新增的核心实验引擎。在 host 环境内基于白名单创建临时隔离 `workspace`，内部执行带状态恢复机制 (Git Ratchet) 的 "提议-度量-回滚/提交" 循环打分流程。baseline / guard / benchmark 采用异步可中断执行，避免长命令阻塞服务主线程。支持直接正则/解析提取命令行输出指标，自动向 WS 事件总线广播演进度。 |
+| **安全沙箱**                  | `hooks.js` / `dockerSandbox.js`              | `PreToolUse` Bash双层围栏防穿透。执行 Python/Node 代码时，引擎自动下卷分配基于 `dockerode` 的无网络零信任按需生成容器，完全隔离宿主机并施加 256MB/50 PIDs 的熔断保护。                                                                                                                           |
+| **微服务器组**                | `nativeMcpServer.js`                         | 基于官方 `@modelcontextprotocol/sdk` 实现的后端驻留子进程，向模型动态注册高级中间件原生工具 (如 `TaskCreateTool` 分发子代理、`BatchTool`、`LoopTool` 并发调度与多维执行)。                                                                                                                       |
+| **持久层**                    | `sessionStore.js` / `experimentStore.js`     | 核心多模块 SQLite 接口，采用 WAL 读写模式，全面强制化附带 `user_id` 分区设计。支持断线恢复与基于租户强隔离。                                                                                                                                                                                     |
 
 ### Frontend
 

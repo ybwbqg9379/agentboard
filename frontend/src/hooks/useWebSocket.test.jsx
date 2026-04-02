@@ -562,4 +562,88 @@ describe('useWebSocket', () => {
     // Should still be open (30s < 45s since last message)
     expect(lastWs.readyState).toBe(MockWebSocket.OPEN);
   });
+
+  it('loadExperimentRunsEvents restores the real run status for history views', async () => {
+    fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          trials: [
+            {
+              trial_number: 1,
+              accepted: false,
+              primary_metric: null,
+              diff: null,
+              reason: 'aborted',
+              created_at: '2026-04-01T19:30:00Z',
+            },
+          ],
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ status: 'aborted' }),
+      });
+
+    const { result } = renderAndConnect();
+    const sentBefore = lastWs.sent.length;
+
+    await act(async () => {
+      await result.current.loadExperimentRunsEvents(
+        '11111111-1111-4111-8111-111111111111',
+        '22222222-2222-4222-8222-222222222222',
+      );
+    });
+
+    expect(result.current.experimentRunId).toBe('11111111-1111-4111-8111-111111111111');
+    expect(result.current.experimentStatus).toBe('aborted');
+    expect(result.current.experimentEvents).toHaveLength(1);
+
+    const subscribeMsgs = lastWs.sent.slice(sentBefore).filter((s) => {
+      try {
+        return JSON.parse(s).action === 'subscribe_experiment';
+      } catch {
+        return false;
+      }
+    });
+    expect(subscribeMsgs).toHaveLength(0);
+  });
+
+  it('loadExperimentRunsEvents re-subscribes only when the historical run is still running', async () => {
+    fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          trials: [],
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ status: 'running' }),
+      });
+
+    const { result } = renderAndConnect();
+    const sentBefore = lastWs.sent.length;
+
+    await act(async () => {
+      await result.current.loadExperimentRunsEvents(
+        '33333333-3333-4333-8333-333333333333',
+        '44444444-4444-4444-8444-444444444444',
+      );
+    });
+
+    expect(result.current.experimentStatus).toBe('running');
+    const subscribeMsgs = lastWs.sent.slice(sentBefore).filter((s) => {
+      try {
+        const parsed = JSON.parse(s);
+        return (
+          parsed.action === 'subscribe_experiment' &&
+          parsed.runId === '33333333-3333-4333-8333-333333333333'
+        );
+      } catch {
+        return false;
+      }
+    });
+    expect(subscribeMsgs).toHaveLength(1);
+  });
 });

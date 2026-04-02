@@ -11,10 +11,11 @@
  */
 
 import { EventEmitter } from 'node:events';
-import { execSync } from 'node:child_process';
+import { exec, execSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import fs from 'node:fs';
 import { randomUUID } from 'node:crypto';
+import { promisify } from 'node:util';
 import config from './config.js';
 import { startAgent, stopAgent, agentEvents } from './agentManager.js';
 import {
@@ -29,6 +30,8 @@ import { extractAllMetrics, isImproved, improvementPercent } from './metricExtra
 
 export const experimentEvents = new EventEmitter();
 experimentEvents.setMaxListeners(50);
+
+const execAsync = promisify(exec);
 
 // Map<runId, { abortController, experimentId }>
 const activeExperiments = new Map();
@@ -50,24 +53,32 @@ function parseTimeMs(timeStr) {
  * Execute a command in the experiment workspace and return output.
  * Runs directly on the host (no Docker) per Q1 decision.
  */
-function runCommand(command, cwd, timeoutMs = 300000, signal) {
+async function runCommand(command, cwd, timeoutMs = 300000, signal) {
   try {
-    const output = execSync(command, {
+    const { stdout, stderr } = await execAsync(command, {
       cwd,
       timeout: timeoutMs,
       encoding: 'utf-8',
-      stdio: ['pipe', 'pipe', 'pipe'],
       maxBuffer: 10 * 1024 * 1024, // 10MB
       ...(signal && { signal }),
     });
-    return { output: output || '', exitCode: 0 };
+    return {
+      output: [stdout || '', stderr || ''].filter(Boolean).join('\n'),
+      exitCode: 0,
+      aborted: false,
+    };
   } catch (err) {
-    if (err.code === 'ABORT_ERR') {
-      return { output: '', exitCode: 130 };
+    if (err.code === 'ABORT_ERR' || signal?.aborted) {
+      return {
+        output: [err.stdout || '', err.stderr || ''].filter(Boolean).join('\n'),
+        exitCode: 130,
+        aborted: true,
+      };
     }
     return {
-      output: (err.stdout || '') + '\n' + (err.stderr || ''),
-      exitCode: err.status ?? 1,
+      output: [err.stdout || '', err.stderr || ''].filter(Boolean).join('\n'),
+      exitCode: typeof err.code === 'number' ? err.code : (err.status ?? 1),
+      aborted: false,
     };
   }
 }
@@ -240,22 +251,24 @@ export async function runExperimentLoop(experimentId, plan, userId, workspaceDir
 
     // 1. Run baseline benchmark
     if (plan.metrics.primary?.command) {
-      const baselineResult = runCommand(
+      const baselineResult = await runCommand(
         plan.metrics.primary.command,
         workspaceDir,
         timePerExperiment,
         abortController.signal,
       );
-      const baselineMetrics = extractAllMetrics(
-        baselineResult.output,
-        plan.metrics,
-        baselineResult.exitCode,
-      );
+      if (!baselineResult.aborted) {
+        const baselineMetrics = extractAllMetrics(
+          baselineResult.output,
+          plan.metrics,
+          baselineResult.exitCode,
+        );
 
-      if (baselineMetrics.primary !== null) {
-        bestMetric = baselineMetrics.primary;
-        updateRunBaseline(runId, bestMetric);
-        emit('baseline', { metric: bestMetric, guardPassed: baselineMetrics.guardPassed });
+        if (baselineMetrics.primary !== null) {
+          bestMetric = baselineMetrics.primary;
+          updateRunBaseline(runId, bestMetric);
+          emit('baseline', { metric: bestMetric, guardPassed: baselineMetrics.guardPassed });
+        }
       }
     }
 
@@ -296,11 +309,13 @@ export async function runExperimentLoop(experimentId, plan, userId, workspaceDir
           runId,
         );
 
+        if (abortController.signal.aborted) break;
+
         // 2b. Check file whitelist compliance (Q3: safety boundary)
         //     Check both modified tracked files AND new untracked files
         if (plan.target?.files?.length) {
-          const diffOutput = runCommand('git diff --name-only', workspaceDir, 5000);
-          const untrackedOutput = runCommand(
+          const diffOutput = await runCommand('git diff --name-only', workspaceDir, 5000);
+          const untrackedOutput = await runCommand(
             'git ls-files --others --exclude-standard',
             workspaceDir,
             5000,
@@ -312,7 +327,7 @@ export async function runExperimentLoop(experimentId, plan, userId, workspaceDir
           const violations = changedFiles.filter((f) => !isFileAllowed(f, plan.target.files));
 
           if (violations.length > 0) {
-            runCommand('git checkout -- . && git clean -fd', workspaceDir, 5000);
+            await runCommand('git checkout -- . && git clean -fd', workspaceDir, 5000);
             trialResult = { accepted: false, reason: 'whitelist_violation', primaryMetric: null };
             emit('trial_rejected', {
               trialNumber: trialCount,
@@ -338,12 +353,13 @@ export async function runExperimentLoop(experimentId, plan, userId, workspaceDir
         // 2c. Run guard check (tests must pass)
         let guardPassed = true;
         if (plan.metrics.guard?.command) {
-          const guardResult = runCommand(
+          const guardResult = await runCommand(
             plan.metrics.guard.command,
             workspaceDir,
             timePerExperiment,
             abortController.signal,
           );
+          if (guardResult.aborted) break;
           const guardMetrics = extractAllMetrics(
             guardResult.output,
             { guard: plan.metrics.guard },
@@ -355,12 +371,13 @@ export async function runExperimentLoop(experimentId, plan, userId, workspaceDir
         // 2d. Run benchmark to extract metrics
         let currentMetric = null;
         if (plan.metrics.primary?.command) {
-          const benchResult = runCommand(
+          const benchResult = await runCommand(
             plan.metrics.primary.command,
             workspaceDir,
             timePerExperiment,
             abortController.signal,
           );
+          if (benchResult.aborted) break;
           const metrics = extractAllMetrics(benchResult.output, plan.metrics, benchResult.exitCode);
           currentMetric = metrics.primary;
         }
@@ -384,13 +401,13 @@ export async function runExperimentLoop(experimentId, plan, userId, workspaceDir
           consecutiveFailures = 0;
 
           const safeMetric = String(currentMetric).replace(/[^-\d.e+]/gi, '');
-          runCommand(
+          await runCommand(
             `git add -A && git commit -m "autoresearch: trial ${trialCount} (metric: ${safeMetric})"`,
             workspaceDir,
             5000,
           );
 
-          const diff = runCommand('git diff HEAD~1', workspaceDir, 5000).output;
+          const diff = (await runCommand('git diff HEAD~1', workspaceDir, 5000)).output;
 
           trialResult = {
             accepted: true,
@@ -414,8 +431,8 @@ export async function runExperimentLoop(experimentId, plan, userId, workspaceDir
               ? 'metric_extraction_failed'
               : 'no_improvement';
 
-          const diff = runCommand('git diff', workspaceDir, 5000).output;
-          runCommand('git checkout -- . && git clean -fd', workspaceDir, 5000);
+          const diff = (await runCommand('git diff', workspaceDir, 5000)).output;
+          await runCommand('git checkout -- . && git clean -fd', workspaceDir, 5000);
 
           trialResult = {
             accepted: false,
@@ -435,7 +452,7 @@ export async function runExperimentLoop(experimentId, plan, userId, workspaceDir
         }
       } catch (err) {
         // Trial-level error (agent failure, command timeout, etc)
-        runCommand('git checkout -- . && git clean -fd', workspaceDir, 5000);
+        await runCommand('git checkout -- . && git clean -fd', workspaceDir, 5000);
         trialResult = { accepted: false, reason: `error: ${err.message}`, primaryMetric: null };
         consecutiveFailures++;
         emit('trial_error', { trialNumber: trialCount, trialId, error: err.message });
