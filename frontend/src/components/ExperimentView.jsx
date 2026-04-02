@@ -161,8 +161,10 @@ export default function ExperimentView({
               key={exp.id}
               className={`${styles.experimentItem} ${selectedExperiment?.id === exp.id ? styles.active : ''}`}
               onClick={() => handleSelectExperiment(exp)}
+              title={exp.id}
             >
-              {exp.name}
+              <div>{exp.name}</div>
+              <div className={styles.experimentId}>{exp.id.slice(0, 8)}</div>
             </div>
           ))}
         </div>
@@ -196,6 +198,9 @@ export default function ExperimentView({
           <div className={styles.dashboard}>
             <div className={styles.headerRow}>
               <h2>{selectedExperiment.name}</h2>
+              <p className={styles.experimentId} style={{ cursor: 'pointer', userSelect: 'all' }}>
+                ID: {selectedExperiment.id}
+              </p>
               <p>{selectedExperiment.description}</p>
               <button onClick={() => handleRun(selectedExperiment.id)} className="primary">
                 Run Experiment

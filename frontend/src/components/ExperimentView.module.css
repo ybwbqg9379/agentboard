@@ -55,6 +55,13 @@
   transition: background-color 0.2s;
 }
 
+.experimentId {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  font-family: monospace;
+  margin-top: 2px;
+}
+
 .experimentItem:hover {
   background-color: var(--bg-hover);
 }

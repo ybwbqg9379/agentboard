@@ -188,11 +188,11 @@ function NodeConfigPanel({ node, onUpdate, onDelete, onClose }) {
 
         {node.type === 'experiment' && (
           <div className={styles.configField}>
-            <label>Experiment ID (Number)</label>
+            <label>Experiment ID (UUID)</label>
             <input
               value={node.config?.experimentId || ''}
               onChange={(e) => updateConfig('experimentId', e.target.value)}
-              placeholder="e.g. 1"
+              placeholder="paste UUID from Experiment tab"
             />
           </div>
         )}

@@ -591,10 +591,12 @@ wss.on('connection', (ws, req) => {
       }
 
       case 'subscribe_experiment': {
-        const hasRun = msg.experimentId
+        // Always validate runId ownership to prevent cross-tenant data leaks
+        const runOwned = msg.runId ? Boolean(getExperimentRunOwned(ws.userId, msg.runId)) : false;
+        const expOwned = msg.experimentId
           ? Boolean(getExperiment(ws.userId, msg.experimentId))
-          : Boolean(getExperimentRunOwned(ws.userId, msg.runId));
-        if (!hasRun) {
+          : false;
+        if (!runOwned && !expOwned) {
           ws.send(JSON.stringify({ error: 'experiment run not found' }));
           return;
         }

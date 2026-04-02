@@ -74,7 +74,7 @@ function runCommand(command, cwd, timeoutMs = 300000) {
  *
  * Per Q2 decision: uses workspace/sessions/{sessionId} isolation.
  */
-function prepareWorkspace(plan, workspaceDir) {
+function prepareWorkspace(plan, workspaceDir, userId) {
   if (!fs.existsSync(workspaceDir)) {
     fs.mkdirSync(workspaceDir, { recursive: true });
   }
@@ -82,12 +82,13 @@ function prepareWorkspace(plan, workspaceDir) {
   // If target files are specified and a source dir exists, copy them
   if (plan.target?.source_dir && fs.existsSync(plan.target.source_dir)) {
     const sourceDir = resolve(plan.target.source_dir);
-    // Sandbox enforcement: source_dir must be within workspaceDir
-    const allowedRoot = resolve(config.workspaceDir);
-    if (!sourceDir.startsWith(allowedRoot + '/') && sourceDir !== allowedRoot) {
-      throw new Error(
-        `source_dir "${sourceDir}" is outside the allowed workspace "${allowedRoot}"`,
-      );
+    // Sandbox enforcement: source_dir must be within user's own workspace
+    const userRoot =
+      userId && userId !== 'default'
+        ? resolve(config.workspaceDir, userId)
+        : resolve(config.workspaceDir);
+    if (!sourceDir.startsWith(userRoot + '/') && sourceDir !== userRoot) {
+      throw new Error(`source_dir "${sourceDir}" is outside the allowed workspace "${userRoot}"`);
     }
     execSync(`cp -r "${sourceDir}/." "${workspaceDir}/"`, { stdio: 'pipe' });
   }
@@ -187,7 +188,12 @@ export async function runExperimentLoop(experimentId, plan, userId, workspaceDir
   const runId = preCreatedRunId || createRun(userId, experimentId);
   const abortController = new AbortController();
 
-  activeExperiments.set(runId, { abortController, experimentId });
+  activeExperiments.set(runId, {
+    abortController,
+    experimentId,
+    userId,
+    currentAgentSessionId: null,
+  });
 
   const budget = plan.budget || {};
   const maxExperiments = budget.max_experiments || 100;
@@ -208,7 +214,7 @@ export async function runExperimentLoop(experimentId, plan, userId, workspaceDir
 
   try {
     // 0. Prepare workspace
-    prepareWorkspace(plan, workspaceDir);
+    prepareWorkspace(plan, workspaceDir, userId);
     emit('experiment_start', { plan: plan.name, maxExperiments });
 
     // 1. Run baseline benchmark
@@ -265,16 +271,26 @@ export async function runExperimentLoop(experimentId, plan, userId, workspaceDir
           workspaceDir,
           userId,
           timePerExperiment,
+          runId,
         );
 
         // 2b. Check file whitelist compliance (Q3: safety boundary)
+        //     Check both modified tracked files AND new untracked files
         if (plan.target?.files?.length) {
           const diffOutput = runCommand('git diff --name-only', workspaceDir, 5000);
-          const changedFiles = diffOutput.output.trim().split('\n').filter(Boolean);
+          const untrackedOutput = runCommand(
+            'git ls-files --others --exclude-standard',
+            workspaceDir,
+            5000,
+          );
+          const changedFiles = [
+            ...diffOutput.output.trim().split('\n').filter(Boolean),
+            ...untrackedOutput.output.trim().split('\n').filter(Boolean),
+          ];
           const violations = changedFiles.filter((f) => !isFileAllowed(f, plan.target.files));
 
           if (violations.length > 0) {
-            runCommand('git checkout -- .', workspaceDir, 5000);
+            runCommand('git checkout -- . && git clean -fd', workspaceDir, 5000);
             trialResult = { accepted: false, reason: 'whitelist_violation', primaryMetric: null };
             emit('trial_rejected', {
               trialNumber: trialCount,
@@ -455,9 +471,11 @@ export async function runExperimentLoop(experimentId, plan, userId, workspaceDir
 /**
  * Run a single agent trial and wait for completion.
  * Uses the existing agentManager to spawn a session.
+ * The agent's CWD is set to the experiment workspaceDir so modifications
+ * and benchmarks operate on the same directory.
  */
-async function runAgentTrial(prompt, workspaceDir, userId, timeoutMs) {
-  return new Promise((resolve, reject) => {
+async function runAgentTrial(prompt, workspaceDir, userId, timeoutMs, runId) {
+  return new Promise((resolvePromise, reject) => {
     let sessionId;
     const timeout = setTimeout(() => {
       if (sessionId) stopAgent(sessionId);
@@ -469,6 +487,7 @@ async function runAgentTrial(prompt, workspaceDir, userId, timeoutMs) {
         userId,
         permissionMode: 'bypassPermissions',
         maxTurns: 30,
+        cwd: workspaceDir,
       });
     } catch (err) {
       clearTimeout(timeout);
@@ -476,11 +495,19 @@ async function runAgentTrial(prompt, workspaceDir, userId, timeoutMs) {
       return;
     }
 
+    // Track current agent sessionId for abort support
+    const entry = activeExperiments.get(runId);
+    if (entry) {
+      entry.currentAgentSessionId = sessionId;
+    }
+
     const handler = (event) => {
       if (event.sessionId === sessionId && event.type === 'done') {
         clearTimeout(timeout);
         agentEvents.off('event', handler);
-        resolve(sessionId);
+        const e = activeExperiments.get(runId);
+        if (e) e.currentAgentSessionId = null;
+        resolvePromise(sessionId);
       }
     };
 
@@ -495,14 +522,23 @@ export function abortExperiment(runId) {
   const entry = activeExperiments.get(runId);
   if (!entry) return false;
   entry.abortController.abort();
+  // Stop the currently running agent trial if any
+  if (entry.currentAgentSessionId) {
+    stopAgent(entry.currentAgentSessionId);
+  }
   return true;
 }
 
 /**
  * Get list of active experiment run IDs.
  */
-export function getActiveExperiments(_userId) {
-  return [...activeExperiments.keys()];
+export function getActiveExperiments(userId) {
+  if (!userId) return [...activeExperiments.keys()];
+  const result = [];
+  for (const [runId, entry] of activeExperiments) {
+    if (entry.userId === userId) result.push(runId);
+  }
+  return result;
 }
 
 /**

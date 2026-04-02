@@ -179,9 +179,9 @@ export function selectBuiltinTools(prompt) {
 /**
  * Build the base options shared between startAgent and continueAgent.
  */
-function buildBaseOptions(sessionId, permMode, prompt, userId) {
+function buildBaseOptions(sessionId, permMode, prompt, userId, cwdOverride) {
   const needsSkip = permMode === 'bypassPermissions';
-  const userWorkspace = getSessionWorkspace(userId, sessionId);
+  const userWorkspace = cwdOverride || getSessionWorkspace(userId, sessionId);
 
   // Conditionally route tools and MCPs based on user intent
   const { uniqueAllowedTools, selectedMcpServers } = routeTools(
@@ -372,7 +372,7 @@ export function startAgent(prompt, opts = {}) {
   const abortController = new AbortController();
   let stream;
   try {
-    const baseOpts = buildBaseOptions(sessionId, permMode, prompt, opts.userId);
+    const baseOpts = buildBaseOptions(sessionId, permMode, prompt, opts.userId, opts.cwd);
     stream = query({
       prompt,
       options: {

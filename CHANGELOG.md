@@ -11,6 +11,21 @@
 - **DAG 管线实验节点映射 (`workflowEngine.js`)**: **`experiment`** 现已正式作为平台支持的原生图谱节点并入 `WorkflowEditor`。用户可在可视化画布中拖曳出实验节点，以实现“当主工作流运转至此，阻断抛交后台进行多轮基数优化，待指标收敛后自动将 Best Metric 携带至下一工作流节点”的管线闭环构想。
 - **实验三级持久化网络**: 引入 `experimentStore.js`。内置表结构（`experiments` 模板、`experiment_runs` 场次与 `experiment_trials` 具体试运行尝试），确保每一次科研数据都能被永久检索和审查。
 
+### 7 项实验引擎二轮审查修复 (Experiment Engine Audit Round 2 — 4C + 3M)
+
+#### Fixed -- Critical
+
+- **R2-C1** `experimentEngine.js` + `agentManager.js` -- agent trial 的 CWD 未指向实验 workspaceDir，导致 agent 修改与 benchmark 不在同一目录，核心 Ratchet 闭环失效；`startAgent` 新增 `opts.cwd` 透传，`buildBaseOptions` 支持 cwdOverride
+- **R2-C2** `experimentEngine.js` -- source_dir 沙箱仅校验全局 workspaceDir，允许跨租户读文件；改为校验 user-specific workspace root (`config.workspaceDir/{userId}`)
+- **R2-C3** `experimentEngine.js` -- 文件白名单用 `git diff --name-only` 检查，遗漏 untracked 新建文件；增加 `git ls-files --others --exclude-standard`，reject 时同步 `git clean -fd`
+- **R2-C4** `server.js` + `experimentEngine.js` -- `/api/experiment-status` 返回全部活跃 runId 不过滤 userId，且 `subscribe_experiment` 未校验 runId 归属；`getActiveExperiments` 按 userId 过滤，WS 订阅增加 runId 归属校验
+
+#### Fixed -- Major
+
+- **R2-M1** `experimentEngine.js` -- abort 仅设 signal 不停 agent/execSync；activeExperiments 中记录 `currentAgentSessionId`，abort 时同步调用 `stopAgent`
+- **R2-M2** `useWebSocket.js` -- `loadExperimentRunsEvents` 调用 `subscribeExperiment` 清空了刚恢复的历史事件并错误设置 running 状态；改为直接设置 events/status，仅发 WS subscribe 不清空
+- **R2-M3** `WorkflowEditor.jsx` + `ExperimentView.jsx` -- 实验节点 ID 标注为 Number 且 placeholder 为 "1"，实际为 UUID；修正标签/placeholder，ExperimentView 列表和详情页显示 ID 以便复制
+
 ### 13 项实验引擎代码审查修复 (Experiment Engine Audit — 6C + 7I)
 
 #### Fixed -- Critical

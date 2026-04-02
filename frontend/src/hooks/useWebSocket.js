@@ -391,13 +391,20 @@ export function useWebSocket() {
           timestamp: new Date(t.created_at).getTime(),
         }));
 
+        // Set history events and runId directly WITHOUT calling subscribeExperiment
+        // (which would clear experimentEvents and incorrectly set status to 'running')
+        experimentRunIdRef.current = runId;
+        setExperimentRunId(runId);
         setExperimentEvents(restoredEvents);
-        subscribeExperiment(runId, expId);
+        setExperimentStatus('completed');
+
+        // Subscribe for live updates only if the run is still active
+        send({ action: 'subscribe_experiment', runId, experimentId: expId });
       } catch {
         /* ignore */
       }
     },
-    [subscribeExperiment],
+    [send],
   );
 
   return {
