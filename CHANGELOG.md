@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## [0.14.0] - 2026-04-02
 
 ### P3：多 Agent 研究组织（Research Swarm）
 

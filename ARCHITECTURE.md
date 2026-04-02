@@ -76,6 +76,20 @@ AgentBoard 已演进为支持**单 Agent 对话**、**多 Agent DAG 协作**与*
    - `Judge & Commit`: 若修改通过了 guard 指标、并且主要 metric 有提升，则通过本地 git 命令执行 `git commit` (Accept)，否则撤销修改 (Reject)。
 3. 在连续 Reject 阈值耗尽或者指标达到最大收敛后，得出稳定的调优变体，向客户端下发最终的 `diff` 或结束通知。
 
+### 4. Research Swarm 多 Agent 并行研究编排 (P3)
+
+1. 用户在 ExperimentView 点击 "Run as Swarm"，发起 `POST /api/experiments/:id/swarm`，可覆盖 `branches`/`branch_budget`/`top_k` 参数。
+2. 后端调用 `prepareWorkspace()` 初始化 baseline workspace（mkdir + copy source + git init），再将任务交给 `researchSwarm.js`。
+3. **Phase 1 (Decompose)**：Coordinator Agent 接收 ResearchPlan，生成 N 个不重叠的研究假说（通过 `<hypothesis>` XML 标签结构化输出）。若 Coordinator 不可用或超时，自动降级为模板化假说生成。
+4. **Phase 2 (Branch)**：N 个 Worker 并行运行，每个 Branch：
+   - 使用 `git clone --local --no-hardlinks` 创建独立 workspace 副本
+   - 注入 `BRANCH_PORT = 14000 + branchIndex` 到 `CLAUDE.md` 和 `process.env`（finally 清理）
+   - 调用 `createRun()` 创建真实 `experiment_runs` 记录
+   - 调用 P1 `runExperimentLoop()` 执行 Ratchet Loop；通过 `abortExperiment(branchRunId)` 桥接中止信号
+5. **Phase 3 (Synthesize)**：Coordinator 综合各 Branch 的 `bestMetric`/`totalTrials`/`acceptedTrials`，通过 `<selected_branch>` + `<reasoning>` 输出选择决策。启发式兜底：按 `minimize`/`maximize` 方向选最优指标。
+6. **Phase 4 (Merge)**：最优 Branch workspace 通过 `rsync` 合并回主 workspace（`spawnSync` 参数数组防注入），rejected branches 清理。顶层 run 更新为 `completed`/`failed` 并写入聚合指标。
+7. 前端通过 8 种 `swarm` 类型 WS 事件实时展示：Coordinator 状态行 → 假说列表 → Branch 卡片网格 → 选择理由。`loadSwarmBranches()` 支持历史 run 的 Branch 状态恢复。
+
 ## 模块职责
 
 ### Backend
@@ -87,9 +101,10 @@ AgentBoard 已演进为支持**单 Agent 对话**、**多 Agent DAG 协作**与*
 | **搜索/爬取 MCP 层**          | `mcpConfig.js` (Search/Crawl tier)           | 6 个条件加载的 MCP Server：搜索引擎 (Tavily / Exa / Brave Search)、爬取器 (Firecrawl / Fetch / Jina Reader)。API Key 存在时激活，不存在时静默跳过。Jina Reader 使用 SSE 远程传输。                                                                                                                                                                               |
 | **自愈拦截引擎**              | `schemaValidator.js` / `hooks.js`            | **(Harness Engineering)** 搭载本地 Zod Schema 强校验网关闭环屏蔽模型传参幻觉；配备 Semantic Loop Watchdog。当系统检测到模型深陷“重试死循环”（连续多次 ToolHash 碰撞对应出错）时，Harness 免人类介入、自发下达 `<harness_override>` 破壁指令，底层设 Circuit Breaker 异常熔断。                                                                                   |
 | **实验与评测 (AutoResearch)** | `experimentEngine.js` / `metricExtractor.js` | 新增的核心实验引擎。在 host 环境内基于白名单创建临时隔离 `workspace`，内部执行带状态恢复机制 (Git Ratchet) 的 "提议-度量-回滚/提交" 循环打分流程。baseline / guard / benchmark 采用异步可中断执行，避免长命令阻塞服务主线程；对会派生 worker 的命令，abort/timeout 会按进程组清理整个命令树。支持直接正则/解析提取命令行输出指标，自动向 WS 事件总线广播演进度。 |
+| **研究 Swarm (P3)**           | `researchSwarm.js` / `swarmStore.js`         | Coordinator/Worker 并行研究编排器。Coordinator 拆解假说、综合选优；Worker 并行跑 P1 Ratchet Loop；Branch 隔离（git clone + PORT）；`spawnSync` 防注入；abort 桥接；状态/指标回写。`swarmStore` 共享 `experimentDb` 连接。                                                                                                                                        |
 | **安全沙箱**                  | `hooks.js` / `dockerSandbox.js`              | `PreToolUse` Bash双层围栏防穿透。执行 Python/Node 代码时，引擎自动下卷分配基于 `dockerode` 的无网络零信任按需生成容器，完全隔离宿主机并施加 256MB/50 PIDs 的熔断保护。                                                                                                                                                                                           |
 | **微服务器组**                | `nativeMcpServer.js`                         | 基于官方 `@modelcontextprotocol/sdk` 实现的后端驻留子进程，向模型动态注册高级中间件原生工具 (如 `TaskCreateTool` 分发子代理、`BatchTool`、`LoopTool` 并发调度与多维执行)。                                                                                                                                                                                       |
-| **持久层**                    | `sessionStore.js` / `experimentStore.js`     | 核心多模块 SQLite 接口，采用 WAL 读写模式，全面强制化附带 `user_id` 分区设计。支持断线恢复与基于租户强隔离。                                                                                                                                                                                                                                                     |
+| **持久层**                    | `sessionStore.js` / `experimentStore.js`     | 核心多模块 SQLite 接口，采用 WAL 读写模式，全面强制化附带 `user_id` 分区设计。支持断线恢复与基于租户强隔离。`experimentDb` 导出供 `swarmStore` 共享。                                                                                                                                                                                                            |
 
 ### Frontend
 
@@ -193,6 +208,34 @@ CREATE TABLE trials (
   agent_session_id TEXT,
   reason           TEXT,
   duration_ms      INTEGER,
+  created_at       TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- P3 Research Swarm 扩展表（共享 agentboard.db 连接）
+CREATE TABLE swarm_branches (
+  id              TEXT    PRIMARY KEY,
+  run_id          TEXT    NOT NULL REFERENCES experiment_runs(id) ON DELETE CASCADE,
+  branch_index    INTEGER NOT NULL,
+  hypothesis      TEXT    NOT NULL,
+  workspace_dir   TEXT    NOT NULL,
+  status          TEXT    NOT NULL DEFAULT 'running',  -- running | completed | failed
+  best_metric     REAL,
+  total_trials    INTEGER NOT NULL DEFAULT 0,
+  accepted_trials INTEGER NOT NULL DEFAULT 0,
+  is_selected     INTEGER NOT NULL DEFAULT 0,
+  rejection_reason TEXT,
+  created_at      TEXT    NOT NULL DEFAULT (datetime('now')),
+  completed_at    TEXT
+);
+
+CREATE TABLE swarm_coordinator_decisions (
+  id               TEXT PRIMARY KEY,
+  run_id           TEXT NOT NULL REFERENCES experiment_runs(id) ON DELETE CASCADE,
+  phase            TEXT NOT NULL,         -- 'decompose' | 'synthesize'
+  input_summary    TEXT,
+  output_raw       TEXT,
+  parsed_result    TEXT,                  -- JSON
+  agent_session_id TEXT,
   created_at       TEXT NOT NULL DEFAULT (datetime('now'))
 );
 ```
