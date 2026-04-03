@@ -38,6 +38,6 @@ export default [
     },
   },
   {
-    ignores: ['node_modules/', 'dist/', 'data/', 'workspace/', '.venv/'],
+    ignores: ['node_modules/', 'dist/', 'data/', 'workspace/', '.venv/', '**/coverage/'],
   },
 ];

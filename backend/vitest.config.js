@@ -7,5 +7,12 @@ export default defineConfig({
     environment: 'node',
     include: ['**/*.test.js'],
     testTimeout: 10000,
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json-summary', 'html'],
+      reportsDirectory: './coverage',
+      include: ['**/*.js'],
+      exclude: ['**/*.test.js', 'vitest.config.js', 'node_modules/**', 'coverage/**'],
+    },
   },
 });

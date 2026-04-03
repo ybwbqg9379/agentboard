@@ -7,6 +7,7 @@
     "start": "node --env-file=../.env.local server.js",
     "dev": "node --env-file=../.env.local --watch server.js",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:watch": "vitest"
   },
   "dependencies": {
@@ -21,6 +22,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "^4.1.2",
     "supertest": "^7.2.2",
     "vitest": "^4.1.2"
   }

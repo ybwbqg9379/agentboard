@@ -137,6 +137,14 @@ _(此命令将链式触发 `format:check` 预检、`lint:strict` 极严检查和
 npm run test
 ```
 
+需要 **V8 覆盖率报告**（终端摘要 + `coverage/index.html`）时：
+
+```bash
+npm run test:coverage
+```
+
+报告目录：`backend/coverage/`、`frontend/coverage/`（已忽略于 Git）。
+
 更详细的工程门禁规范与测试说明请查阅 [开发贡献指南 (CONTRIBUTING.md)](CONTRIBUTING.md)。
 
 ## License

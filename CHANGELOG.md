@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.15.4] - 2026-04-02
+
+### dev: Vitest V8 覆盖率依赖与脚本
+
+#### Added
+
+- **`@vitest/coverage-v8` (^4.1.2)**：分别加入 `backend/` 与 `frontend/` 的 `devDependencies`，与现有 Vitest 主版本对齐。
+- **根目录脚本**：`npm run test:coverage`、`test:coverage:backend`、`test:coverage:frontend`；子包内 `npm run test:coverage`（`vitest run --coverage`）。
+- **Vitest `coverage` 配置**（v8 provider）：`text` + `json-summary` + `html` 报告；后端/前端各自输出到 `coverage/`（已加入 `.gitignore`）。
+- **`eslint.config.js`**：忽略 `**/coverage/`，避免本地生成 HTML 报告后 `eslint backend/` 误扫产物。
+
+#### Docs
+
+- `README.md`、`CONTRIBUTING.md`、`ONBOARDING.md`、`ARCHITECTURE.md` 补充覆盖率运行方式与报告位置说明；根 `package.json` 版本 **0.15.4**。
+
+---
+
 ## [0.15.3] - 2026-04-02
 
 ### test: 核心模块与 Server 路由测试扩容 + LSPTool MCP 契约修复

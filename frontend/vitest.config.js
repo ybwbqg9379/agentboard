@@ -17,5 +17,12 @@ export default defineConfig({
     // Use absolute path so setupFiles resolves correctly when vitest is
     // invoked from the repo root via the `projects` configuration.
     setupFiles: [resolve(__dirname, 'src/test-setup.js')],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json-summary', 'html'],
+      reportsDirectory: './coverage',
+      include: ['src/**/*.{js,jsx}'],
+      exclude: ['src/**/*.test.{js,jsx}', 'src/test-setup.js', 'node_modules/**', 'coverage/**'],
+    },
   },
 });

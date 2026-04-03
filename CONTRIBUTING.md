@@ -31,6 +31,21 @@ cd backend && npx vitest run
 cd frontend && npx vitest run
 ```
 
+覆盖率（`@vitest/coverage-v8`，语句/分支/函数/行）：
+
+```bash
+# 推荐：根目录先后端再前端
+npm run test:coverage
+
+# 或仅一端
+npm run test:coverage:backend
+npm run test:coverage:frontend
+
+# 子包内等价：cd backend|frontend && npm run test:coverage
+```
+
+HTML 报告分别位于 `backend/coverage/index.html` 与 `frontend/coverage/index.html`。
+
 ### 2. 补齐要求
 
 如果您新增了类似于 Workflow 的 DAG 调度引擎逻辑、修改了一类 `node` 节点机制、或是调整了 Agent 侧的 `Hooks`（安全边界），**必须同步增加相关的测试断言用例**以保证 100% Core API 的通过率。
@@ -57,7 +72,7 @@ npm run check
 
 项目已经集成基于 Husky 的 `pre-commit` 门禁，如果您绕过格式器试图强行提交流程，极大概率会被 Hooks 在本地级驳回。
 
-另外，请注意 ** CHANGELOG.md 常态化更新**：如果有影响项目体验的 feature 交付，必须同步将其记录倒未发布版本的 Changelog 内，避免文档漂移。
+另外，请注意 **CHANGELOG.md 常态化更新**：如果有影响项目体验的 feature 交付，必须同步将其记录到未发布版本的 Changelog 内，避免文档漂移。
 
 ## 四、前端 UI 开发原则
 
