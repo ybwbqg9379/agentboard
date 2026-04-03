@@ -37,7 +37,7 @@ Browser ← (WS / Zod Validated) → Node.js Backend ←→ Claude Agent SDK (qu
                                         ↓             | Core: fs/github/  |
                                +-------------------+  |   memory/browser  |
                                | Supabase (PgSQL)  |  | Search: tavily/   |
-                               | 10 tables, JSONB  |  |   exa/brave       |
+                               | 11 tables, JSONB  |  |   exa/brave       |
                                | RLS + FK cascade  |  | Crawl: firecrawl/ |
                                +-------------------+  |   fetch/jina      |
                                                        +-------------------+
@@ -121,7 +121,7 @@ AgentBoard 使用了复杂的流式数据处理和分发技术，包含Supabase 
 我们通过严格的自动化流水线来保持极高的代码纯度：
 
 - 代码格式遵循 Prettier（单引号、100 行宽）。
-- 高达 **597** 个的 `Vitest` 单元/集成测试用例覆盖所有的 DAG 条件引擎运算和代理层转译算法。
+- 高达 **606** 个的 `Vitest` 单元/集成测试用例覆盖所有的 DAG 条件引擎运算和代理层转译算法。
 
 您可以随时通过下发全局质量门禁命令来确保代码没有退化：
 

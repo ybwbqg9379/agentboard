@@ -57,7 +57,7 @@
 #### Added
 
 - `backend/supabaseClient.js` -- Supabase 客户端单例，支持 publishable/secret key 两种模式
-- Supabase PostgreSQL schema -- 10 张表 + 8 索引 + FK 级联删除
+- Supabase PostgreSQL schema -- 11 张表 + 8 索引 + FK 级联删除
 - RLS 行级安全策略 -- 11 条基于 JWT claims 的用户隔离策略
 - `.env.example` 更新 -- 新增 Supabase 配置文档
 
@@ -78,7 +78,7 @@
 
 #### Migrations
 
-- `backend/migrations/001_create_all_tables.sql` -- 10 张表 + 8 索引（幂等）
+- `backend/migrations/001_create_all_tables.sql` -- 11 张表 + 8 索引（幂等）
 - `backend/migrations/002_enable_rls.sql` -- RLS + 11 条用户隔离策略（幂等）
 
 #### Tests

@@ -22,7 +22,7 @@ AgentBoard 已演进为支持**单 Agent 对话**、**多 Agent DAG 协作**与*
                                                                      |
                                +-------------------+                 | (Claude Agent SDK async iter)
                                | Supabase (PgSQL)  |                 |
-                               | 10 tables, JSONB  | <---------------+
+                               | 11 tables, JSONB  | <---------------+
                                | RLS + FK cascade  |                 |      +---------------------+
                                +-------------------+                 |      | MCP Servers (Core)  |
                                                                      +----> | filesystem/playwright|
@@ -104,7 +104,7 @@ AgentBoard 已演进为支持**单 Agent 对话**、**多 Agent DAG 协作**与*
 | **研究 Swarm (P3)**           | `researchSwarm.js` / `swarmStore.js`         | Coordinator/Worker 并行研究编排器。Coordinator 拆解假说、综合选优；Worker 并行跑 P1 Ratchet Loop；Branch 隔离（git clone + PORT）；`spawnSync` 防注入；abort 桥接；状态/指标回写。`swarmStore` 使用共享 Supabase 客户端直接访问数据库。                                                                                                                          |
 | **安全沙箱**                  | `hooks.js` / `dockerSandbox.js`              | `PreToolUse` Bash双层围栏防穿透。执行 Python/Node 代码时，引擎自动下卷分配基于 `dockerode` 的无网络零信任按需生成容器，完全隔离宿主机并施加 256MB/50 PIDs 的熔断保护。                                                                                                                                                                                           |
 | **微服务器组**                | `nativeMcpServer.js`                         | 基于官方 `@modelcontextprotocol/sdk` 实现的后端驻留子进程，向模型动态注册高级中间件原生工具 (如 `TaskCreateTool` 分发子代理、`BatchTool`、`LoopTool` 并发调度与多维执行)。                                                                                                                                                                                       |
-| **持久层**                    | `sessionStore.js` / `experimentStore.js`     | Supabase PostgreSQL 异步持久层。10 张表统一托管于云端 PostgreSQL，JSONB 列自动序列化，FK 级联删除，RLS 行级安全策略。`@supabase/supabase-js` 纯 JS 客户端，零原生编译依赖。                                                                                                                                                                                      |
+| **持久层**                    | `sessionStore.js` / `experimentStore.js`     | Supabase PostgreSQL 异步持久层。11 张表统一托管于云端 PostgreSQL，JSONB 列自动序列化，FK 级联删除，RLS 行级安全策略。`@supabase/supabase-js` 纯 JS 客户端，零原生编译依赖。                                                                                                                                                                                      |
 
 ### Frontend
 
@@ -120,7 +120,7 @@ AgentBoard 已演进为支持**单 Agent 对话**、**多 Agent DAG 协作**与*
 
 ## 数据库 Schema 设计
 
-系统由 Supabase PostgreSQL 统一托管的 10 张表构成（单一云端数据库，RLS 行级安全）：
+系统由 Supabase PostgreSQL 统一托管的 11 张表构成（单一云端数据库，RLS 行级安全）：
 
 ### Supabase PostgreSQL
 
@@ -232,6 +232,28 @@ CREATE TABLE swarm_coordinator_decisions (
   parsed_result    JSONB,
   agent_session_id TEXT,
   created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Memory Knowledge Graph
+CREATE TABLE memory_entities (
+  id         TEXT PRIMARY KEY,
+  user_id    TEXT NOT NULL,
+  name       TEXT NOT NULL,
+  type       TEXT NOT NULL,
+  content    TEXT,
+  created_at BIGINT NOT NULL,
+  updated_at BIGINT NOT NULL,
+  UNIQUE(user_id, name, type)
+);
+
+CREATE TABLE memory_relations (
+  id                   TEXT PRIMARY KEY,
+  user_id              TEXT NOT NULL,
+  source_entity_name   TEXT NOT NULL,
+  target_entity_name   TEXT NOT NULL,
+  relation_type        TEXT NOT NULL,
+  created_at           BIGINT NOT NULL,
+  UNIQUE(user_id, source_entity_name, target_entity_name, relation_type)
 );
 ```
 

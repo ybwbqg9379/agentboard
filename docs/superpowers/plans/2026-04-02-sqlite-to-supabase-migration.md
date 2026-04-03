@@ -50,7 +50,7 @@
 
 Create project "AgentBoard" in "Bowen's Org" (org: `snkzvhypmwyllzioqrzb`), region `us-west-1`. Need to pause or delete an existing project first (free tier limit = 2).
 
-- [ ] **Step 2: Apply DDL migration for all 10 tables**
+- [ ] **Step 2: Apply DDL migration for all 11 tables**
 
 Apply via `mcp__plugin_supabase_supabase__apply_migration`:
 
@@ -198,7 +198,7 @@ CREATE INDEX idx_mem_relations_user ON memory_relations(user_id);
 
 - [ ] **Step 3: Verify tables created**
 
-Run `mcp__plugin_supabase_supabase__list_tables` with `verbose: true` to confirm all 10 tables and indexes.
+Run `mcp__plugin_supabase_supabase__list_tables` with `verbose: true` to confirm all 11 tables and indexes.
 
 ---
 
