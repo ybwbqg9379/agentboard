@@ -73,6 +73,24 @@ export class LSPTool extends Tool {
     };
   }
 
+  success(text) {
+    return {
+      content: [{ type: 'text', text }],
+      isError: false,
+    };
+  }
+
+  error(text) {
+    return {
+      content: [{ type: 'text', text }],
+      isError: true,
+    };
+  }
+
+  async call(input, context) {
+    return this.execute(input, context);
+  }
+
   async execute(args, context) {
     const { action, filePath, identifier, lineNumber } = args;
     const { userWorkspace } = context;

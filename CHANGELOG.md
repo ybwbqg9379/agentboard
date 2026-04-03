@@ -1,5 +1,36 @@
 # Changelog
 
+## [0.15.3] - 2026-04-02
+
+### test: 核心模块与 Server 路由测试扩容 + LSPTool MCP 契约修复
+
+#### Fixed
+
+- **`backend/tools/LSPTool.js`** — 实现 `success()` / `error()` / `call()`，与 Native MCP `tool.call` 及统一 `{ content, isError }` 返回格式一致（此前仅存在 `execute()` 且调用未定义方法会导致运行期失败）。
+
+#### Tests (backend)
+
+新增或显著扩充的专项文件：
+
+- `agentManager.test.js` — `selectBuiltinTools`、起停与续跑、AbortSignal 可中止的挂起流、`pin_context` 等。
+- `agentDefs.test.js` — 子代理定义结构与工具集约束。
+- `config.test.js` — 环境与默认值。
+- `tools/REPLTool.test.js`、`tools/dockerSandbox.test.js`、`tools/RememberTool.test.js` — 沙箱与记忆工具。
+- `tools/LSPTool.test.js` — 基于临时目录的语义查询。
+- `nativeMcpServer.test.js` — MCP `ListTools` / `CallTool` 分发。
+- `server.workflow.test.js`、`server.templates.test.js`、`server.swarm.test.js`、`server.experiments-list.test.js` — 工作流、实验模板、Swarm、实验列表等 REST。
+- `server.test.js` — 补 `deleteSession` mock；单删与批量删除成功路径。
+
+#### Metrics
+
+- 后端 **597** 用例 / **36** 文件；前端 **207** 用例 / **10** 文件；**合计 804** 个 Vitest 用例。
+
+#### Docs
+
+- `README.md`、`CONTRIBUTING.md`、`ONBOARDING.md` 与测试规模对齐；根 `package.json` 版本 **0.15.3**。
+
+---
+
 ## [0.15.2] - 2026-04-02
 
 ### test: 补齐 4 个后端模块测试 + 文档漂移修复 -- 714 tests / 34 files

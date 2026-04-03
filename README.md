@@ -121,7 +121,7 @@ AgentBoard 使用了复杂的流式数据处理和分发技术，包含Supabase 
 我们通过严格的自动化流水线来保持极高的代码纯度：
 
 - 代码格式遵循 Prettier（单引号、100 行宽）。
-- 高达 **714** 个的 `Vitest` 单元/集成测试用例覆盖所有的 DAG 条件引擎运算和代理层转译算法。
+- 全仓 **804** 个 `Vitest` 用例（后端 **597** + 前端 **207**），覆盖 DAG 条件引擎、代理层、沙箱/MCP、`server` 关键 REST 路由等。
 
 您可以随时通过下发全局质量门禁命令来确保代码没有退化：
 
@@ -129,9 +129,15 @@ AgentBoard 使用了复杂的流式数据处理和分发技术，包含Supabase 
 npm run check
 ```
 
-_(此命令将链式触发 `format:check`预检、`lint:strict`极严检查 和 `build` 打包编译)_
+_(此命令将链式触发 `format:check` 预检、`lint:strict` 极严检查和 `build` 打包编译。)_
 
-更详细的工程门禁规范、本地运行测试用例请查阅项目内的 [开发贡献指南 (CONTRIBUTING.md)](CONTRIBUTING.md)。
+同步建议执行全量测试（根目录）：
+
+```bash
+npm run test
+```
+
+更详细的工程门禁规范与测试说明请查阅 [开发贡献指南 (CONTRIBUTING.md)](CONTRIBUTING.md)。
 
 ## License
 

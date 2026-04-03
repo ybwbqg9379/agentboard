@@ -300,6 +300,12 @@ AgentBoard 的 MCP 服务器分为三个层级（Tier），由意图路由引擎
 
 Skill 内部通过工具选择矩阵自动判断最佳工具组合，例如：学术研究优先 Exa、新闻搜索优先 Tavily、页面阅读优先 Jina Reader、批量爬取优先 Firecrawl。
 
+## 自动化测试（Vitest）
+
+- **运行方式**：仓库根目录执行 `npm run test`（或分别 `backend` / `frontend` 下 `npx vitest run`）。
+- **覆盖重点**：`workflowEngine` 校验与条件求值、`agentManager` 与工具选择、HTTP `server` 关键路由（会话增删、工作流 CRUD/run、实验列表与模板、Swarm 端点等，依赖 Store/引擎 mock）、`proxy` 协议转换、`dockerSandbox` / Native MCP 等行为（Docker 与 SDK 在测试中桩替换）。
+- **数量与规范**：当前用例规模与门禁约定见根目录 `README.md` 与 `CONTRIBUTING.md`；发版记录见 `CHANGELOG.md`。
+
 ## 设计哲学
 
 | 决策点         | 演进结果说明                                                                                                                              |

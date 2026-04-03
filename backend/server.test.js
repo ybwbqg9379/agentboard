@@ -83,6 +83,10 @@ vi.mock('./sessionStore.js', () => ({
   ),
   countEvents: vi.fn((sessionId) => Promise.resolve(sessionId === 'valid-id' ? 1 : 0)),
   recoverStaleSessions: vi.fn().mockResolvedValue(0),
+  deleteSession: vi.fn(async (userId, id) => {
+    const ownedSessions = sessionOwners.get(userId || 'default');
+    return Boolean(ownedSessions?.has(id));
+  }),
   close: vi.fn().mockResolvedValue(undefined),
 }));
 
@@ -412,6 +416,42 @@ describe('batch delete limits', () => {
     const res = await request(app).post('/api/workflows/batch-delete').send({ ids });
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/max 100/);
+  });
+});
+
+describe('session delete and batch-delete', () => {
+  it('rejects session batch-delete when ids is missing or empty', async () => {
+    expect((await request(app).post('/api/sessions/batch-delete').send({})).status).toBe(400);
+    expect((await request(app).post('/api/sessions/batch-delete').send({ ids: [] })).status).toBe(
+      400,
+    );
+  });
+
+  it('batch-deletes owned sessions and stops agents', async () => {
+    const { stopAgent: stopAgentFn } = await import('./agentManager.js');
+    const { deleteSession: delFn } = await import('./sessionStore.js');
+    const res = await request(app)
+      .post('/api/sessions/batch-delete')
+      .send({ ids: ['valid-id', 'ghost-id'] });
+    expect(res.status).toBe(200);
+    expect(res.body.deleted).toBe(1);
+    expect(stopAgentFn).toHaveBeenCalledWith('valid-id');
+    expect(delFn).toHaveBeenCalledWith('default', 'valid-id');
+  });
+
+  it('DELETE /api/sessions/:id removes an owned session', async () => {
+    const { stopAgent: stopAgentFn } = await import('./agentManager.js');
+    const { deleteSession: delFn } = await import('./sessionStore.js');
+    const res = await request(app).delete('/api/sessions/valid-id');
+    expect(res.status).toBe(200);
+    expect(res.body.deleted).toBe(true);
+    expect(stopAgentFn).toHaveBeenCalledWith('valid-id');
+    expect(delFn).toHaveBeenCalledWith('default', 'valid-id');
+  });
+
+  it('DELETE /api/sessions/:id returns 404 when not owned', async () => {
+    const res = await request(app).delete('/api/sessions/unknown-id');
+    expect(res.status).toBe(404);
   });
 });
 
