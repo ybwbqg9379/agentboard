@@ -121,13 +121,13 @@ AgentBoard 已演进为支持**单 Agent 对话**、**多 Agent DAG 协作**与*
 
 ### 环境与 HTTP 健壮性约定（增量）
 
-| 项目             | 说明                                                                                                                                                                                                  |
-| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **启动 env**     | `backend/env.js` 在 `config.js` 加载时对 `PORT`、`AGENT_TIMEOUT` 做 Zod 校验，非法即退出。                                                                                                            |
-| **请求 ID**      | `requestIdMiddleware`：入站 `x-request-id`（合法则沿用）、否则生成 UUID；写入响应头 `X-Request-Id`。未捕获的 Express 路由错误在生产环境返回通用文案，并附带 **`requestId`** 便于日志关联。            |
-| **JSON 上限**    | `express.json({ limit: '2mb' })`。                                                                                                                                                                    |
-| **React**        | 根节点由 `ErrorBoundary.jsx` 包裹；`componentDidCatch` 将渲染错误输出到 `console.error`。                                                                                                             |
-| **Session 删除** | 单删：先 `stopAgent` 再 `deleteSession`；若删除失败则将行标记为 **`interrupted`** 并返回 `hint`。批量删除：一次查询过滤归属 id、逐 id `stopAgent`、再 **单次** `delete().in(...)`，降低远程 DB 往返。 |
+| 项目             | 说明                                                                                                                                                                                                                                                                                                    |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **启动 env**     | `backend/env.js` 在 `config.js` 加载时对 `PORT`、`AGENT_TIMEOUT` 做 Zod 校验，非法即退出。                                                                                                                                                                                                              |
+| **请求 ID**      | `requestIdMiddleware`：入站 `x-request-id`（合法则沿用）、否则生成 UUID；写入响应头 `X-Request-Id`。未捕获的 Express 路由错误在生产环境返回通用文案，并附带 **`requestId`** 便于日志关联。                                                                                                              |
+| **JSON 上限**    | `express.json({ limit: '2mb' })`。                                                                                                                                                                                                                                                                      |
+| **React**        | 根节点由 `ErrorBoundary.jsx` 包裹；`componentDidCatch` 将渲染错误输出到 `console.error`。                                                                                                                                                                                                               |
+| **Session 删除** | 单删：先 `stopAgent` 再 `deleteSession`；若删除失败则将行标记为 **`interrupted`** 并返回 `hint`。批量删除：一次查询过滤归属 id、逐 id `stopAgent`、再 **单次** `delete().in(...)`；若删除行数少于归属数，再查仍存在的 id 并批量标 **`interrupted`**。`filterSessionIdsOwned` 返回顺序与入参不一定一致。 |
 
 ## 数据库 Schema 设计
 

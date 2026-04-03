@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.15.8] - 2026-04-02
+
+### chore: ExperimentView catch 清理 + 批量删 session 部分失败补 interrupted + JSDoc
+
+#### Changed
+
+- **`ExperimentView.jsx`**：`apiFetch` 已统一包装中止类错误，移除对裸 `AbortError`/`TimeoutError` 的重复判断（Observation A）。
+- **`POST /api/sessions/batch-delete`**：当 `deleteSessionsBatch` 删除行数 **小于** 已归属 id 数时，二次 `filterSessionIdsOwned` 得到仍存在的 id，对其 **`updateSessionStatus(..., 'interrupted')`**（Observation B）。
+- **`filterSessionIdsOwned`**：JSDoc 注明 **返回顺序与入参 `ids` 不一定一致**（Observation C）。
+
+#### Tests
+
+- `server.test.js`：批量删除 mock 返回 0 行时期望 `updateSessionStatus` 与两次 `filterSessionIdsOwned`。
+
+#### Docs
+
+- 根版本 **0.15.8**；`README` / `CONTRIBUTING` / `ONBOARDING` 测试计数 **615 + 212 = 827**。
+
+---
+
 ## [0.15.7] - 2026-04-02
 
 ### fix: Session 删除一致性、批量删除省 RTT、apiFetch 可区分超时、env/requestId/ErrorBoundary

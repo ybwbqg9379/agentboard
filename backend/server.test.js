@@ -448,6 +448,24 @@ describe('session delete and batch-delete', () => {
     expect(batchFn).toHaveBeenCalledWith('default', ['valid-id']);
   });
 
+  it('batch-delete marks interrupted when deleteSessionsBatch removes fewer rows than owned', async () => {
+    const {
+      deleteSessionsBatch: batchFn,
+      filterSessionIdsOwned: filterFn,
+      updateSessionStatus: statusFn,
+    } = await import('./sessionStore.js');
+    vi.mocked(filterFn).mockClear();
+    vi.mocked(statusFn).mockClear();
+    vi.mocked(batchFn).mockResolvedValueOnce(0);
+    const res = await request(app)
+      .post('/api/sessions/batch-delete')
+      .send({ ids: ['valid-id'] });
+    expect(res.status).toBe(200);
+    expect(res.body.deleted).toBe(0);
+    expect(filterFn).toHaveBeenCalledTimes(2);
+    expect(statusFn).toHaveBeenCalledWith('valid-id', 'interrupted', 'default');
+  });
+
   it('DELETE /api/sessions/:id removes an owned session', async () => {
     const { stopAgent: stopAgentFn } = await import('./agentManager.js');
     const { deleteSession: delFn } = await import('./sessionStore.js');

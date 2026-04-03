@@ -168,6 +168,7 @@ export async function deleteSession(userId, sessionId) {
 
 /**
  * Return which of `ids` exist and belong to userId (single round-trip).
+ * Order is not guaranteed to match the input `ids` array (Postgres `IN` / Supabase).
  */
 export async function filterSessionIdsOwned(userId, ids) {
   if (!ids.length) return [];

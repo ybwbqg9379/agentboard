@@ -249,10 +249,7 @@ export default function ExperimentView({
         setExperiments(data.experiments || []);
       }
     } catch (e) {
-      if (e instanceof ApiFetchError && (e.isUserAbort || e.isTimeout)) {
-        return;
-      }
-      if (e.name === 'AbortError' || e.name === 'TimeoutError') return;
+      if (e instanceof ApiFetchError && (e.isUserAbort || e.isTimeout)) return;
       // silent: list stays empty; user can retry by reloading
     }
   }, []);
@@ -294,7 +291,6 @@ export default function ExperimentView({
       }
     } catch (e) {
       if (e instanceof ApiFetchError && (e.isUserAbort || e.isTimeout)) return;
-      if (e.name === 'AbortError' || e.name === 'TimeoutError') return;
       // silent: runs stays []
     } finally {
       if (runsRequestControllerRef.current === controller) {

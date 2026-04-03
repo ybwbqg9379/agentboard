@@ -173,6 +173,17 @@ app.post('/api/sessions/batch-delete', async (req, res) => {
     stopAgent(id);
   }
   const deleted = await deleteSessionsBatch(req.user.id, ownedIds);
+  if (deleted < ownedIds.length) {
+    const stillOwned = await filterSessionIdsOwned(req.user.id, ownedIds);
+    if (stillOwned.length > 0) {
+      console.error(
+        `[sessions] batch-delete incomplete: stopped ${ownedIds.length} agent(s), deleted ${deleted}, marking ${stillOwned.length} session(s) interrupted`,
+      );
+      await Promise.all(
+        stillOwned.map((id) => updateSessionStatus(id, 'interrupted', req.user.id)),
+      );
+    }
+  }
   res.json({ deleted });
 });
 
