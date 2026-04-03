@@ -1,12 +1,15 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { buildWsUrl } from '../lib/clientAuth.js';
 import { apiFetch } from '../lib/apiFetch.js';
+import {
+  WS_RECONNECT_MS,
+  startWsHeartbeat,
+  touchWsLastActivity,
+  scheduleWsReconnect,
+} from '../lib/wsConnection.js';
 
 const API_BASE = '';
-const RECONNECT_INTERVAL = 3000;
 const MAX_EVENTS = 5000;
-const HEARTBEAT_INTERVAL = 30000; // 30s ping to detect silent disconnects
-const PONG_TIMEOUT = 45000; // consider connection dead if no message for 45s
 
 export function useWebSocket() {
   const [connected, setConnected] = useState(false);
@@ -52,19 +55,8 @@ export function useWebSocket() {
       }
       setConnected(true);
       clearTimeout(reconnectTimer.current);
-      // Heartbeat: send ping every 30s; force-close if no message received within PONG_TIMEOUT
       clearInterval(heartbeatTimer.current);
-      lastMessageTimeRef.current = Date.now();
-      heartbeatTimer.current = setInterval(() => {
-        if (ws.readyState === WebSocket.OPEN) {
-          if (Date.now() - lastMessageTimeRef.current > PONG_TIMEOUT) {
-            console.warn('[ws] pong timeout, forcing reconnect');
-            ws.close();
-            return;
-          }
-          ws.send('ping');
-        }
-      }, HEARTBEAT_INTERVAL);
+      heartbeatTimer.current = startWsHeartbeat(ws, lastMessageTimeRef, { logLabel: 'ws' });
       // Re-subscribe to the active session after reconnect
       const sid = sessionIdRef.current;
       if (sid && statusRef.current === 'running') {
@@ -81,7 +73,7 @@ export function useWebSocket() {
       setConnected(false);
       clearInterval(heartbeatTimer.current);
       if (!unmountedRef.current) {
-        reconnectTimer.current = setTimeout(connect, RECONNECT_INTERVAL);
+        reconnectTimer.current = scheduleWsReconnect(connect, WS_RECONNECT_MS);
       }
     };
 
@@ -90,7 +82,7 @@ export function useWebSocket() {
     };
 
     ws.onmessage = (e) => {
-      lastMessageTimeRef.current = Date.now();
+      touchWsLastActivity(lastMessageTimeRef);
       let msg;
       try {
         msg = JSON.parse(e.data);

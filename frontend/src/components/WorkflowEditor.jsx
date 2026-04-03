@@ -5,6 +5,12 @@ import ConfirmDialog from './ConfirmDialog.jsx';
 import { buildWsUrl } from '../lib/clientAuth.js';
 import { apiFetch } from '../lib/apiFetch.js';
 import {
+  WS_RECONNECT_MS,
+  startWsHeartbeat,
+  touchWsLastActivity,
+  scheduleWsReconnect,
+} from '../lib/wsConnection.js';
+import {
   EDGE_CONDITION_OPTIONS,
   createEdge,
   edgeMatches,
@@ -562,9 +568,9 @@ export default function WorkflowEditor() {
     function scheduleReconnect() {
       if (workflowSocketDisposedRef.current) return;
       clearTimeout(reconnectTimerRef.current);
-      reconnectTimerRef.current = window.setTimeout(() => {
+      reconnectTimerRef.current = scheduleWsReconnect(() => {
         connectWorkflowSocketRef.current();
-      }, 3000);
+      }, WS_RECONNECT_MS);
     }
 
     function connectWorkflowSocket() {
@@ -585,16 +591,7 @@ export default function WorkflowEditor() {
       ws.onopen = () => {
         clearTimeout(reconnectTimerRef.current);
         clearInterval(workflowHeartbeatRef.current);
-        wfLastMessageRef.current = Date.now();
-        workflowHeartbeatRef.current = setInterval(() => {
-          if (ws.readyState === WebSocket.OPEN) {
-            if (Date.now() - wfLastMessageRef.current > 45_000) {
-              ws.close();
-              return;
-            }
-            ws.send('ping');
-          }
-        }, 30_000);
+        workflowHeartbeatRef.current = startWsHeartbeat(ws, wfLastMessageRef);
         if (activeRunIdRef.current && activeWorkflowIdRef.current) {
           ws.send(
             JSON.stringify({
@@ -607,7 +604,7 @@ export default function WorkflowEditor() {
       };
 
       ws.onmessage = (e) => {
-        wfLastMessageRef.current = Date.now();
+        touchWsLastActivity(wfLastMessageRef);
         try {
           const msg = JSON.parse(e.data);
           if (msg.type === 'workflow_subscribed' && msg.runId) {

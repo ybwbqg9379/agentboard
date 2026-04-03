@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.15.10] - 2026-04-03
+
+### refactor(frontend): 抽取 `wsConnection` 统一 WS 心跳与重连间隔
+
+#### Changed
+
+- **`lib/wsConnection.js`**：导出 `WS_RECONNECT_MS`、`WS_HEARTBEAT_INTERVAL_MS`、`WS_PONG_TIMEOUT_MS`，以及 `touchWsLastActivity`、`startWsHeartbeat`、`scheduleWsReconnect`。
+- **`useWebSocket.js`**：主 Agent/实验连接改用上述工具函数；超时关闭前仍输出 **`[ws] pong timeout`**（`logLabel: 'ws'`）。
+- **`WorkflowEditor.jsx`**：工作流专用 `/ws` 共用同一套心跳与重连常量，**不传 `logLabel`**（保持静默 `close`，与原先一致）。
+
+#### Tests
+
+- **`lib/wsConnection.test.js`**：新增 5 个用例（Vitest fake timers）；全仓 **615 + 217 = 832**。
+
+#### Docs
+
+- 根版本 **0.15.10**；`ARCHITECTURE.md` 前端表补充 `wsConnection`；`README` / `CONTRIBUTING` / `ONBOARDING` 测试计数与 **832** 对齐。
+
+---
+
 ## [0.15.9] - 2026-04-03
 
 ### refactor(backend): HTTP 按域拆分 + WebSocket 独立注册（行为不变）

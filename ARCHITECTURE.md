@@ -108,16 +108,16 @@ AgentBoard 已演进为支持**单 Agent 对话**、**多 Agent DAG 协作**与*
 
 ### Frontend
 
-| 模块          | 文件                            | 职责                                                                                                                                                      |
-| ------------- | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **状态总线**  | `useWebSocket.js`               | 管理 WS 长连接，5态生命周期重连，提供全局状态的 hook 发布/订阅。                                                                                          |
-| **主展板**    | `AgentTimeline.jsx`             | 将高嵌套维度的 SDK block 扁平化渲染为思考链（思维气泡）、执行链（终端）、报错链。                                                                         |
-| **控制台**    | `ChatInput / Header`            | `Agent` / `Workflow` / `Experiment` 三模式切换；Dark / Light 主题切换。Cmd/Ctrl+Enter 提交。                                                              |
-| **数据解剖**  | `RightPanel.jsx`                | 3个子Tab管理：提炼 Bash 终端纯净流 (`Terminal`)、模型吞吐统计及价格核算 (`Context`)、文件编辑/读取频次统计监控 (`Files`)。                                |
-| **拓扑编辑**  | `WorkflowEditor.jsx`            | SVG 矩阵级画布编辑环境，支持将 `experiment` 节点编织入子 DAG 并配置属性。交互层支持批量选择/删除及自动寻径渲染。                                          |
-| **实验面板**  | `ExperimentView.jsx`            | 实时实验透视台，具备并排的双联显示：左侧是 `experiments` 模板的动态 JSON 编辑修改区；右侧是流式获取后台子试验 (Trials) 数据指标刷新的监控仪表盘及进度图。 |
-| **通用组件**  | `ConfirmDialog.jsx`             | 自定义主题确认弹窗，替代浏览器原生 `window.confirm`，支持 Esc/Enter 快捷键。                                                                              |
-| **HTTP 封装** | `apiFetch.js` / `clientAuth.js` | 浏览器侧 REST 统一走 `apiFetch`（合并 Bearer + `x-user-id` 与默认超时）；鉴权头与 WS Query 仍由 `clientAuth` / `buildWsUrl` 提供。                        |
+| 模块          | 文件                                                | 职责                                                                                                                                                      |
+| ------------- | --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **状态总线**  | `useWebSocket.js` / `wsConnection.js`               | 管理 WS 长连接与重连；心跳 / 空闲超时 / `ping` 逻辑集中在 `wsConnection.js`，供主连接与 Workflow 专用连接复用。                                           |
+| **主展板**    | `AgentTimeline.jsx`                                 | 将高嵌套维度的 SDK block 扁平化渲染为思考链（思维气泡）、执行链（终端）、报错链。                                                                         |
+| **控制台**    | `ChatInput / Header`                                | `Agent` / `Workflow` / `Experiment` 三模式切换；Dark / Light 主题切换。Cmd/Ctrl+Enter 提交。                                                              |
+| **数据解剖**  | `RightPanel.jsx`                                    | 3个子Tab管理：提炼 Bash 终端纯净流 (`Terminal`)、模型吞吐统计及价格核算 (`Context`)、文件编辑/读取频次统计监控 (`Files`)。                                |
+| **拓扑编辑**  | `WorkflowEditor.jsx`                                | SVG 矩阵级画布编辑环境，支持将 `experiment` 节点编织入子 DAG 并配置属性。交互层支持批量选择/删除及自动寻径渲染。                                          |
+| **实验面板**  | `ExperimentView.jsx`                                | 实时实验透视台，具备并排的双联显示：左侧是 `experiments` 模板的动态 JSON 编辑修改区；右侧是流式获取后台子试验 (Trials) 数据指标刷新的监控仪表盘及进度图。 |
+| **通用组件**  | `ConfirmDialog.jsx`                                 | 自定义主题确认弹窗，替代浏览器原生 `window.confirm`，支持 Esc/Enter 快捷键。                                                                              |
+| **HTTP 封装** | `apiFetch.js` / `clientAuth.js` / `wsConnection.js` | 浏览器侧 REST 统一走 `apiFetch`；鉴权头与 WS URL 由 `clientAuth` / `buildWsUrl`；WS 心跳与重连间隔常量由 `wsConnection` 提供。                            |
 
 ### 环境与 HTTP 健壮性约定（增量）
 
