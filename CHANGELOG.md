@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.15.9] - 2026-04-03
+
+### refactor(backend): HTTP 按域拆分 + WebSocket 独立注册（行为不变）
+
+#### Changed
+
+- **`http/createApp.js`**：组装 Express 全局中间件与 `/api` 路由挂载；保留统一错误处理与 `requestId`。
+- **`http/routes/`**：`sessions`、`meta`（status / mcp / permissions）、`workflows`、`experiments`（含 Swarm 相关 REST）分文件承载原 `server.js` 路由表。
+- **`http/helpers/access.js`**：`hasOwnedSession` / `hasOwnedWorkflowRun` 供 REST 与 WS 共用。
+- **`websocket/registerAgentBoardWs.js`**：`/ws` 协议、订阅表与 agent / workflow / experiment / swarm 事件桥；末尾仍调用 **`initSwarmBus(agentEvents)`**。
+- **`server.js`**：进程入口（`createApp`、`listen`、恢复、优雅退出）；**仍导出 `{ app, server }`** 供集成测试。
+- **`ARCHITECTURE.md`**：API 与鉴权模块表与上述分层对齐。
+
+#### Fixed
+
+- **Session control `mcp_status`**：`getMcpHealth` 从 **`mcpHealth.js`** 导入（拆分时勿从 `agentManager` 引入）。
+
+#### Tests
+
+- 测试规模不变：**615 + 212 = 827**；`server*.test.js` 仍导入 `server.js` 单例。
+
+#### Docs
+
+- 根版本 **0.15.9**；`README` / `CONTRIBUTING` / `ONBOARDING` 测试计数仍为 **827**。
+
+---
+
 ## [0.15.8] - 2026-04-02
 
 ### chore: ExperimentView catch 清理 + 批量删 session 部分失败补 interrupted + JSDoc
