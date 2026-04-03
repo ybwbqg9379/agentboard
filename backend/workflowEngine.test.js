@@ -3,7 +3,12 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { validateWorkflow, topologicalSort, evaluateCondition } from './workflowEngine.js';
+import {
+  validateWorkflow,
+  topologicalSort,
+  evaluateCondition,
+  getActiveWorkflowRuns,
+} from './workflowEngine.js';
 
 // ---------------------------------------------------------------------------
 // validateWorkflow
@@ -267,5 +272,13 @@ describe('evaluateCondition', () => {
   it('returns truthy for truthy simple expression', () => {
     expect(evaluateCondition('exists', { exists: true })).toBe(true);
     expect(evaluateCondition('exists', { exists: 'yes' })).toBe(true);
+  });
+});
+
+describe('getActiveWorkflowRuns', () => {
+  it('returns no ids when userId is null, undefined, or empty (no cross-tenant enumeration)', () => {
+    expect(getActiveWorkflowRuns(null)).toEqual([]);
+    expect(getActiveWorkflowRuns(undefined)).toEqual([]);
+    expect(getActiveWorkflowRuns('')).toEqual([]);
   });
 });

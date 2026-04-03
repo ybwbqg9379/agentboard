@@ -453,6 +453,16 @@ describe('session delete and batch-delete', () => {
     const res = await request(app).delete('/api/sessions/unknown-id');
     expect(res.status).toBe(404);
   });
+
+  it('DELETE /api/sessions/:id returns 500 when persistence delete fails after stop', async () => {
+    const { deleteSession: delFn } = await import('./sessionStore.js');
+    const { stopAgent: stopAgentFn } = await import('./agentManager.js');
+    vi.mocked(delFn).mockResolvedValueOnce(false);
+    const res = await request(app).delete('/api/sessions/valid-id');
+    expect(res.status).toBe(500);
+    expect(res.body.error).toMatch(/delete failed/i);
+    expect(stopAgentFn).toHaveBeenCalledWith('valid-id');
+  });
 });
 
 describe('WebSocket heartbeat handling', () => {

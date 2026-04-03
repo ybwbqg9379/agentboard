@@ -39,7 +39,8 @@ vi.mock('./experimentStore.js', () => ({
   saveTrial,
 }));
 
-const { runExperimentLoop, abortExperiment } = await import('./experimentEngine.js');
+const { runExperimentLoop, abortExperiment, getActiveExperiments } =
+  await import('./experimentEngine.js');
 
 function uniqueDir(name) {
   return resolve(workspaceRoot, `${Date.now()}-${Math.random().toString(16).slice(2)}-${name}`);
@@ -62,6 +63,44 @@ describe('experimentEngine', () => {
   afterEach(() => {
     stopAgent.mockReset();
     startAgent.mockReset();
+  });
+
+  it('getActiveExperiments does not list runs when userId is missing (tenant isolation)', async () => {
+    const runId = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+    const sourceDir = uniqueDir('tenant-list-source');
+    const workspaceDir = uniqueDir('tenant-list-run');
+    const sleeperFile = resolve(sourceDir, 'sleeper.js');
+
+    fs.mkdirSync(sourceDir, { recursive: true });
+    fs.writeFileSync(sleeperFile, 'setTimeout(() => {}, 8000);');
+
+    const runPromise = runExperimentLoop(
+      'exp-tenants',
+      {
+        name: 'tenant isolation active list',
+        target: { source_dir: sourceDir },
+        metrics: {
+          primary: {
+            command: 'node sleeper.js',
+            type: 'exit_code',
+            direction: 'maximize',
+          },
+        },
+      },
+      'default',
+      workspaceDir,
+      runId,
+    );
+
+    await new Promise((r) => setTimeout(r, 250));
+    expect(getActiveExperiments(undefined)).toEqual([]);
+    expect(getActiveExperiments(null)).toEqual([]);
+    expect(getActiveExperiments('')).toEqual([]);
+    expect(getActiveExperiments('default')).toEqual([runId]);
+    expect(getActiveExperiments('other-tenant')).toEqual([]);
+
+    expect(abortExperiment(runId)).toBe(true);
+    await runPromise;
   });
 
   it('rejects source_dir symlink escapes after realpath resolution', async () => {

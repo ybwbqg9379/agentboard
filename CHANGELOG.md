@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.15.5] - 2026-04-02
+
+### fix: 活跃任务枚举租户隔离 + 会话删除失败 HTTP 语义
+
+#### Fixed
+
+- **`getActiveExperiments` / `getActiveWorkflowRuns`**：当 `userId` 为 `null`、`undefined` 或空字符串时改为返回 **空列表**，不再退化为「返回全局全部活跃 id」（多租户场景下的信息枚举风险；HTTP 层历来会传入 `default` 或合法 id，但内部误调过去会踩坑）。
+- **`DELETE /api/sessions/:id`**：在已通过归属校验且已 `stopAgent` 之后，若 `deleteSession` 仍为 `false`（持久化失败），响应改为 **500** + `delete failed`，避免 **200 + deleted: false** 误导客户端。
+
+#### Tests
+
+- `experimentEngine.test.js`：活跃实验运行中时，`getActiveExperiments(undefined|null|"")` 必须为空；`default` 用户仅列出己方 `runId`，`other-tenant` 为空。
+- `workflowEngine.test.js`：契约测试 `getActiveWorkflowRuns` 对缺省 `userId` 返回空列表。
+- `server.test.js`：持久化删除失败时期望 **500**。
+
+#### Chore
+
+- **`backend/vitest.config.js`**：`fileParallelism: false`，避免多个 `server*.test.js` 并行时共用已缓存的 `server.js` / mock 组合导致偶发失败。
+
+#### Docs
+
+- 根 `package.json` 版本 **0.15.5**；`README.md`、`CONTRIBUTING.md`、`ONBOARDING.md` 测试计数与 **600 + 207 = 807** 对齐；`ARCHITECTURE.md` 补充后端 Vitest **按文件串行**（`fileParallelism: false`）原因说明。
+
+---
+
 ## [0.15.4] - 2026-04-02
 
 ### dev: Vitest V8 覆盖率依赖与脚本

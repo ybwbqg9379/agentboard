@@ -1032,7 +1032,8 @@ export function abortExperiment(runId) {
  * Get list of active experiment run IDs.
  */
 export function getActiveExperiments(userId) {
-  if (!userId) return [...activeExperiments.keys()];
+  // Never enumerate all runs without an explicit tenant id (multi-tenant footgun).
+  if (userId == null || userId === '') return [];
   const result = [];
   for (const [runId, entry] of activeExperiments) {
     if (entry.userId === userId) result.push(runId);

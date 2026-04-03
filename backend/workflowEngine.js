@@ -605,7 +605,7 @@ export function abortWorkflow(runId) {
  * Get IDs of currently running workflows.
  */
 export function getActiveWorkflowRuns(userId) {
-  if (!userId) return [...activeRuns.keys()];
+  if (userId == null || userId === '') return [];
   return [...activeRuns.entries()]
     .filter(([, entry]) => entry.userId === userId)
     .map(([runId]) => runId);

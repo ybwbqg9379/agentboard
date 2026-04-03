@@ -140,7 +140,10 @@ app.delete('/api/sessions/:id', async (req, res) => {
   }
   stopAgent(req.params.id);
   const deleted = await deleteSession(req.user.id, req.params.id);
-  res.json({ deleted });
+  if (!deleted) {
+    return res.status(500).json({ error: 'delete failed' });
+  }
+  res.json({ deleted: true });
 });
 
 // Batch delete sessions
