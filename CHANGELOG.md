@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.15.2] - 2026-04-02
+
+### test: 补齐 4 个后端模块测试 + 文档漂移修复 -- 714 tests / 34 files
+
+#### Tests
+
+- `experimentStore.test.js` -- 37 用例覆盖 experiments/runs/trials 全部 20 个 CRUD 函数（含 userId 隔离、分页、stale recovery、error path）
+- `metricExtractor.test.js` -- 35 用例覆盖 3 种提取模式（regex / json_path / exit_code）、guard 校验、isImproved、improvementPercent 边界值
+- `mcpConfig.test.js` -- 20 用例覆盖 6 个 core server 常驻加载、5 个条件 server ENV 驱动、SSE transport override、getAllowedTools 通配符生成
+- `supabaseClient.test.js` -- 4 用例覆盖 test 环境 fallback 和 production fail-fast 校验
+- 测试总数: 606 -> 714 (+108)，测试文件: 30 -> 34 (+4)
+
+#### Docs
+
+- 修正表数量漂移: 全站 "10 tables" -> "11 tables"（含 memory_entities + memory_relations）
+- ARCHITECTURE.md Schema 区块补充 memory_entities / memory_relations 完整 DDL
+- README.md 测试数更新: 597 -> 714
+- CHANGELOG.md + 迁移计划文档同步修正
+
 ## [0.15.1] - 2026-04-02
 
 ### fix(audit): 全面安全审计修复 -- 5 critical + 10 high + 8 medium (22 files)
