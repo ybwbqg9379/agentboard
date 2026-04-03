@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { getEnvValidationError } from './env.js';
+import { assertValidEnv, EnvValidationError, getEnvValidationError } from './env.js';
 
 const ORIGINAL_ENV = { ...process.env };
 
@@ -43,5 +43,12 @@ describe('getEnvValidationError', () => {
   it('returns an error when AGENT_TIMEOUT is too small', () => {
     process.env.AGENT_TIMEOUT = '50';
     expect(getEnvValidationError()).not.toBeNull();
+  });
+});
+
+describe('assertValidEnv', () => {
+  it('throws EnvValidationError instead of exiting the process', () => {
+    process.env.PORT = 'not-a-port';
+    expect(() => assertValidEnv()).toThrow(EnvValidationError);
   });
 });

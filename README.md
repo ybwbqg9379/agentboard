@@ -36,9 +36,9 @@ Browser ← (WS / Zod Validated) → Node.js Backend ←→ Claude Agent SDK (qu
                               (workflowEngine.js)     |   MCP Servers     |
                                         ↓             | Core: fs/github/  |
                                +-------------------+  |   memory/browser  |
-                               | Supabase (PgSQL)  |  | Search: tavily/   |
-                               | 11 tables, JSONB  |  |   exa/brave       |
-                               | RLS + FK cascade  |  | Crawl: firecrawl/ |
+                               | Remote Supabase    |  | Search: tavily/   |
+                               | PostgreSQL (HTTPS) |  |   exa/brave       |
+                               | 11+ tbl, JSONB RLS |  | Crawl: firecrawl/ |
                                +-------------------+  |   fetch/jina      |
                                                        +-------------------+
                                                                 ↓
@@ -110,9 +110,11 @@ npm run dev
 
 打开浏览器访问 `http://localhost:5173`。
 
+**持久化说明**：会话、工作流、实验、Swarm、记忆等全部由 **远程 Supabase 托管 PostgreSQL** 承担（`@supabase/supabase-js` 访问云端项目）；本地无需、也不使用 SQLite 等嵌入式数据库文件。
+
 ## API 文档与技术架构
 
-AgentBoard 使用了复杂的流式数据处理和分发技术，包含Supabase PostgreSQL 云端持久层 (`sessionStore`, `workflowStore`, `experimentStore`)，并设计有细粒度生命周期回调函数（Hooks）。
+AgentBoard 使用了复杂的流式数据处理和分发技术，包含 **远程** Supabase PostgreSQL 持久层（`sessionStore`、`workflowStore`、`experimentStore`、`swarmStore`、`memoryStore` 等），并设计有细粒度生命周期回调函数（Hooks）。
 
 - 关于**系统架构、DAG工作流程流转过程与数据库 Schema** 的详细信息，请参阅 [架构与设计文档 (ARCHITECTURE.md)](ARCHITECTURE.md)。
 
@@ -121,7 +123,7 @@ AgentBoard 使用了复杂的流式数据处理和分发技术，包含Supabase 
 我们通过严格的自动化流水线来保持极高的代码纯度：
 
 - 代码格式遵循 Prettier（单引号、100 行宽）。
-- 全仓 **818** 个 `Vitest` 用例（后端 **608** + 前端 **210**），覆盖 DAG 条件引擎、代理层、沙箱/MCP、`server` 关键 REST 路由、环境校验与请求关联等。
+- 全仓 **826** 个 `Vitest` 用例（后端 **614** + 前端 **212**），覆盖 DAG 条件引擎、代理层、沙箱/MCP、`server` 关键 REST 路由、环境校验与请求关联等。
 
 您可以随时通过下发全局质量门禁命令来确保代码没有退化：
 

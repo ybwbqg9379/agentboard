@@ -35,11 +35,20 @@ export function getEnvValidationError() {
   return result.success ? null : result.error;
 }
 
+/** Thrown by {@link assertValidEnv} — callers (e.g. config bootstrap) decide exit vs. rethrow in tests. */
+export class EnvValidationError extends Error {
+  /** @param {import('zod').ZodError} zodError */
+  constructor(zodError) {
+    super('Invalid environment variables');
+    this.name = 'EnvValidationError';
+    this.zodError = zodError;
+  }
+}
+
 export function assertValidEnv() {
   const err = getEnvValidationError();
   if (err) {
-    console.error('[env] Invalid environment:', err.format());
-    process.exit(1);
+    throw new EnvValidationError(err);
   }
 }
 

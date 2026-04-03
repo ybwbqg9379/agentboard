@@ -525,6 +525,15 @@ describe('requestIdMiddleware', () => {
     expect(req.requestId).not.toBe('bad id !');
     expect(res.setHeader).toHaveBeenCalledWith('X-Request-Id', req.requestId);
   });
+
+  it('rejects inbound id that is only hyphens (no alphanumeric)', () => {
+    const req = { headers: { 'x-request-id': '----------' } };
+    const res = mockRes();
+    const next = vi.fn();
+    requestIdMiddleware(req, res, next);
+    expect(req.requestId).not.toBe('----------');
+    expect(req.requestId.length).toBeGreaterThan(10);
+  });
 });
 
 // ---------------------------------------------------------------------------

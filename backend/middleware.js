@@ -5,7 +5,8 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 
-const INBOUND_REQUEST_ID = /^[a-zA-Z0-9-]{8,128}$/;
+/** At least one alphanumeric; disallow ids that are only punctuation (e.g. all hyphens). */
+const INBOUND_REQUEST_ID = /^(?=.*[A-Za-z0-9])[A-Za-z0-9-]{8,128}$/;
 
 /**
  * Attach a stable request id for logs and client-facing error correlation.

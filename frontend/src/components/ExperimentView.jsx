@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useId, useRef, useCallback } from 'react';
-import { apiFetch } from '../lib/apiFetch.js';
+import { apiFetch, ApiFetchError } from '../lib/apiFetch.js';
 import { SwarmBranchCard } from './SwarmBranchCard.jsx';
 import styles from './ExperimentView.module.css';
 
@@ -249,6 +249,9 @@ export default function ExperimentView({
         setExperiments(data.experiments || []);
       }
     } catch (e) {
+      if (e instanceof ApiFetchError && (e.isUserAbort || e.isTimeout)) {
+        return;
+      }
       if (e.name === 'AbortError' || e.name === 'TimeoutError') return;
       // silent: list stays empty; user can retry by reloading
     }
@@ -290,6 +293,7 @@ export default function ExperimentView({
         }
       }
     } catch (e) {
+      if (e instanceof ApiFetchError && (e.isUserAbort || e.isTimeout)) return;
       if (e.name === 'AbortError' || e.name === 'TimeoutError') return;
       // silent: runs stays []
     } finally {

@@ -21,8 +21,8 @@ AgentBoard 已演进为支持**单 Agent 对话**、**多 Agent DAG 协作**与*
 +-------------------------------------------------+       +----------|----------------------------------+
                                                                      |
                                +-------------------+                 | (Claude Agent SDK async iter)
-                               | Supabase (PgSQL)  |                 |
-                               | 11 tables, JSONB  | <---------------+
+                               | Remote Supabase   |                 |
+                               | PostgreSQL (HTTPS)| <---------------+
                                | RLS + FK cascade  |                 |      +---------------------+
                                +-------------------+                 |      | MCP Servers (Core)  |
                                                                      +----> | filesystem/playwright|
@@ -94,17 +94,17 @@ AgentBoard 已演进为支持**单 Agent 对话**、**多 Agent DAG 协作**与*
 
 ### Backend
 
-| **模块**                      | **文件**                                     | **职责**                                                                                                                                                                                                                                                                                                                                                         |
-| ----------------------------- | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **API与鉴权**                 | `server.js` / `middleware.js`                | HTTP REST + WS 入口；拦截校验 Headers 中 `x-user-id` 及 Token，执行基于 JWT/Token 的多租户身份隔离验证。                                                                                                                                                                                                                                                         |
-| **意图路由编排**              | `registry.js` / `router.js`                  | 双通意图分类引擎：Pass 1 — 正则意图模式（web-research / web-scraping / url-reading / data-analysis）多命中评分；Pass 2 — 按类别（search / crawl / core）批量共激活对应 MCP 服务器组与 Skill，取代逐关键词单点匹配。                                                                                                                                              |
-| **搜索/爬取 MCP 层**          | `mcpConfig.js` (Search/Crawl tier)           | 6 个条件加载的 MCP Server：搜索引擎 (Tavily / Exa / Brave Search)、爬取器 (Firecrawl / Fetch / Jina Reader)。API Key 存在时激活，不存在时静默跳过。Jina Reader 使用 SSE 远程传输。                                                                                                                                                                               |
-| **自愈拦截引擎**              | `schemaValidator.js` / `hooks.js`            | **(Harness Engineering)** 搭载本地 Zod Schema 强校验网关闭环屏蔽模型传参幻觉；配备 Semantic Loop Watchdog。当系统检测到模型深陷“重试死循环”（连续多次 ToolHash 碰撞对应出错）时，Harness 免人类介入、自发下达 `<harness_override>` 破壁指令，底层设 Circuit Breaker 异常熔断。                                                                                   |
-| **实验与评测 (AutoResearch)** | `experimentEngine.js` / `metricExtractor.js` | 新增的核心实验引擎。在 host 环境内基于白名单创建临时隔离 `workspace`，内部执行带状态恢复机制 (Git Ratchet) 的 "提议-度量-回滚/提交" 循环打分流程。baseline / guard / benchmark 采用异步可中断执行，避免长命令阻塞服务主线程；对会派生 worker 的命令，abort/timeout 会按进程组清理整个命令树。支持直接正则/解析提取命令行输出指标，自动向 WS 事件总线广播演进度。 |
-| **研究 Swarm (P3)**           | `researchSwarm.js` / `swarmStore.js`         | Coordinator/Worker 并行研究编排器。Coordinator 拆解假说、综合选优；Worker 并行跑 P1 Ratchet Loop；Branch 隔离（git clone + PORT）；`spawnSync` 防注入；abort 桥接；状态/指标回写。`swarmStore` 使用共享 Supabase 客户端直接访问数据库。                                                                                                                          |
-| **安全沙箱**                  | `hooks.js` / `dockerSandbox.js`              | `PreToolUse` Bash双层围栏防穿透。执行 Python/Node 代码时，引擎自动下卷分配基于 `dockerode` 的无网络零信任按需生成容器，完全隔离宿主机并施加 256MB/50 PIDs 的熔断保护。                                                                                                                                                                                           |
-| **微服务器组**                | `nativeMcpServer.js`                         | 基于官方 `@modelcontextprotocol/sdk` 实现的后端驻留子进程，向模型动态注册高级中间件原生工具 (如 `TaskCreateTool` 分发子代理、`BatchTool`、`LoopTool` 并发调度与多维执行)。                                                                                                                                                                                       |
-| **持久层**                    | `sessionStore.js` / `experimentStore.js`     | Supabase PostgreSQL 异步持久层。11 张表统一托管于云端 PostgreSQL，JSONB 列自动序列化，FK 级联删除，RLS 行级安全策略。`@supabase/supabase-js` 纯 JS 客户端，零原生编译依赖。                                                                                                                                                                                      |
+| **模块**                      | **文件**                                                        | **职责**                                                                                                                                                                                                                                                                                                                                                         |
+| ----------------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **API与鉴权**                 | `server.js` / `middleware.js`                                   | HTTP REST + WS 入口；拦截校验 Headers 中 `x-user-id` 及 Token，执行基于 JWT/Token 的多租户身份隔离验证。                                                                                                                                                                                                                                                         |
+| **意图路由编排**              | `registry.js` / `router.js`                                     | 双通意图分类引擎：Pass 1 — 正则意图模式（web-research / web-scraping / url-reading / data-analysis）多命中评分；Pass 2 — 按类别（search / crawl / core）批量共激活对应 MCP 服务器组与 Skill，取代逐关键词单点匹配。                                                                                                                                              |
+| **搜索/爬取 MCP 层**          | `mcpConfig.js` (Search/Crawl tier)                              | 6 个条件加载的 MCP Server：搜索引擎 (Tavily / Exa / Brave Search)、爬取器 (Firecrawl / Fetch / Jina Reader)。API Key 存在时激活，不存在时静默跳过。Jina Reader 使用 SSE 远程传输。                                                                                                                                                                               |
+| **自愈拦截引擎**              | `schemaValidator.js` / `hooks.js`                               | **(Harness Engineering)** 搭载本地 Zod Schema 强校验网关闭环屏蔽模型传参幻觉；配备 Semantic Loop Watchdog。当系统检测到模型深陷“重试死循环”（连续多次 ToolHash 碰撞对应出错）时，Harness 免人类介入、自发下达 `<harness_override>` 破壁指令，底层设 Circuit Breaker 异常熔断。                                                                                   |
+| **实验与评测 (AutoResearch)** | `experimentEngine.js` / `metricExtractor.js`                    | 新增的核心实验引擎。在 host 环境内基于白名单创建临时隔离 `workspace`，内部执行带状态恢复机制 (Git Ratchet) 的 "提议-度量-回滚/提交" 循环打分流程。baseline / guard / benchmark 采用异步可中断执行，避免长命令阻塞服务主线程；对会派生 worker 的命令，abort/timeout 会按进程组清理整个命令树。支持直接正则/解析提取命令行输出指标，自动向 WS 事件总线广播演进度。 |
+| **研究 Swarm (P3)**           | `researchSwarm.js` / `swarmStore.js`                            | Coordinator/Worker 并行研究编排器。Coordinator 拆解假说、综合选优；Worker 并行跑 P1 Ratchet Loop；Branch 隔离（git clone + PORT）；`spawnSync` 防注入；abort 桥接；状态/指标回写。`swarmStore` 使用共享 Supabase 客户端直接访问数据库。                                                                                                                          |
+| **安全沙箱**                  | `hooks.js` / `dockerSandbox.js`                                 | `PreToolUse` Bash双层围栏防穿透。执行 Python/Node 代码时，引擎自动下卷分配基于 `dockerode` 的无网络零信任按需生成容器，完全隔离宿主机并施加 256MB/50 PIDs 的熔断保护。                                                                                                                                                                                           |
+| **微服务器组**                | `nativeMcpServer.js`                                            | 基于官方 `@modelcontextprotocol/sdk` 实现的后端驻留子进程，向模型动态注册高级中间件原生工具 (如 `TaskCreateTool` 分发子代理、`BatchTool`、`LoopTool` 并发调度与多维执行)。                                                                                                                                                                                       |
+| **持久层**                    | `*Store.js`（session / workflow / experiment / swarm / memory） | **远程** Supabase 托管 PostgreSQL：后端仅通过 `@supabase/supabase-js` 经 HTTPS 访问云端实例，**无本地 SQLite/嵌入式数据库文件**。11+ 张表 JSONB、FK 级联、RLS；每次读写均为网络往返，批量路由应避免 per-id 循环查询。                                                                                                                                            |
 
 ### Frontend
 
@@ -121,18 +121,23 @@ AgentBoard 已演进为支持**单 Agent 对话**、**多 Agent DAG 协作**与*
 
 ### 环境与 HTTP 健壮性约定（增量）
 
-| 项目          | 说明                                                                                                                                                                                       |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **启动 env**  | `backend/env.js` 在 `config.js` 加载时对 `PORT`、`AGENT_TIMEOUT` 做 Zod 校验，非法即退出。                                                                                                 |
-| **请求 ID**   | `requestIdMiddleware`：入站 `x-request-id`（合法则沿用）、否则生成 UUID；写入响应头 `X-Request-Id`。未捕获的 Express 路由错误在生产环境返回通用文案，并附带 **`requestId`** 便于日志关联。 |
-| **JSON 上限** | `express.json({ limit: '2mb' })`。                                                                                                                                                         |
-| **React**     | 根节点由 `ErrorBoundary.jsx` 包裹，子树抛错时可降级 UI 与重试。                                                                                                                            |
+| 项目             | 说明                                                                                                                                                                                                  |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **启动 env**     | `backend/env.js` 在 `config.js` 加载时对 `PORT`、`AGENT_TIMEOUT` 做 Zod 校验，非法即退出。                                                                                                            |
+| **请求 ID**      | `requestIdMiddleware`：入站 `x-request-id`（合法则沿用）、否则生成 UUID；写入响应头 `X-Request-Id`。未捕获的 Express 路由错误在生产环境返回通用文案，并附带 **`requestId`** 便于日志关联。            |
+| **JSON 上限**    | `express.json({ limit: '2mb' })`。                                                                                                                                                                    |
+| **React**        | 根节点由 `ErrorBoundary.jsx` 包裹；`componentDidCatch` 将渲染错误输出到 `console.error`。                                                                                                             |
+| **Session 删除** | 单删：先 `stopAgent` 再 `deleteSession`；若删除失败则将行标记为 **`interrupted`** 并返回 `hint`。批量删除：一次查询过滤归属 id、逐 id `stopAgent`、再 **单次** `delete().in(...)`，降低远程 DB 往返。 |
 
 ## 数据库 Schema 设计
 
-系统由 Supabase PostgreSQL 统一托管的 11 张表构成（单一云端数据库，RLS 行级安全）：
+系统由 **远程** Supabase 托管的 PostgreSQL 统一承载（单一云端项目，RLS 行级安全）。已与本地 SQLite 存储脱钩：开发/生产均需有效的 `SUPABASE_URL` 与 `SUPABASE_SECRET_KEY`，数据不落盘为应用侧 `.db` 文件。
+
+**访问含义**：所有 Store 的 `select`/`insert`/`delete` 均走公网/专线至 Supabase；高扇出场景（例如按 id 循环 `getSession`）会放大延迟与连接开销，宜改为单条 SQL 批量条件（`in (...)`）或服务端单次 `delete().in(...)`。
 
 ### Supabase PostgreSQL
+
+下列 DDL 以 **11 张核心业务表** 为主（另含 memory / swarm 等扩展表，详见 `backend/migrations/`）：
 
 ```sql
 -- Agent 会话

@@ -10,7 +10,7 @@
 
 ## 二、测试先行 (Testing Guidelines)
 
-AgentBoard 是一个核心逻辑极其复杂的编排引擎。我们使用 `Vitest`：**全仓约 818** 个用例（后端 **608**、前端 **210**，随仓库演进持续补齐）。
+AgentBoard 是一个核心逻辑极其复杂的编排引擎。我们使用 `Vitest`：**全仓约 826** 个用例（后端 **614**、前端 **212**，随仓库演进持续补齐）。
 
 ### 1. 运行测试
 
@@ -78,7 +78,7 @@ npm run check
 
 1. **CSS 变量化 (Semantic Tokens)**：新 UI 元素禁止混用孤立的 `#hex` 色值。所有的颜色体系均依赖于 `index.css` 的系统变量。请务必测试你的组件在 **Light / Dark** 环境中，且具备 `*:focus-visible` 无障碍大纲。
 2. **全移动端兼容**：新设计的任何组件或配置面板应当运用在移动端(`< 768px`)环境自适应堆叠/Drawer化隐藏策略。不遮挡画布且无横向滚动条溢出。
-3. **REST 请求**：浏览器侧调用后端 HTTP 时优先使用 `frontend/src/lib/apiFetch.js`（已合并 `withClientAuth` 与默认超时），避免裸 `fetch` 遗漏鉴权或与超时策略不一致。
+3. **REST 请求**：浏览器侧调用后端 HTTP 时优先使用 `frontend/src/lib/apiFetch.js`（已合并 `withClientAuth` 与默认超时）。中止时会抛出 **`ApiFetchError`**，可用 `isTimeout` / `isUserAbort` 区分超时与用户取消，避免裸 `fetch` 遗漏鉴权或静默 `AbortError` 无法归因。
 
 ## 五、后端提交原则
 

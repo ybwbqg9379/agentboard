@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { apiFetch } from './apiFetch.js';
+import { apiFetch, ApiFetchError } from './apiFetch.js';
 
 vi.mock('./clientAuth.js', () => ({
   withClientAuth: (init = {}) => init,
@@ -55,5 +55,29 @@ describe('apiFetch', () => {
       AbortSignal.any = originalAny;
       if (originalTimeout) AbortSignal.timeout = originalTimeout;
     }
+  });
+
+  it('wraps timeout AbortError in ApiFetchError with isTimeout', async () => {
+    fetch.mockRejectedValueOnce(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+    try {
+      await apiFetch('/api/timeout-case', { timeoutMs: 1 });
+      expect.fail('expected throw');
+    } catch (e) {
+      expect(e).toBeInstanceOf(ApiFetchError);
+      expect(e.isTimeout).toBe(true);
+    }
+  });
+
+  it('wraps user abort in ApiFetchError with isUserAbort', async () => {
+    const ac = new AbortController();
+    ac.abort();
+    fetch.mockRejectedValueOnce(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+    await expect(
+      apiFetch('/api/user-abort', { signal: ac.signal, timeoutMs: 60_000 }),
+    ).rejects.toMatchObject({
+      name: 'ApiFetchError',
+      isUserAbort: true,
+      isTimeout: false,
+    });
   });
 });

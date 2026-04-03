@@ -91,6 +91,8 @@ const {
   countEvents,
   recoverStaleSessions,
   deleteSession,
+  deleteSessionsBatch,
+  filterSessionIdsOwned,
   close,
 } = await import('./sessionStore.js');
 
@@ -459,6 +461,41 @@ describe('recoverStaleSessions', () => {
     mockFromHandler = () => createChainable({ data: [], error: null });
     const changed = await recoverStaleSessions();
     expect(changed).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// filterSessionIdsOwned
+// ---------------------------------------------------------------------------
+
+describe('filterSessionIdsOwned', () => {
+  it('returns id list from Supabase select + in', async () => {
+    mockFromHandler = () => createChainable({ data: [{ id: 'a' }, { id: 'b' }], error: null });
+
+    const r = await filterSessionIdsOwned('user-1', ['a', 'b', 'ghost']);
+    expect(r).toEqual(['a', 'b']);
+  });
+
+  it('returns empty array when ids is empty (no round-trip)', async () => {
+    const r = await filterSessionIdsOwned('user-1', []);
+    expect(r).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// deleteSessionsBatch
+// ---------------------------------------------------------------------------
+
+describe('deleteSessionsBatch', () => {
+  it('returns number of deleted rows', async () => {
+    mockFromHandler = () => createChainable({ data: [{ id: 'x' }, { id: 'y' }], error: null });
+
+    const n = await deleteSessionsBatch('user-1', ['x', 'y']);
+    expect(n).toBe(2);
+  });
+
+  it('returns 0 when ids is empty', async () => {
+    expect(await deleteSessionsBatch('user-1', [])).toBe(0);
   });
 });
 

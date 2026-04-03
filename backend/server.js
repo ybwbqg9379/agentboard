@@ -18,6 +18,9 @@ import {
   countEvents,
   recoverStaleSessions,
   deleteSession,
+  deleteSessionsBatch,
+  filterSessionIdsOwned,
+  updateSessionStatus,
   close as closeDb,
 } from './sessionStore.js';
 import {
@@ -144,7 +147,14 @@ app.delete('/api/sessions/:id', async (req, res) => {
   stopAgent(req.params.id);
   const deleted = await deleteSession(req.user.id, req.params.id);
   if (!deleted) {
-    return res.status(500).json({ error: 'delete failed' });
+    await updateSessionStatus(req.params.id, 'interrupted', req.user.id);
+    console.error(
+      `[sessions] deleteSession failed after stopAgent for ${req.params.id} (user ${req.user.id}); marked interrupted`,
+    );
+    return res.status(500).json({
+      error: 'delete failed',
+      hint: 'Agent was stopped; session marked interrupted. Retry DELETE or remove from history after DB recovers.',
+    });
   }
   res.json({ deleted: true });
 });
@@ -158,14 +168,12 @@ app.post('/api/sessions/batch-delete', async (req, res) => {
   if (ids.length > 100) {
     return res.status(400).json({ error: 'max 100 ids per batch' });
   }
-  let count = 0;
-  for (const id of ids) {
-    if (await hasOwnedSession(req.user.id, id)) {
-      stopAgent(id);
-      if (await deleteSession(req.user.id, id)) count++;
-    }
+  const ownedIds = await filterSessionIdsOwned(req.user.id, ids);
+  for (const id of ownedIds) {
+    stopAgent(id);
   }
-  res.json({ deleted: count });
+  const deleted = await deleteSessionsBatch(req.user.id, ownedIds);
+  res.json({ deleted });
 });
 
 app.post('/api/sessions/:id/stop', async (req, res) => {

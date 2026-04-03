@@ -1,8 +1,19 @@
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { assertValidEnv } from './env.js';
+import { assertValidEnv, EnvValidationError } from './env.js';
 
-assertValidEnv();
+try {
+  assertValidEnv();
+} catch (e) {
+  if (e instanceof EnvValidationError) {
+    console.error('[env] Invalid environment:', e.zodError.format());
+    if (process.env.VITEST === 'true') {
+      throw e;
+    }
+    process.exit(1);
+  }
+  throw e;
+}
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 

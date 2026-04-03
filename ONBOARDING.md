@@ -15,7 +15,7 @@
 
 > [!NOTE]  
 > 您 **不需要** 在全局安装原始的 `claude-code` CLI。我们的引擎在底层直接桥接了 `@anthropic-ai/claude-agent-sdk` 依赖包。
-> 系统数据存储使用团队共享的 **Supabase** 云端 PostgreSQL，无需本地安装任何数据库。向团队管理员获取 `SUPABASE_URL` 和 `SUPABASE_SECRET_KEY` 即可。
+> 系统数据存储使用 **远程** Supabase 托管 PostgreSQL（通过 `SUPABASE_URL` 连接云端项目），无需在本机安装或启动数据库进程，也不使用本地 `.db` 文件。向团队管理员获取 `SUPABASE_URL` 和 `SUPABASE_SECRET_KEY` 即可。
 > 如需自建 Supabase 实例，请在 [Supabase](https://supabase.com) 创建项目后，执行 `backend/migrations/` 下的 SQL 文件初始化表结构。
 
 ---
@@ -137,6 +137,6 @@ npm run dev
 大功告成，您现在已经完全掌握了项目结构！如果您打算在底层做修改或提交 PR，我们为您准备了以下路标文档：
 
 - **内部架构透视**: 好奇 `workflowEngine.js` 如何调度工作流？WebSocket 的 5 种状态机是如何流转的？搜索/爬取 MCP 是如何分层激活的？请参阅位于根目录的 [`ARCHITECTURE.md`](ARCHITECTURE.md)。
-- **代码规范与自动化测试**: 我们对于入库的代码执行极严标准；当前全仓约 **818** 个 Vitest 用例（后端 608 + 前端 210）。提交代码或发起 PR 之前可在根目录运行 `npm run test`；需要覆盖率时可运行 `npm run test:coverage`。`npm run check`、Husky `pre-commit` 与更细说明见 [`CONTRIBUTING.md`](CONTRIBUTING.md)。
+- **代码规范与自动化测试**: 我们对于入库的代码执行极严标准；当前全仓约 **826** 个 Vitest 用例（后端 614 + 前端 212）。提交代码或发起 PR 之前可在根目录运行 `npm run test`；需要覆盖率时可运行 `npm run test:coverage`。`npm run check`、Husky `pre-commit` 与更细说明见 [`CONTRIBUTING.md`](CONTRIBUTING.md)。
 
 开心编程，尽情打造您的超级 Agent 平台！🚀

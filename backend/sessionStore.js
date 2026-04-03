@@ -166,6 +166,43 @@ export async function deleteSession(userId, sessionId) {
   return (data?.length || 0) > 0;
 }
 
+/**
+ * Return which of `ids` exist and belong to userId (single round-trip).
+ */
+export async function filterSessionIdsOwned(userId, ids) {
+  if (!ids.length) return [];
+  const uid = userId || 'default';
+  const { data, error } = await supabase
+    .from('sessions')
+    .select('id')
+    .eq('user_id', uid)
+    .in('id', ids);
+  if (error) {
+    console.error(`[sessionStore] filterSessionIdsOwned failed: ${error.message}`);
+    return [];
+  }
+  return (data || []).map((r) => r.id);
+}
+
+/**
+ * Delete many sessions in one request (FK cascade removes events).
+ */
+export async function deleteSessionsBatch(userId, ids) {
+  if (!ids.length) return 0;
+  const uid = userId || 'default';
+  const { data, error } = await supabase
+    .from('sessions')
+    .delete()
+    .eq('user_id', uid)
+    .in('id', ids)
+    .select('id');
+  if (error) {
+    console.error(`[sessionStore] deleteSessionsBatch failed: ${error.message}`);
+    return 0;
+  }
+  return data?.length || 0;
+}
+
 export async function close() {
   // No-op: Supabase client manages its own lifecycle
 }

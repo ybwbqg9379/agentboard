@@ -87,6 +87,15 @@ vi.mock('./sessionStore.js', () => ({
     const ownedSessions = sessionOwners.get(userId || 'default');
     return Boolean(ownedSessions?.has(id));
   }),
+  filterSessionIdsOwned: vi.fn(async (userId, ids) => {
+    const owned = sessionOwners.get(userId || 'default');
+    return ids.filter((id) => owned?.has(id));
+  }),
+  deleteSessionsBatch: vi.fn(async (userId, ids) => {
+    const owned = sessionOwners.get(userId || 'default');
+    return ids.filter((id) => owned?.has(id)).length;
+  }),
+  updateSessionStatus: vi.fn().mockResolvedValue(undefined),
   close: vi.fn().mockResolvedValue(undefined),
 }));
 
@@ -429,14 +438,14 @@ describe('session delete and batch-delete', () => {
 
   it('batch-deletes owned sessions and stops agents', async () => {
     const { stopAgent: stopAgentFn } = await import('./agentManager.js');
-    const { deleteSession: delFn } = await import('./sessionStore.js');
+    const { deleteSessionsBatch: batchFn } = await import('./sessionStore.js');
     const res = await request(app)
       .post('/api/sessions/batch-delete')
       .send({ ids: ['valid-id', 'ghost-id'] });
     expect(res.status).toBe(200);
     expect(res.body.deleted).toBe(1);
     expect(stopAgentFn).toHaveBeenCalledWith('valid-id');
-    expect(delFn).toHaveBeenCalledWith('default', 'valid-id');
+    expect(batchFn).toHaveBeenCalledWith('default', ['valid-id']);
   });
 
   it('DELETE /api/sessions/:id removes an owned session', async () => {
@@ -455,13 +464,16 @@ describe('session delete and batch-delete', () => {
   });
 
   it('DELETE /api/sessions/:id returns 500 when persistence delete fails after stop', async () => {
-    const { deleteSession: delFn } = await import('./sessionStore.js');
+    const { deleteSession: delFn, updateSessionStatus: statusFn } =
+      await import('./sessionStore.js');
     const { stopAgent: stopAgentFn } = await import('./agentManager.js');
     vi.mocked(delFn).mockResolvedValueOnce(false);
     const res = await request(app).delete('/api/sessions/valid-id');
     expect(res.status).toBe(500);
     expect(res.body.error).toMatch(/delete failed/i);
+    expect(res.body.hint).toMatch(/interrupted/i);
     expect(stopAgentFn).toHaveBeenCalledWith('valid-id');
+    expect(statusFn).toHaveBeenCalledWith('valid-id', 'interrupted', 'default');
   });
 });
 

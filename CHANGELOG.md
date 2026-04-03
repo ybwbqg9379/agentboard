@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.15.7] - 2026-04-02
+
+### fix: Session 删除一致性、批量删除省 RTT、apiFetch 可区分超时、env/requestId/ErrorBoundary
+
+#### Fixed / improved
+
+- **DELETE /api/sessions/:id**：若 `stopAgent` 后 `deleteSession` 失败，将会话标记为 **`interrupted`** 并返回 500 + `hint`，便于重试 DELETE 而非停留在「进程已停、行仍在」的隐式状态。
+- **POST /api/sessions/batch-delete**：使用 `filterSessionIdsOwned` + `deleteSessionsBatch` **两次 DB 往返**（原名下每个 id 两次查询的 N+1），仍对每个拥有 id 调用 `stopAgent`。
+- **apiFetch**：超时/用户取消抛出 **`ApiFetchError`**（`isTimeout` / `isUserAbort`）；`AbortSignal.any` 不可用时 **`console.warn`**；`ExperimentView` 静默路径识别该类错误。
+- **env**：`assertValidEnv` 改为抛出 **`EnvValidationError`**；`config.js` 在非 Vitest 下 `console.error` 后 `process.exit(1)`，**Vitest**（`VITEST=true`）下重新抛出以便测试捕获。
+- **requestId**：入站 id 须 **至少含一个字母或数字**（拒绝纯 `----------` 等）。
+- **ErrorBoundary**：新增 **`componentDidCatch`** → `console.error`。
+
+#### Tests
+
+- `sessionStore`：`filterSessionIdsOwned` / `deleteSessionsBatch`；`env`：`assertValidEnv` 抛错；`middleware`：纯连字符 request id；`apiFetch`：超时与用户中止包装；`server.test`：删除失败时期望 `updateSessionStatus`、批量删除走 `deleteSessionsBatch`。
+
+#### Docs
+
+- 根版本 **0.15.7**；`README` / `CONTRIBUTING` / `ONBOARDING` 测试计数 **614 + 212 = 826**。
+
+---
+
 ## [0.15.6] - 2026-04-02
 
 ### chore: 工程健壮性增量 + 文档 + 全站 REST 统一 apiFetch
