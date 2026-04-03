@@ -50,10 +50,12 @@ import {
   getActiveWorkflowRuns,
   workflowEvents,
 } from './workflowEngine.js';
+import { isProduction } from './env.js';
 import {
   authMiddleware,
   wsAuth,
   isAllowedOrigin,
+  requestIdMiddleware,
   wsMessageSchema,
   controlActionSchema,
   sessionsQuerySchema,
@@ -97,6 +99,7 @@ import { listSwarmBranches, listCoordinatorDecisions } from './swarmStore.js';
 
 const app = express();
 
+app.use(requestIdMiddleware);
 app.use(
   cors({
     origin(origin, cb) {
@@ -105,7 +108,7 @@ app.use(
     },
   }),
 );
-app.use(express.json());
+app.use(express.json({ limit: '2mb' }));
 app.use(authMiddleware);
 
 async function hasOwnedSession(userId, sessionId) {
@@ -601,9 +604,14 @@ app.get('/api/experiment-runs/:id/swarm-status', async (req, res) => {
 
 // --- Error Handler (Express 5 auto-forwards rejected promises) ---
 
-app.use((err, _req, res, _next) => {
-  console.error('[server] Unhandled route error:', err);
-  res.status(500).json({ error: err.message || 'internal server error' });
+app.use((err, req, res, _next) => {
+  const rid = req.requestId;
+  console.error('[server] Unhandled route error:', rid || '(no-request-id)', err);
+  const body = {
+    error: isProduction() ? 'internal server error' : err.message || 'internal server error',
+  };
+  if (rid) body.requestId = rid;
+  res.status(500).json(body);
 });
 
 // --- WebSocket ---

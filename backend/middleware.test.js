@@ -15,6 +15,7 @@ import {
   workflowSchema,
   workflowRunRequestSchema,
   normalizeUserId,
+  requestIdMiddleware,
   validate,
   validateQuery,
 } from './middleware.js';
@@ -24,7 +25,7 @@ import {
 // ---------------------------------------------------------------------------
 
 function mockRes() {
-  const res = { status: vi.fn(), json: vi.fn() };
+  const res = { status: vi.fn(), json: vi.fn(), setHeader: vi.fn() };
   res.status.mockReturnValue(res);
   return res;
 }
@@ -488,6 +489,41 @@ describe('sessionsQuerySchema', () => {
   it('accepts offset = 0', () => {
     const result = sessionsQuerySchema.safeParse({ offset: 0 });
     expect(result.success).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// requestIdMiddleware
+// ---------------------------------------------------------------------------
+
+describe('requestIdMiddleware', () => {
+  it('sets req.requestId and X-Request-Id header', () => {
+    const req = { headers: {} };
+    const res = mockRes();
+    const next = vi.fn();
+    requestIdMiddleware(req, res, next);
+    expect(next).toHaveBeenCalledOnce();
+    expect(typeof req.requestId).toBe('string');
+    expect(req.requestId.length).toBeGreaterThan(10);
+    expect(res.setHeader).toHaveBeenCalledWith('X-Request-Id', req.requestId);
+  });
+
+  it('reuses a valid inbound x-request-id', () => {
+    const req = { headers: { 'x-request-id': 'client-req-abc-123' } };
+    const res = mockRes();
+    const next = vi.fn();
+    requestIdMiddleware(req, res, next);
+    expect(req.requestId).toBe('client-req-abc-123');
+    expect(res.setHeader).toHaveBeenCalledWith('X-Request-Id', 'client-req-abc-123');
+  });
+
+  it('ignores malformed inbound x-request-id', () => {
+    const req = { headers: { 'x-request-id': 'bad id !' } };
+    const res = mockRes();
+    const next = vi.fn();
+    requestIdMiddleware(req, res, next);
+    expect(req.requestId).not.toBe('bad id !');
+    expect(res.setHeader).toHaveBeenCalledWith('X-Request-Id', req.requestId);
   });
 });
 

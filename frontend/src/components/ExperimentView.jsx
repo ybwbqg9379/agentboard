@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useId, useRef, useCallback } from 'react';
-import { withClientAuth } from '../lib/clientAuth.js';
+import { apiFetch } from '../lib/apiFetch.js';
 import { SwarmBranchCard } from './SwarmBranchCard.jsx';
 import styles from './ExperimentView.module.css';
 
@@ -243,13 +243,13 @@ export default function ExperimentView({
 
   const fetchExperiments = useCallback(async (signal) => {
     try {
-      const res = await fetch('/api/experiments', withClientAuth({ signal }));
+      const res = await apiFetch('/api/experiments', { signal });
       if (res.ok && !signal?.aborted) {
         const data = await res.json();
         setExperiments(data.experiments || []);
       }
     } catch (e) {
-      if (e.name === 'AbortError') return;
+      if (e.name === 'AbortError' || e.name === 'TimeoutError') return;
       // silent: list stays empty; user can retry by reloading
     }
   }, []);
@@ -280,10 +280,9 @@ export default function ExperimentView({
     // Fix #4: removed console.error — fetch failure leaves runs empty,
     // which the UI already handles gracefully with "No runs yet" copy.
     try {
-      const res = await fetch(
-        `/api/experiments/${expId}/runs`,
-        withClientAuth({ signal: controller.signal }),
-      );
+      const res = await apiFetch(`/api/experiments/${expId}/runs`, {
+        signal: controller.signal,
+      });
       if (res.ok) {
         const data = await res.json();
         if (!controller.signal.aborted && selectedExperimentIdRef.current === expId) {
@@ -291,7 +290,7 @@ export default function ExperimentView({
         }
       }
     } catch (e) {
-      if (e.name === 'AbortError') return;
+      if (e.name === 'AbortError' || e.name === 'TimeoutError') return;
       // silent: runs stays []
     } finally {
       if (runsRequestControllerRef.current === controller) {
@@ -306,7 +305,7 @@ export default function ExperimentView({
     setTemplateLoading(true);
     setTemplateError(null);
     try {
-      const res = await fetch(`/api/experiment-templates/${templateFile}`, withClientAuth());
+      const res = await apiFetch(`/api/experiment-templates/${templateFile}`);
       if (res.ok) {
         const plan = await res.json();
         cancelPendingRunsRequest();
@@ -360,18 +359,15 @@ export default function ExperimentView({
     const method = selectedExperiment ? 'PUT' : 'POST';
 
     try {
-      const res = await fetch(
-        url,
-        withClientAuth({
-          method,
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: plan.name || 'Untitled',
-            description: plan.description || '',
-            plan,
-          }),
+      const res = await apiFetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: plan.name || 'Untitled',
+          description: plan.description || '',
+          plan,
         }),
-      );
+      });
 
       if (res.ok) {
         setIsEditing(false);
@@ -388,7 +384,7 @@ export default function ExperimentView({
 
   const handleRun = async (expId) => {
     try {
-      const res = await fetch(`/api/experiments/${expId}/run`, withClientAuth({ method: 'POST' }));
+      const res = await apiFetch(`/api/experiments/${expId}/run`, { method: 'POST' });
       if (res.ok) {
         const data = await res.json();
         subscribeExperiment(data.runId, expId);
@@ -402,10 +398,7 @@ export default function ExperimentView({
   const handleAbort = async () => {
     if (!experimentRunId) return;
     try {
-      await fetch(
-        `/api/experiment-runs/${experimentRunId}/abort`,
-        withClientAuth({ method: 'POST' }),
-      );
+      await apiFetch(`/api/experiment-runs/${experimentRunId}/abort`, { method: 'POST' });
     } catch {
       // Network failure — abort is best-effort; run will timeout naturally
     }

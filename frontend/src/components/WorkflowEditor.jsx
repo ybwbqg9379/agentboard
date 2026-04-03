@@ -2,7 +2,8 @@ import { useState, useRef, useCallback, useEffect, useId } from 'react';
 import styles from './WorkflowEditor.module.css';
 import Dropdown from './Dropdown';
 import ConfirmDialog from './ConfirmDialog.jsx';
-import { buildWsUrl, withClientAuth } from '../lib/clientAuth.js';
+import { buildWsUrl } from '../lib/clientAuth.js';
+import { apiFetch } from '../lib/apiFetch.js';
 import {
   EDGE_CONDITION_OPTIONS,
   createEdge,
@@ -284,7 +285,7 @@ export default function WorkflowEditor() {
   // Fetch workflow list
   const fetchWorkflows = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/workflows`, withClientAuth());
+      const res = await apiFetch(`${API_BASE}/api/workflows`);
       if (res.ok) {
         const data = await res.json();
         setWorkflows(data.workflows || []);
@@ -404,26 +405,20 @@ export default function WorkflowEditor() {
     const definition = { nodes, edges };
     try {
       if (currentWorkflow) {
-        const putRes = await fetch(
-          `${API_BASE}/api/workflows/${currentWorkflow}`,
-          withClientAuth({
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: workflowName, description: '', definition }),
-          }),
-        );
+        const putRes = await apiFetch(`${API_BASE}/api/workflows/${currentWorkflow}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: workflowName, description: '', definition }),
+        });
         if (!putRes.ok) return null;
         fetchWorkflows();
         return currentWorkflow;
       } else {
-        const res = await fetch(
-          `${API_BASE}/api/workflows`,
-          withClientAuth({
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: workflowName, description: '', definition }),
-          }),
-        );
+        const res = await apiFetch(`${API_BASE}/api/workflows`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: workflowName, description: '', definition }),
+        });
         if (res.ok) {
           const data = await res.json();
           setCurrentWorkflow(data.id);
@@ -541,14 +536,11 @@ export default function WorkflowEditor() {
       subscribeWorkflowRun(wfId, runId).catch(() => {
         /* WS subscribe failed; run still executes, just no live events */
       });
-      const res = await fetch(
-        `${API_BASE}/api/workflows/${wfId}/run`,
-        withClientAuth({
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ context: {}, runId }),
-        }),
-      );
+      const res = await apiFetch(`${API_BASE}/api/workflows/${wfId}/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ context: {}, runId }),
+      });
       if (!res.ok) {
         throw new Error(`workflow start failed: ${res.status}`);
       }
@@ -890,16 +882,13 @@ export default function WorkflowEditor() {
       setWfConfirm(null);
       try {
         if (ids.length === 1) {
-          await fetch(`${API_BASE}/api/workflows/${ids[0]}`, withClientAuth({ method: 'DELETE' }));
+          await apiFetch(`${API_BASE}/api/workflows/${ids[0]}`, { method: 'DELETE' });
         } else {
-          await fetch(
-            `${API_BASE}/api/workflows/batch-delete`,
-            withClientAuth({
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ ids }),
-            }),
-          );
+          await apiFetch(`${API_BASE}/api/workflows/batch-delete`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids }),
+          });
         }
         setWorkflows((prev) => prev.filter((w) => !ids.includes(w.id)));
         setWfSelected((prev) => {

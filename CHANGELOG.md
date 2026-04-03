@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.15.6] - 2026-04-02
+
+### chore: 工程健壮性增量 + 文档 + 全站 REST 统一 apiFetch
+
+#### Added
+
+- **`backend/env.js`**：`PORT`、`AGENT_TIMEOUT` 启动时 Zod 校验（由 `config.js` 触发）；`getEnvValidationError` / `isProduction` 供测试与路由使用。
+- **`requestIdMiddleware`**：`X-Request-Id` 与 `req.requestId`；Express **`express.json({ limit: '2mb' })`**。
+- **全局错误处理**：`NODE_ENV=production` 时对客户端掩码未捕获异常详情，响应包含 **`requestId`**（若存在）。
+- **前端**：`apiFetch.js`（鉴权 + 默认超时）、根级 **`ErrorBoundary`**；**`ExperimentView` / `WorkflowEditor` / `SessionDrawer` / `useWebSocket`** 的 REST 全部经 `apiFetch`（行为与原先 `fetch` + `withClientAuth` 对齐）。
+- **ESLint**：全局 `AbortSignal`（配合 `apiFetch`）。
+
+#### Tests
+
+- `env.test.js`、`middleware`（requestId）、`apiFetch.test.js`。
+
+#### Docs
+
+- `ARCHITECTURE.md` 补充环境与 HTTP 约定；`README.md`、`CONTRIBUTING.md`、`ONBOARDING.md` 测试规模与 **608 + 210 = 818** 对齐；根版本 **0.15.6**。
+
+---
+
 ## [0.15.5] - 2026-04-02
 
 ### fix: 活跃任务枚举租户隔离 + 会话删除失败 HTTP 语义

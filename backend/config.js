@@ -1,5 +1,8 @@
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { assertValidEnv } from './env.js';
+
+assertValidEnv();
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 

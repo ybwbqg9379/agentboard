@@ -419,3 +419,42 @@ body,
   background: var(--bg-tertiary);
   font-weight: 600;
 }
+
+/* Error boundary */
+.error-boundary-fallback {
+  max-width: 28rem;
+  margin: 3rem auto;
+  padding: var(--space-lg, 1.5rem);
+  font-family: system-ui, sans-serif;
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+}
+
+.error-boundary-fallback__title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.error-boundary-fallback__message {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin-bottom: 1rem;
+  word-break: break-word;
+}
+
+.error-boundary-fallback__retry {
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  cursor: pointer;
+  border-radius: 6px;
+  border: 1px solid var(--border-secondary);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.error-boundary-fallback__retry:hover {
+  background: var(--bg-hover);
+}

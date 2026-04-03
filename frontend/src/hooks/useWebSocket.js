@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { buildWsUrl, withClientAuth } from '../lib/clientAuth.js';
+import { buildWsUrl } from '../lib/clientAuth.js';
+import { apiFetch } from '../lib/apiFetch.js';
 
 const API_BASE = '';
 const RECONNECT_INTERVAL = 3000;
@@ -387,7 +388,7 @@ export function useWebSocket() {
   // Load a past session from REST API into the current view
   const loadSession = useCallback(async (sid) => {
     try {
-      const res = await fetch(`${API_BASE}/api/sessions/${sid}`, withClientAuth());
+      const res = await apiFetch(`${API_BASE}/api/sessions/${sid}`);
       if (!res.ok) return;
       const data = await res.json();
       sessionIdRef.current = sid;
@@ -470,10 +471,7 @@ export function useWebSocket() {
   const loadExperimentRunsEvents = useCallback(
     async (runId, expId) => {
       try {
-        const res = await fetch(
-          `${API_BASE}/api/experiment-runs/${runId}/trials`,
-          withClientAuth(),
-        );
+        const res = await apiFetch(`${API_BASE}/api/experiment-runs/${runId}/trials`);
         if (!res.ok) return;
         const data = await res.json();
 
@@ -494,10 +492,7 @@ export function useWebSocket() {
         // Fetch actual run status so failed/aborted runs display correctly
         let runStatus = 'completed';
         try {
-          const statusRes = await fetch(
-            `${API_BASE}/api/experiment-runs/${runId}`,
-            withClientAuth(),
-          );
+          const statusRes = await apiFetch(`${API_BASE}/api/experiment-runs/${runId}`);
           if (statusRes.ok) {
             const runData = await statusRes.json();
             runStatus = runData.status || 'completed';
@@ -528,14 +523,11 @@ export function useWebSocket() {
   const runSwarm = useCallback(
     async (experimentId, swarmOverride = {}) => {
       try {
-        const res = await fetch(
-          `${API_BASE}/api/experiments/${experimentId}/swarm`,
-          withClientAuth({
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ swarm: swarmOverride }),
-          }),
-        );
+        const res = await apiFetch(`${API_BASE}/api/experiments/${experimentId}/swarm`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ swarm: swarmOverride }),
+        });
         if (!res.ok) return null;
         const data = await res.json();
         if (data.runId) {
@@ -560,10 +552,9 @@ export function useWebSocket() {
   // P3: Abort a running swarm
   const abortSwarmRun = useCallback(async (runId) => {
     try {
-      await fetch(
-        `${API_BASE}/api/experiment-runs/${runId}/abort-swarm`,
-        withClientAuth({ method: 'POST' }),
-      );
+      await apiFetch(`${API_BASE}/api/experiment-runs/${runId}/abort-swarm`, {
+        method: 'POST',
+      });
     } catch {
       // Best-effort
     }
@@ -572,10 +563,7 @@ export function useWebSocket() {
   // P3: Load swarm branches for a completed run (restore from DB)
   const loadSwarmBranches = useCallback(async (runId) => {
     try {
-      const res = await fetch(
-        `${API_BASE}/api/experiment-runs/${runId}/branches`,
-        withClientAuth(),
-      );
+      const res = await apiFetch(`${API_BASE}/api/experiment-runs/${runId}/branches`);
       if (!res.ok) return;
       const data = await res.json();
       const branches = (data.branches || []).map((b) => ({

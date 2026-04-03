@@ -19,6 +19,7 @@ export default [
         clearInterval: 'readonly',
         fetch: 'readonly',
         AbortController: 'readonly',
+        AbortSignal: 'readonly',
         URL: 'readonly',
         WebSocket: 'readonly',
         TextDecoder: 'readonly',

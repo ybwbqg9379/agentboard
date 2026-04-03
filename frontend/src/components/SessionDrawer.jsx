@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import styles from './SessionDrawer.module.css';
-import { withClientAuth } from '../lib/clientAuth.js';
+import { apiFetch } from '../lib/apiFetch.js';
 import ConfirmDialog from './ConfirmDialog.jsx';
 
 const API_BASE = '';
@@ -15,7 +15,7 @@ export default function SessionDrawer({ open, onClose, onLoadSession, currentSes
   const fetchSessions = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/sessions?limit=30`, withClientAuth());
+      const res = await apiFetch(`${API_BASE}/api/sessions?limit=30`);
       if (!res.ok) return;
       const data = await res.json();
       setSessions(data.sessions || []);
@@ -78,19 +78,13 @@ export default function SessionDrawer({ open, onClose, onLoadSession, currentSes
     try {
       let res;
       if (ids.length === 1) {
-        res = await fetch(
-          `${API_BASE}/api/sessions/${ids[0]}`,
-          withClientAuth({ method: 'DELETE' }),
-        );
+        res = await apiFetch(`${API_BASE}/api/sessions/${ids[0]}`, { method: 'DELETE' });
       } else {
-        res = await fetch(
-          `${API_BASE}/api/sessions/batch-delete`,
-          withClientAuth({
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ids }),
-          }),
-        );
+        res = await apiFetch(`${API_BASE}/api/sessions/batch-delete`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids }),
+        });
       }
       if (!res.ok) {
         throw new Error('delete request failed');

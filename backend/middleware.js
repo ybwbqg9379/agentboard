@@ -2,7 +2,23 @@
  * Express middleware: API key authentication and input validation.
  */
 
+import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
+
+const INBOUND_REQUEST_ID = /^[a-zA-Z0-9-]{8,128}$/;
+
+/**
+ * Attach a stable request id for logs and client-facing error correlation.
+ */
+export function requestIdMiddleware(req, res, next) {
+  const raw = req.headers['x-request-id'];
+  const headerVal = Array.isArray(raw) ? raw[0] : raw;
+  const id =
+    typeof headerVal === 'string' && INBOUND_REQUEST_ID.test(headerVal) ? headerVal : randomUUID();
+  req.requestId = id;
+  res.setHeader('X-Request-Id', id);
+  next();
+}
 
 // --- API Key Auth ---
 
