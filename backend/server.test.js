@@ -8,6 +8,9 @@
 
 import { describe, it, expect, vi, afterAll } from 'vitest';
 import { EventEmitter } from 'node:events';
+import { Buffer } from 'node:buffer';
+import fs from 'node:fs/promises';
+import path from 'node:path';
 
 // ---------------------------------------------------------------------------
 // Mocks -- must be declared before any import of server.js
@@ -551,5 +554,29 @@ describe('GET /api/sessions/:id/files/:fileName', () => {
     const res = await request(app).get('/api/sessions/valid-id/files/nonexistent.pdf');
     expect(res.status).toBe(404);
     expect(res.body.error).toMatch(/file not found/);
+  });
+
+  it('downloads an owned tenant file from the correct session workspace', async () => {
+    const sessionDir = '/tmp/agentboard-test/tenant-a/sessions/tenant-a-session';
+    const filePath = path.join(sessionDir, 'report.pdf');
+
+    await fs.mkdir(sessionDir, { recursive: true });
+    await fs.writeFile(
+      filePath,
+      Buffer.from('%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF'),
+    );
+
+    try {
+      const res = await request(app)
+        .get('/api/sessions/tenant-a-session/files/report.pdf')
+        .set('x-user-id', 'tenant-a');
+
+      expect(res.status).toBe(200);
+      expect(res.headers['content-type']).toMatch(/application\/pdf/);
+      expect(res.headers['content-disposition']).toContain('attachment');
+      expect(res.headers['content-disposition']).toContain('report.pdf');
+    } finally {
+      await fs.rm('/tmp/agentboard-test/tenant-a', { recursive: true, force: true });
+    }
   });
 });

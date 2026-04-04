@@ -1,4 +1,5 @@
 import { Tool } from './Tool.js';
+import fontkit from '@pdf-lib/fontkit';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import path from 'path';
 import fs from 'fs/promises';
@@ -24,20 +25,118 @@ function sanitizeForWinAnsi(text) {
   return { text: sanitized, hadUnsupported };
 }
 
+const UNICODE_FONT_CANDIDATES = [
+  '/System/Library/Fonts/Supplemental/Arial Unicode.ttf',
+  '/Library/Fonts/Arial Unicode.ttf',
+  '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc',
+  '/usr/share/fonts/opentype/noto/NotoSansCJKsc-Regular.otf',
+  '/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc',
+  '/usr/share/fonts/truetype/arphic/ukai.ttc',
+];
+
+async function findUnicodeFontPath() {
+  const explicitFontPath = process.env.AGENTBOARD_PDF_FONT?.trim();
+  const candidates = explicitFontPath ? [explicitFontPath] : UNICODE_FONT_CANDIDATES;
+
+  for (const candidate of candidates) {
+    try {
+      await fs.access(candidate);
+      return candidate;
+    } catch {
+      // Try the next candidate.
+    }
+  }
+
+  return null;
+}
+
+function wrapTextToWidth(text, measureText, fontSize, maxWidth) {
+  if (!text) return [''];
+
+  const lines = [];
+  let currentLine = '';
+
+  for (const char of Array.from(text.replace(/\t/g, '    '))) {
+    const nextLine = currentLine + char;
+    if (currentLine && measureText(nextLine, fontSize) > maxWidth) {
+      lines.push(currentLine.trimEnd());
+      currentLine = /^\s$/u.test(char) ? '' : char;
+    } else {
+      currentLine = nextLine;
+    }
+  }
+
+  if (currentLine || lines.length === 0) {
+    lines.push(currentLine.trimEnd());
+  }
+
+  return lines;
+}
+
+async function createTextRuntime(pdfDoc) {
+  const unicodeFontPath = await findUnicodeFontPath();
+
+  if (unicodeFontPath) {
+    try {
+      pdfDoc.registerFontkit(fontkit);
+      const fontBytes = await fs.readFile(unicodeFontPath);
+      const unicodeFont = await pdfDoc.embedFont(fontBytes, { subset: true });
+
+      return {
+        regularFont: unicodeFont,
+        boldFont: unicodeFont,
+        isUnicodeFont: true,
+        fontLabel: path.basename(unicodeFontPath),
+        drawText(page, text, options) {
+          page.drawText(text, options);
+        },
+        measureText(font, text, size) {
+          return font.widthOfTextAtSize(text, size);
+        },
+      };
+    } catch {
+      // Fall through to the StandardFonts fallback.
+    }
+  }
+
+  const timesRomanFont = await pdfDoc.embedFont(StandardFonts.TimesRoman);
+  const timesBoldFont = await pdfDoc.embedFont(StandardFonts.TimesRomanBold);
+  let containedUnsupported = false;
+
+  return {
+    regularFont: timesRomanFont,
+    boldFont: timesBoldFont,
+    isUnicodeFont: false,
+    fontLabel: 'TimesRoman',
+    get containedUnsupported() {
+      return containedUnsupported;
+    },
+    drawText(page, text, options) {
+      const { text: safe, hadUnsupported } = sanitizeForWinAnsi(text);
+      if (hadUnsupported) containedUnsupported = true;
+      page.drawText(safe, options);
+    },
+    measureText(font, text, size) {
+      const { text: safe } = sanitizeForWinAnsi(text);
+      return font.widthOfTextAtSize(safe, size);
+    },
+  };
+}
+
 /**
  * ReportTool: Independent document engineer.
  * Generates professional PDF reports from Markdown and structured data in the workspace.
  *
- * Note: Uses pdf-lib StandardFonts (WinAnsi only). Non-Latin characters (CJK, emoji)
- * are replaced with '?' placeholders. For full Unicode support, a custom font embedding
- * approach with @pdf-lib/fontkit would be required.
+ * Note: Prefers embedding a configured or auto-detected Unicode font for full CJK output.
+ * If no usable Unicode font is available, it falls back to pdf-lib StandardFonts (WinAnsi)
+ * and replaces unsupported characters with '?' placeholders while surfacing a warning.
  */
 export class ReportTool extends Tool {
   constructor() {
     super({
       name: 'ReportTool',
       description:
-        'Generate a professional PDF report from Markdown content and structured data. Automatically formats text, headers, and metadata. Note: Only Latin characters are fully supported; CJK/emoji characters will be replaced with placeholders. For CJK reports, consider generating Markdown files instead.',
+        'Generate a professional PDF report from Markdown content and structured data. Automatically formats text, headers, and metadata. Prefers a Unicode font for full CJK output and falls back to StandardFonts with an explicit warning when no Unicode font is available.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -80,112 +179,64 @@ export class ReportTool extends Tool {
     try {
       // Create a new PDF document
       const pdfDoc = await PDFDocument.create();
-      const timesRomanFont = await pdfDoc.embedFont(StandardFonts.TimesRoman);
-      const timesBoldFont = await pdfDoc.embedFont(StandardFonts.TimesRomanBold);
-
-      // Track whether any non-Latin characters were encountered
-      let containedNonLatin = false;
-
-      /** Safely draw text with WinAnsi sanitization */
-      const safeDrawText = (page, text, options) => {
-        const { text: safe, hadUnsupported } = sanitizeForWinAnsi(text);
-        if (hadUnsupported) containedNonLatin = true;
-        page.drawText(safe, options);
-      };
-
-      /** Safely measure text width with WinAnsi sanitization */
-      const safeWidthOfText = (font, text, size) => {
-        const { text: safe } = sanitizeForWinAnsi(text);
-        return font.widthOfTextAtSize(safe, size);
-      };
+      const textRuntime = await createTextRuntime(pdfDoc);
 
       // Add a page
       let page = pdfDoc.addPage();
       const { width, height } = page.getSize();
       let yPosition = height - 50;
+      const maxWidth = width - 100;
+
+      const drawWrappedBlock = (text, size, font, lineHeight, color = rgb(0, 0, 0)) => {
+        const lines = wrapTextToWidth(
+          text,
+          (candidate, fontSize) => textRuntime.measureText(font, candidate, fontSize),
+          size,
+          maxWidth,
+        );
+
+        for (const line of lines) {
+          if (yPosition < 50) {
+            page = pdfDoc.addPage();
+            yPosition = height - 50;
+          }
+
+          textRuntime.drawText(page, line, {
+            x: 50,
+            y: yPosition,
+            size,
+            font,
+            color,
+          });
+          yPosition -= lineHeight;
+        }
+      };
 
       // Draw Title
-      safeDrawText(page, title, {
-        x: 50,
-        y: yPosition,
-        size: 24,
-        font: timesBoldFont,
-        color: rgb(0, 0, 0.5),
-      });
+      drawWrappedBlock(title, 24, textRuntime.boldFont, 28, rgb(0, 0, 0.5));
       yPosition -= 40;
 
       // Draw Author & Date
-      safeDrawText(page, `Author: ${author} | Date: ${new Date().toLocaleDateString()}`, {
-        x: 50,
-        y: yPosition,
-        size: 10,
-        font: timesRomanFont,
-        color: rgb(0.3, 0.3, 0.3),
-      });
+      drawWrappedBlock(
+        `Author: ${author} | Date: ${new Date().toLocaleDateString()}`,
+        10,
+        textRuntime.regularFont,
+        14,
+        rgb(0.3, 0.3, 0.3),
+      );
       yPosition -= 40;
 
       // Simple Text-based Markdown Parser (Naive version for pure-JS implementation)
       const lines = content.split('\n');
       for (const line of lines) {
-        if (yPosition < 50) {
-          page = pdfDoc.addPage();
-          yPosition = height - 50;
-        }
-
         if (line.startsWith('# ')) {
-          safeDrawText(page, line.substring(2), {
-            x: 50,
-            y: yPosition,
-            size: 18,
-            font: timesBoldFont,
-          });
-          yPosition -= 25;
+          drawWrappedBlock(line.substring(2), 18, textRuntime.boldFont, 24);
         } else if (line.startsWith('## ')) {
-          safeDrawText(page, line.substring(3), {
-            x: 50,
-            y: yPosition,
-            size: 14,
-            font: timesBoldFont,
-          });
-          yPosition -= 20;
+          drawWrappedBlock(line.substring(3), 14, textRuntime.boldFont, 20);
+        } else if (line.trim() === '') {
+          yPosition -= 10;
         } else {
-          // Break long lines into chunks
-          const maxWidth = width - 100;
-          const words = line.split(' ');
-          let currentLine = '';
-
-          for (const word of words) {
-            const testLine = currentLine ? `${currentLine} ${word}` : word;
-            const textWidth = safeWidthOfText(timesRomanFont, testLine, 11);
-
-            if (textWidth > maxWidth) {
-              safeDrawText(page, currentLine, {
-                x: 50,
-                y: yPosition,
-                size: 11,
-                font: timesRomanFont,
-              });
-              yPosition -= 15;
-              currentLine = word;
-
-              if (yPosition < 50) {
-                page = pdfDoc.addPage();
-                yPosition = height - 50;
-              }
-            } else {
-              currentLine = testLine;
-            }
-          }
-
-          if (currentLine) {
-            safeDrawText(page, currentLine, {
-              x: 50,
-              y: yPosition,
-              size: 11,
-              font: timesRomanFont,
-            });
-            yPosition -= 15;
-          }
+          drawWrappedBlock(line, 11, textRuntime.regularFont, 15);
         }
       }
 
@@ -199,14 +250,15 @@ export class ReportTool extends Tool {
         `File: ${fileName}`,
         `Location: ${safePath}`,
         `Pages: ${pdfDoc.getPageCount()}`,
+        `Font: ${textRuntime.fontLabel}`,
       ];
 
-      if (containedNonLatin) {
+      if (!textRuntime.isUnicodeFont && textRuntime.containedUnsupported) {
         resultLines.push(
           ``,
           `[Warning] Some non-Latin characters (e.g., CJK, emoji) were replaced with '?' placeholders.`,
           `The PDF engine currently uses standard fonts that only support Latin characters.`,
-          `For full CJK content, consider generating a Markdown (.md) or plain text (.txt) file instead.`,
+          `Set AGENTBOARD_PDF_FONT to a Unicode .ttf/.otf font to render full CJK content.`,
         );
       }
 

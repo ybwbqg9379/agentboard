@@ -4,15 +4,44 @@ import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
 
+const SYSTEM_UNICODE_FONT_CANDIDATES = [
+  '/System/Library/Fonts/Supplemental/Arial Unicode.ttf',
+  '/Library/Fonts/Arial Unicode.ttf',
+  '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc',
+  '/usr/share/fonts/opentype/noto/NotoSansCJKsc-Regular.otf',
+  '/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc',
+  '/usr/share/fonts/truetype/arphic/ukai.ttc',
+];
+
+async function findExistingUnicodeFont() {
+  for (const candidate of SYSTEM_UNICODE_FONT_CANDIDATES) {
+    try {
+      await fs.access(candidate);
+      return candidate;
+    } catch {
+      // Continue probing.
+    }
+  }
+
+  return null;
+}
+
 describe('ReportTool', () => {
   const tool = new ReportTool();
   let tempDir;
+  let originalPdfFont;
 
   beforeEach(async () => {
     tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agentboard-report-test-'));
+    originalPdfFont = process.env.AGENTBOARD_PDF_FONT;
   });
 
   afterEach(async () => {
+    if (originalPdfFont === undefined) {
+      delete process.env.AGENTBOARD_PDF_FONT;
+    } else {
+      process.env.AGENTBOARD_PDF_FONT = originalPdfFont;
+    }
     await fs.rm(tempDir, { recursive: true, force: true });
   });
 
@@ -69,7 +98,9 @@ describe('ReportTool', () => {
     await expect(tool.call(input, context)).rejects.toThrow('Only .pdf extension is allowed');
   });
 
-  it('should handle CJK content gracefully without crashing', async () => {
+  it('falls back safely when no Unicode PDF font is configured', async () => {
+    process.env.AGENTBOARD_PDF_FONT = path.join(tempDir, 'missing-unicode-font.ttf');
+
     const input = {
       title: '中文报告',
       content: '# 摘要\n这是一份包含中文内容的研究报告。\n## 详细数据\nAgentBoard 安全审计通过。',
@@ -82,11 +113,35 @@ describe('ReportTool', () => {
 
     expect(result.isError).toBe(false);
     expect(result.content[0].text).toContain('cjk_report.pdf');
-    // Should warn about non-Latin character substitution
     expect(result.content[0].text).toContain('non-Latin');
+    expect(result.content[0].text).toContain('Font: TimesRoman');
 
-    // File should still be created and valid
     const stats = await fs.stat(path.join(tempDir, 'cjk_report.pdf'));
+    expect(stats.size).toBeGreaterThan(100);
+  });
+
+  it('uses a Unicode font to preserve CJK text when one is configured', async () => {
+    const unicodeFontPath = await findExistingUnicodeFont();
+    if (!unicodeFontPath) return;
+
+    process.env.AGENTBOARD_PDF_FONT = unicodeFontPath;
+
+    const input = {
+      title: '中文报告',
+      content: '# 摘要\n这是一份包含中文内容的研究报告。\n## 详细数据\nAgentBoard 安全审计通过。',
+      fileName: 'unicode_report.pdf',
+      author: '测试作者',
+    };
+    const context = { userWorkspace: tempDir };
+
+    const result = await tool.call(input, context);
+
+    expect(result.isError).toBe(false);
+    expect(result.content[0].text).toContain('unicode_report.pdf');
+    expect(result.content[0].text).toContain(path.basename(unicodeFontPath));
+    expect(result.content[0].text).not.toContain('non-Latin');
+
+    const stats = await fs.stat(path.join(tempDir, 'unicode_report.pdf'));
     expect(stats.size).toBeGreaterThan(100);
   });
 });

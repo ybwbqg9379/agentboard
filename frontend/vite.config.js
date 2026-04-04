@@ -32,10 +32,6 @@ export default defineConfig(({ mode }) => {
         output: {
           manualChunks(id) {
             if (id.includes('node_modules')) {
-              // Only isolate Mermaid and its large drawing deps
-              if (id.includes('mermaid') || id.includes('d3') || id.includes('dagre')) {
-                return 'visualizer';
-              }
               // Isolate React core
               if (id.includes('react') || id.includes('react-dom')) {
                 return 'vendor-react';

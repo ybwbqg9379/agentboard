@@ -10,23 +10,25 @@
   - **`VisualizerTool`**：引入本地 Mermaid 渲染引擎，支持 Agent 生成拓扑图、时序图等可视化资产。
   - **`DataAnalystTool`**：集成 `AlaSQL`，赋予 Agent 极速分析本地 CSV/JSON 数据的能力，支持跨表 Join 与聚合计算。
   - **`OCRTool`**：集成 `Tesseract.js`，支持本地图像文字识别，打破调研中的图片数据盲区。
-  - **`ReportTool`**：集成 `pdf-lib`，支持将调研成果自动化导出为带分页、标题格式化的专业 PDF 报告。
+  - **`ReportTool`**：集成 `pdf-lib`，支持将调研成果自动化导出为带分页、标题格式化的专业 PDF 报告；优先自动嵌入系统 Unicode 字体，缺失时回退 StandardFonts 并附带显式警告。
 - **前端 UX 与交互增强**：
   - **Mermaid 实时预览**：在 `MarkdownBody` 中集成 `mermaid.js` (10.9.5 稳定版)，自动渲染代码块为 SVG 图形。
   - **数据表格化展示**：`AgentTimeline` 自动检测工具输出的 JSON 数组并渲染为响应式 HTML 表格。
   - **一键下载报告**：前端新增 `DownloadButton` 组件，配合后端新增的文件下载 API，实现调研报告的一键导出。
 - **安全性修复**：
   - 修复了 `mermaid` 11.x 引入的 `lodash` 高危漏洞，通过降级至 10.9.5 实现 **全仓 0 漏洞**。
-  - 后端新增 `/api/sessions/:id/files/:fileName` 安全路由，通过 `path.basename` 与租户隔离确保文件访问安全。
+  - `MarkdownBody` 的 Mermaid 渲染从 `innerHTML` 改为 `textContent`，阻断代码块中夹带 HTML 的 XSS 注入面。
+  - 后端新增 `/api/sessions/:id/files/:fileName` 安全路由，并按 `config.workspaceDir/{userId}/sessions/:id` 对齐真实租户目录。
 
 #### Changed
 
 - **`ARCHITECTURE.md`**：同步更新 0.16.0 增强模块的职责描述。
+- **构建拆包**：取消将 Mermaid 生态强制合并为单一 `visualizer` chunk，改为保留按需拆分，消除 3MB 级构建警告。
 - **项目版本**：根目录与后端同步晋升至 **0.16.0**。
 
 #### Tests
 
-- 新增 `DataAnalystTool.test.js` (多格式关联查询)、`VisualizerTool.test.js`、`OCRTool.test.js`、`ReportTool.test.js` (分页逻辑)。
+- 新增 `DataAnalystTool.test.js` (多格式关联查询)、`VisualizerTool.test.js`、`OCRTool.test.js`、`ReportTool.test.js`（分页、Unicode 字体与回退逻辑）、`MarkdownBody.test.jsx`（Mermaid XSS 回归）、`server.test.js` 下载成功路径断言。
 - 全量通过 `npm run check` 质量门禁（Prettier + ESLint --max-warnings 0 + Build）。
 
 ---
