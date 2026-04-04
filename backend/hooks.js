@@ -59,7 +59,7 @@ export const BLOCKED_PATTERNS = [
 
 const ALLOWED_ABSOLUTE_PREFIXES = ['/usr/local/bin', '/usr/bin', '/bin', '/dev', '/tmp'];
 
-function isPathInside(basePath, targetPath) {
+export function isPathInside(basePath, targetPath) {
   const normalizedBase = normalize(resolve(basePath));
   const normalizedTarget = normalize(resolve(targetPath));
   return (

@@ -1,4 +1,6 @@
 import { Router } from 'express';
+import path from 'path';
+import fs from 'fs/promises';
 import {
   listSessionsPaged,
   countSessions,
@@ -19,6 +21,8 @@ import {
   validate,
 } from '../../middleware.js';
 import { hasOwnedSession } from '../helpers/access.js';
+import { isPathInside } from '../../hooks.js';
+import config from '../../config.js';
 
 const router = Router();
 
@@ -138,6 +142,48 @@ router.post('/sessions/:id/control', validate(controlActionSchema), async (req, 
     }
   } catch (err) {
     return res.status(500).json({ error: err.message });
+  }
+});
+
+// Download a file from the session's workspace (e.g., PDF reports)
+router.get('/sessions/:id/files/:fileName', async (req, res) => {
+  const { id, fileName } = req.params;
+  if (!(await hasOwnedSession(req.user.id, id))) {
+    return res.status(404).json({ error: 'session not found' });
+  }
+
+  // Security: Only allow specific extensions to prevent downloading sensitive workspace data
+  const allowedExtensions = ['.pdf', '.csv', '.json', '.txt', '.png', '.jpg', '.jpeg'];
+  const ext = path.extname(fileName).toLowerCase();
+  if (!allowedExtensions.includes(ext)) {
+    return res.status(403).json({ error: 'file type not allowed for download' });
+  }
+
+  try {
+    const safeFileName = path.basename(fileName);
+
+    // Build session workspace path matching agentManager.getSessionWorkspace():
+    //   default user  → config.workspaceDir/sessions/:id
+    //   named  user   → config.workspaceDir/:userId/sessions/:id
+    const userId = req.user.id;
+    const userRoot =
+      !userId || userId === 'default'
+        ? path.resolve(config.workspaceDir)
+        : path.resolve(config.workspaceDir, userId);
+    const sessionDir = path.resolve(path.join(userRoot, 'sessions', id));
+    const filePath = path.resolve(path.join(sessionDir, safeFileName));
+
+    // Security: Ensure the resolved path is strictly inside the session directory
+    if (!isPathInside(sessionDir, filePath)) {
+      return res.status(403).json({ error: 'access denied' });
+    }
+
+    // Verify file exists
+    await fs.access(filePath);
+
+    res.download(filePath, safeFileName);
+  } catch {
+    res.status(404).json({ error: 'file not found' });
   }
 });
 

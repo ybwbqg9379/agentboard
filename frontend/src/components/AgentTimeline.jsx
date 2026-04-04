@@ -2,6 +2,51 @@ import { useEffect, useMemo, useRef } from 'react';
 import MarkdownBody from './MarkdownBody.jsx';
 import styles from './AgentTimeline.module.css';
 
+/**
+ * JsonTable: Renders a JSON array as a clean HTML table.
+ */
+const JsonTable = ({ data }) => {
+  if (!Array.isArray(data) || data.length === 0) return null;
+  const headers = Object.keys(data[0]);
+
+  return (
+    <div className={styles.tableContainer}>
+      <table className={styles.jsonTable}>
+        <thead>
+          <tr>
+            {headers.map((h) => (
+              <th key={h}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((row, i) => (
+            <tr key={i}>
+              {headers.map((h) => (
+                <td key={h}>{String(row[h] ?? '')}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+};
+
+/**
+ * DownloadButton: Renders a link to download a file from the session workspace.
+ */
+const DownloadButton = ({ fileName, sessionId }) => {
+  const downloadUrl = `/api/sessions/${sessionId}/files/${encodeURIComponent(fileName)}`;
+
+  return (
+    <a href={downloadUrl} download={fileName} className={styles.downloadBtn}>
+      <span className={styles.downloadIcon}>📄</span>
+      Download {fileName}
+    </a>
+  );
+};
+
 // --- System subtype dispatch map ---
 export const SYSTEM_HANDLERS = {
   init: (c, ts) => {
@@ -175,7 +220,7 @@ export function flattenEvent(event) {
   return raw && raw !== '{}' ? [{ label: type || 'Event', dot: 'done', body: raw, ts }] : [];
 }
 
-function truncate(text, max = 2000) {
+function truncate(text, max = 5000) {
   if (typeof text !== 'string') text = String(text);
   return text.length > max ? text.slice(0, max) + '...' : text;
 }
@@ -183,8 +228,28 @@ function truncate(text, max = 2000) {
 // Labels whose body should be rendered as markdown instead of raw pre
 const MARKDOWN_LABELS = new Set(['Assistant', 'Result', 'Tool Result']);
 
-function TimelineItem({ item, index }) {
+function TimelineItem({ item, index, sessionId }) {
   const useMarkdown = MARKDOWN_LABELS.has(item.label);
+
+  // UX Enhancement: Detect if body is a JSON array (for DataAnalystTool)
+  let tableData = null;
+  if (item.label === 'Tool Result' && !item.is_error) {
+    try {
+      const parsed = JSON.parse(item.body);
+      if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === 'object') {
+        tableData = parsed;
+      }
+    } catch {
+      // Not a JSON array, ignore
+    }
+  }
+
+  // UX Enhancement: Detect if body mentions a generated PDF (for ReportTool)
+  let pdfFile = null;
+  if (item.label === 'Tool Result' && !item.is_error) {
+    const pdfMatch = item.body.match(/File: (.*\.pdf)/i);
+    if (pdfMatch) pdfFile = pdfMatch[1];
+  }
 
   return (
     <div
@@ -202,12 +267,21 @@ function TimelineItem({ item, index }) {
             {item.ts ? new Date(item.ts).toLocaleTimeString() : '--:--:--'}
           </span>
         </div>
-        {item.body &&
+
+        {/* Render PDF download button if detected */}
+        {pdfFile && <DownloadButton fileName={pdfFile} sessionId={sessionId} />}
+
+        {/* Render Table if data is a JSON array, otherwise render text/markdown */}
+        {tableData ? (
+          <JsonTable data={tableData} />
+        ) : (
+          item.body &&
           (useMarkdown ? (
             <MarkdownBody>{truncate(item.body)}</MarkdownBody>
           ) : (
             <pre className={styles.eventBody}>{truncate(item.body)}</pre>
-          ))}
+          ))
+        )}
       </div>
     </div>
   );
@@ -224,7 +298,7 @@ function buildDisplayItems(events) {
   return items;
 }
 
-export default function AgentTimeline({ events, status }) {
+export default function AgentTimeline({ events, status, sessionId }) {
   const bottomRef = useRef(null);
   const displayItems = useMemo(() => buildDisplayItems(events), [events]);
 
@@ -261,7 +335,7 @@ export default function AgentTimeline({ events, status }) {
       </div>
       <div className={`panel-body ${styles.timeline}`}>
         {displayItems.map((item, i) => (
-          <TimelineItem key={item.key} item={item} index={i} />
+          <TimelineItem key={item.key} item={item} index={i} sessionId={sessionId} />
         ))}
         {status === 'running' && (
           <div className={styles.runningIndicator}>

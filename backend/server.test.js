@@ -524,3 +524,32 @@ describe('WebSocket heartbeat handling', () => {
     ws.close();
   });
 });
+
+// ---------------------------------------------------------------------------
+// GET /api/sessions/:id/files/:fileName (download route)
+// ---------------------------------------------------------------------------
+
+describe('GET /api/sessions/:id/files/:fileName', () => {
+  it('rejects disallowed file extensions with 403', async () => {
+    const res = await request(app).get('/api/sessions/valid-id/files/script.sh');
+    expect(res.status).toBe(403);
+    expect(res.body.error).toMatch(/file type not allowed/);
+  });
+
+  it('rejects unknown extensions like .env with 403', async () => {
+    const res = await request(app).get('/api/sessions/valid-id/files/secrets.env');
+    expect(res.status).toBe(403);
+    expect(res.body.error).toMatch(/file type not allowed/);
+  });
+
+  it('returns 404 for non-owned session', async () => {
+    const res = await request(app).get('/api/sessions/unknown-id/files/report.pdf');
+    expect(res.status).toBe(404);
+  });
+
+  it('returns 404 when file does not exist on disk', async () => {
+    const res = await request(app).get('/api/sessions/valid-id/files/nonexistent.pdf');
+    expect(res.status).toBe(404);
+    expect(res.body.error).toMatch(/file not found/);
+  });
+});

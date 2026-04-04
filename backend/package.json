@@ -1,6 +1,6 @@
 {
   "name": "agentboard-backend",
-  "version": "0.1.0",
+  "version": "0.16.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -14,9 +14,13 @@
     "@anthropic-ai/claude-agent-sdk": "^0.2.87",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@supabase/supabase-js": "^2.101.1",
+    "alasql": "^4.17.1",
     "cors": "^2.8.5",
     "dockerode": "^4.0.10",
     "express": "^5.1.0",
+    "markdown-it": "^14.1.1",
+    "pdf-lib": "^1.17.1",
+    "tesseract.js": "^7.0.0",
     "ts-morph": "^27.0.2",
     "ws": "^8.18.0",
     "zod": "^4.3.6"

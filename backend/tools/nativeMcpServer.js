@@ -8,6 +8,10 @@ import { RememberTool, RecallTool } from './RememberTool.js';
 import { BatchTool } from './BatchTool.js';
 import { LoopTool } from './LoopTool.js';
 import { LSPTool } from './LSPTool.js';
+import { VisualizerTool } from './VisualizerTool.js';
+import { DataAnalystTool } from './DataAnalystTool.js';
+import { OCRTool } from './OCRTool.js';
+import { ReportTool } from './ReportTool.js';
 
 /**
  * AgentBoard Native MCP Server
@@ -40,6 +44,10 @@ const activeTools = [
   new BatchTool(),
   new LoopTool(),
   new LSPTool(),
+  new VisualizerTool(),
+  new DataAnalystTool(),
+  new OCRTool(),
+  new ReportTool(),
 ];
 
 // Register Tool List

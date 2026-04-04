@@ -74,7 +74,7 @@ export default function App() {
         <>
           <div className="main-content">
             <div className="left-panel">
-              <AgentTimeline events={events} status={status} />
+              <AgentTimeline events={events} status={status} sessionId={sessionId} />
               <ChatInput
                 onSend={startAgent}
                 onFollowUp={followUp}
