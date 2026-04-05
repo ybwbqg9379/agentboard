@@ -49,10 +49,24 @@ export default function App() {
     );
   });
 
+  const [themePack, setThemePack] = useState(() => {
+    const stored = window.localStorage.getItem('agentboard-theme-pack');
+    return stored === 'linear' ? 'linear' : 'default';
+  });
+
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
     window.localStorage.setItem('agentboard-theme', theme);
   }, [theme]);
+
+  useEffect(() => {
+    if (themePack === 'default') {
+      document.documentElement.removeAttribute('data-theme-pack');
+    } else {
+      document.documentElement.setAttribute('data-theme-pack', themePack);
+    }
+    window.localStorage.setItem('agentboard-theme-pack', themePack);
+  }, [themePack]);
 
   const toggleTheme = () => setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
 
@@ -68,6 +82,8 @@ export default function App() {
         onModeChange={setMode}
         theme={theme}
         onToggleTheme={toggleTheme}
+        themePack={themePack}
+        onThemePackChange={setThemePack}
       />
 
       {mode === 'agent' ? (

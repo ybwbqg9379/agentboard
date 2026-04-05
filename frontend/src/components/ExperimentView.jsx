@@ -1,25 +1,29 @@
 import { useState, useEffect, useMemo, useId, useRef, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { apiFetch, ApiFetchError } from '../lib/apiFetch.js';
 import { SwarmBranchCard } from './SwarmBranchCard.jsx';
 import styles from './ExperimentView.module.css';
 
-// ─── Template definitions ─────────────────────────────────────────────────────
-const TEMPLATES = [
-  { key: 'ml-training', label: '🧠 ML Training', file: 'ml-training.json' },
+const TEMPLATE_DEFS = [
+  { key: 'ml-training', labelKey: 'experiment.templates.mlTraining', file: 'ml-training.json' },
   {
     key: 'performance-optimization',
-    label: '⚡ API Performance',
+    labelKey: 'experiment.templates.apiPerformance',
     file: 'performance-optimization.json',
   },
-  { key: 'bundle-size', label: '📦 Bundle Size', file: 'bundle-size.json' },
-  { key: 'ci-quality', label: '✅ CI Quality', file: 'ci-quality.json' },
-  { key: 'security-fuzz', label: '🛡 Security Fuzz', file: 'security-fuzz.json' },
+  { key: 'bundle-size', labelKey: 'experiment.templates.bundleSize', file: 'bundle-size.json' },
+  { key: 'ci-quality', labelKey: 'experiment.templates.ciQuality', file: 'ci-quality.json' },
+  {
+    key: 'security-fuzz',
+    labelKey: 'experiment.templates.securityFuzz',
+    file: 'security-fuzz.json',
+  },
 ];
 
 // ─── SVG Metric Chart ─────────────────────────────────────────────────────────
 // Fix #1: useId() generates a per-instance unique ID, preventing SVG gradient
 // id="areaGrad" from colliding when multiple MetricChart instances exist in DOM.
-function MetricChart({ trialEvents }) {
+function MetricChart({ trialEvents, t }) {
   const uid = useId().replace(/:/g, '');
   const gradientId = `areaGrad_${uid}`;
   const WIDTH = 600;
@@ -40,11 +44,7 @@ function MetricChart({ trialEvents }) {
   }, [trialEvents]);
 
   if (points.length < 2) {
-    return (
-      <div className={styles.chartEmpty}>
-        Not enough data yet — run at least 2 trials to see the chart.
-      </div>
-    );
+    return <div className={styles.chartEmpty}>{t('experiment.chartNotEnough')}</div>;
   }
 
   const metrics = points.map((p) => p.metric);
@@ -68,9 +68,9 @@ function MetricChart({ trialEvents }) {
     ` L ${toX(points[points.length - 1].trial)} ${PAD.top + chartH} Z`;
 
   // Y-axis tick labels (4 ticks)
-  const yTicks = [0, 0.33, 0.67, 1].map((t) => ({
-    val: minY + t * rangeY,
-    y: PAD.top + (1 - t) * chartH,
+  const yTicks = [0, 0.33, 0.67, 1].map((ratio) => ({
+    val: minY + ratio * rangeY,
+    y: PAD.top + (1 - ratio) * chartH,
   }));
 
   // X-axis ticks — show subset to avoid crowding
@@ -81,7 +81,7 @@ function MetricChart({ trialEvents }) {
     <svg
       viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
       className={styles.chart}
-      aria-label="Metric progression chart"
+      aria-label={t('experiment.chartAria')}
     >
       <defs>
         {/* Fix #1: use per-instance gradientId instead of static "areaGrad" */}
@@ -129,7 +129,11 @@ function MetricChart({ trialEvents }) {
           strokeWidth="2"
         >
           <title>
-            Trial {p.trial}: {p.metric.toFixed(4)} ({p.accepted ? 'ACCEPTED' : 'REJECTED'})
+            {t('experiment.chartTrialTitle', {
+              trial: p.trial,
+              metric: p.metric.toFixed(4),
+              verdict: p.accepted ? t('common.accepted') : t('common.rejected'),
+            })}
           </title>
         </circle>
       ))}
@@ -170,7 +174,7 @@ function MetricChart({ trialEvents }) {
         fontSize="11"
         fill="var(--text-secondary)"
       >
-        Trial #
+        {t('experiment.axisTrial')}
       </text>
       <text
         x={10}
@@ -180,13 +184,13 @@ function MetricChart({ trialEvents }) {
         fill="var(--text-secondary)"
         transform={`rotate(-90, 10, ${PAD.top + chartH / 2})`}
       >
-        Metric
+        {t('experiment.axisMetric')}
       </text>
 
       {/* Legend */}
       <circle cx={PAD.left + chartW - 90} cy={PAD.top + 8} r={4} fill="var(--bg-accent)" />
       <text x={PAD.left + chartW - 82} y={PAD.top + 12} fontSize="10" fill="var(--text-secondary)">
-        Accepted
+        {t('experiment.legendAccepted')}
       </text>
       <circle
         cx={PAD.left + chartW - 30}
@@ -195,7 +199,7 @@ function MetricChart({ trialEvents }) {
         fill="var(--status-error, #e53935)"
       />
       <text x={PAD.left + chartW - 22} y={PAD.top + 12} fontSize="10" fill="var(--text-secondary)">
-        Rejected
+        {t('experiment.legendRejected')}
       </text>
     </svg>
   );
@@ -218,6 +222,8 @@ export default function ExperimentView({
   abortSwarmRun,
   loadSwarmBranches,
 }) {
+  const { t } = useTranslation();
+  const templates = useMemo(() => TEMPLATE_DEFS.map((d) => ({ ...d, label: t(d.labelKey) })), [t]);
   const [experiments, setExperiments] = useState([]);
   const [selectedExperiment, setSelectedExperiment] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -316,23 +322,23 @@ export default function ExperimentView({
         setIsEditing(true);
       } else {
         const err = await res.json().catch(() => ({}));
-        setTemplateError(err.error || `Failed to load template (${res.status})`);
+        setTemplateError(err.error || t('experiment.templateLoadFailed', { status: res.status }));
       }
     } catch (e) {
-      setTemplateError(`Network error: ${e.message}`);
+      setTemplateError(t('experiment.networkError', { message: e.message }));
     } finally {
       setTemplateLoading(false);
     }
   };
 
-  const handleNewExperiment = () => {
+  const handleNewExperiment = useCallback(() => {
     cancelPendingRunsRequest();
     selectedExperimentIdRef.current = null;
     setRuns([]);
     setTemplateError(null);
     const template = {
-      name: 'New Experiment',
-      description: 'Describe your optimization goal here.',
+      name: t('experiment.newExperimentName'),
+      description: t('experiment.newExperimentDesc'),
       target: { files: [] },
       metrics: {
         primary: { command: 'npm test', type: 'exit_code', direction: 'maximize' },
@@ -342,7 +348,7 @@ export default function ExperimentView({
     setEditForm(JSON.stringify(template, null, 2));
     setSelectedExperiment(null);
     setIsEditing(true);
-  };
+  }, [t]);
 
   const handleSave = async () => {
     setSaveError(null);
@@ -350,7 +356,7 @@ export default function ExperimentView({
     try {
       plan = JSON.parse(editForm);
     } catch {
-      setSaveError('Invalid JSON — please check your syntax.');
+      setSaveError(t('experiment.invalidJson'));
       return;
     }
     const url = selectedExperiment
@@ -363,7 +369,7 @@ export default function ExperimentView({
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: plan.name || 'Untitled',
+          name: plan.name || t('experiment.untitled'),
           description: plan.description || '',
           plan,
         }),
@@ -375,10 +381,10 @@ export default function ExperimentView({
         fetchExperiments();
       } else {
         const errData = await res.json().catch(() => ({}));
-        setSaveError(errData.error || 'Validation failed');
+        setSaveError(errData.error || t('experiment.validationFailed'));
       }
     } catch (e) {
-      setSaveError(`Save failed: ${e.message}`);
+      setSaveError(t('experiment.saveFailed', { message: e.message }));
     }
   };
 
@@ -422,23 +428,26 @@ export default function ExperimentView({
       {/* ── Sidebar ── */}
       <div className={styles.sidebar}>
         <div className={styles.sidebarHeader}>
-          <h3>Experiments</h3>
-          <button onClick={handleNewExperiment}>+ New</button>
+          <h3>{t('experiment.sidebarTitle')}</h3>
+          <button type="button" onClick={handleNewExperiment}>
+            {t('experiment.new')}
+          </button>
         </div>
 
         {/* Template quick-pick */}
         <div className={styles.templateSection}>
-          <div className={styles.templateLabel}>Start from template</div>
+          <div className={styles.templateLabel}>{t('experiment.fromTemplate')}</div>
           <div className={styles.templateGrid}>
-            {TEMPLATES.map((t) => (
+            {templates.map((tpl) => (
               <button
-                key={t.key}
+                key={tpl.key}
+                type="button"
                 className={styles.templateBtn}
-                onClick={() => handleLoadTemplate(t.file)}
+                onClick={() => handleLoadTemplate(tpl.file)}
                 disabled={templateLoading}
-                title={t.label}
+                title={tpl.label}
               >
-                {t.label}
+                {tpl.label}
               </button>
             ))}
           </div>
@@ -465,7 +474,7 @@ export default function ExperimentView({
       <div className={styles.mainContent}>
         {isEditing ? (
           <div className={styles.editor}>
-            <h2>Edit ResearchPlan (JSON)</h2>
+            <h2>{t('experiment.editTitle')}</h2>
             <textarea
               value={editForm}
               onChange={(e) => setEditForm(e.target.value)}
@@ -475,15 +484,16 @@ export default function ExperimentView({
             {saveError && <div className={styles.saveError}>{saveError}</div>}
             <div className={styles.actions}>
               <button
+                type="button"
                 onClick={() => {
                   setIsEditing(false);
                   setSaveError(null);
                 }}
               >
-                Cancel
+                {t('experiment.cancel')}
               </button>
-              <button onClick={handleSave} className={styles.primaryButton}>
-                Save
+              <button type="button" onClick={handleSave} className={styles.primaryButton}>
+                {t('experiment.save')}
               </button>
             </div>
           </div>
@@ -493,69 +503,80 @@ export default function ExperimentView({
             <div className={styles.headerRow}>
               <h2>{selectedExperiment.name}</h2>
               <p className={styles.experimentId} style={{ cursor: 'pointer', userSelect: 'all' }}>
-                ID: {selectedExperiment.id}
+                {t('experiment.idPrefix')} {selectedExperiment.id}
               </p>
               <p>{selectedExperiment.description}</p>
               <div className={styles.headerActions}>
                 <button
+                  type="button"
                   onClick={() => handleRun(selectedExperiment.id)}
                   className={styles.primaryButton}
                 >
-                  ▶ Run Experiment
+                  {t('experiment.runExperiment')}
                 </button>
                 {runSwarm && (
                   <button
+                    type="button"
                     onClick={() => runSwarm(selectedExperiment.id)}
                     className={styles.swarmButton}
-                    title="以 Swarm 模式并行探索多个优化方向"
+                    title={t('experiment.runSwarmTitle')}
                   >
-                    ⚡ Run as Swarm
+                    {t('experiment.runSwarm')}
                   </button>
                 )}
                 <button
+                  type="button"
                   onClick={() => {
                     setEditForm(JSON.stringify(selectedExperiment.plan ?? {}, null, 2));
                     setIsEditing(true);
                   }}
                 >
-                  Edit Plan
+                  {t('experiment.editPlan')}
                 </button>
               </div>
             </div>
 
             {/* Recent Runs */}
             <div className={styles.runsCont}>
-              <h3>Recent Runs</h3>
+              <h3>{t('experiment.recentRuns')}</h3>
               {runs.length === 0 && (
-                <div className={styles.runsEmpty}>
-                  No runs yet. Click ▶ Run Experiment to start.
-                </div>
+                <div className={styles.runsEmpty}>{t('experiment.noRuns')}</div>
               )}
               {runs.map((r) => (
                 <div key={r.id} className={styles.runRow}>
                   <span className={`${styles.runStatus} ${styles[`status_${r.status}`]}`}>
-                    {r.status}
+                    {t(`experiment.runStatus.${r.status}`, { defaultValue: r.status })}
                   </span>
                   <span>
-                    Trials: {r.total_trials} ({r.accepted_trials} accepted)
+                    {t('experiment.trialsLine', {
+                      total: r.total_trials,
+                      accepted: r.accepted_trials,
+                    })}
                   </span>
                   <span>
-                    Best: {r.best_metric !== null ? Number(r.best_metric).toFixed(4) : 'N/A'}
+                    {t('experiment.bestLine', {
+                      value:
+                        r.best_metric !== null ? Number(r.best_metric).toFixed(4) : t('common.na'),
+                    })}
                   </span>
                   <div className={styles.runActions}>
                     {r.status === 'running' && experimentRunId !== r.id && (
-                      <button onClick={() => subscribeExperiment(r.id, selectedExperiment.id)}>
-                        👁 Watch
+                      <button
+                        type="button"
+                        onClick={() => subscribeExperiment(r.id, selectedExperiment.id)}
+                      >
+                        {t('experiment.watch')}
                       </button>
                     )}
                     {r.status !== 'running' && (
                       <button
+                        type="button"
                         onClick={() => {
                           loadExperimentRunsEvents(r.id, selectedExperiment.id);
                           if (loadSwarmBranches) loadSwarmBranches(r.id);
                         }}
                       >
-                        View History
+                        {t('experiment.viewHistory')}
                       </button>
                     )}
                   </div>
@@ -568,7 +589,9 @@ export default function ExperimentView({
               <div className={styles.liveDashboard}>
                 <div className={styles.liveHeader}>
                   <h3>
-                    {swarmBranches.length > 0 ? 'Swarm Dashboard' : 'Live Dashboard'}
+                    {swarmBranches.length > 0
+                      ? t('experiment.swarmDashboard')
+                      : t('experiment.liveDashboard')}
                     <span className={styles.statusBadge} data-status={experimentStatus}>
                       {swarmBranches.length > 0 ? swarmStatus : experimentStatus}
                     </span>
@@ -578,18 +601,21 @@ export default function ExperimentView({
                       swarmBranches.length > 0 &&
                       abortSwarmRun && (
                         <button
+                          type="button"
                           onClick={() => abortSwarmRun(experimentRunId)}
                           className={styles.dangerButton}
                         >
-                          ■ Abort Swarm
+                          {t('experiment.abortSwarm')}
                         </button>
                       )}
                     {experimentStatus === 'running' && swarmBranches.length === 0 && (
-                      <button onClick={handleAbort} className={styles.dangerButton}>
-                        ■ Abort
+                      <button type="button" onClick={handleAbort} className={styles.dangerButton}>
+                        {t('experiment.abort')}
                       </button>
                     )}
-                    <button onClick={unsubscribeExperiment}>Close</button>
+                    <button type="button" onClick={unsubscribeExperiment}>
+                      {t('experiment.close')}
+                    </button>
                   </div>
                 </div>
 
@@ -598,13 +624,16 @@ export default function ExperimentView({
                   <div className={styles.swarmPanel}>
                     {/* Coordinator 状态行 */}
                     <div className={styles.swarmCoordinatorRow}>
-                      <span className={styles.swarmCoordinatorLabel}>Coordinator</span>
+                      <span className={styles.swarmCoordinatorLabel}>
+                        {t('experiment.coordinator')}
+                      </span>
                       <span className={styles.swarmCoordinatorStatus}>
-                        {swarmStatus === 'decomposing' && '🔍 正在拆解研究方向…'}
-                        {swarmStatus === 'running' && `🚀 ${swarmBranches.length} 个分支并行探索中`}
-                        {swarmStatus === 'synthesizing' && '🧠 正在综合结果并选择最优方向…'}
-                        {swarmStatus === 'completed' && '✅ 已选出最优分支'}
-                        {swarmStatus === 'failed' && '❌ Swarm 异常终止'}
+                        {swarmStatus === 'decomposing' && t('experiment.swarmDecomposing')}
+                        {swarmStatus === 'running' &&
+                          t('experiment.swarmRunning', { count: swarmBranches.length })}
+                        {swarmStatus === 'synthesizing' && t('experiment.swarmSynthesizing')}
+                        {swarmStatus === 'completed' && t('experiment.swarmCompleted')}
+                        {swarmStatus === 'failed' && t('experiment.swarmFailed')}
                       </span>
                     </div>
 
@@ -613,7 +642,9 @@ export default function ExperimentView({
                       <div className={styles.swarmHypotheses}>
                         {swarmHypotheses.map((h) => (
                           <div key={h.id} className={styles.swarmHypothesisItem}>
-                            <span className={styles.swarmHypothesisId}>Branch {h.id}</span>
+                            <span className={styles.swarmHypothesisId}>
+                              {t('experiment.branchId', { id: h.id })}
+                            </span>
                             <span>{h.text}</span>
                           </div>
                         ))}
@@ -634,7 +665,9 @@ export default function ExperimentView({
                     {/* Coordinator 选择理由 */}
                     {swarmReasoning && (
                       <div className={styles.swarmReasoning}>
-                        <span className={styles.swarmReasoningLabel}>选择理由</span>
+                        <span className={styles.swarmReasoningLabel}>
+                          {t('experiment.selectionReason')}
+                        </span>
                         <p>{swarmReasoning}</p>
                       </div>
                     )}
@@ -643,17 +676,17 @@ export default function ExperimentView({
                 {/* KPI Cards */}
                 <div className={styles.metricsBar}>
                   <div className={styles.metricCard}>
-                    <label>Best Metric</label>
+                    <label>{t('experiment.bestMetric')}</label>
                     <div className={styles.metricValue}>
                       {bestMetric !== null ? Number(bestMetric).toFixed(4) : '--'}
                     </div>
                   </div>
                   <div className={styles.metricCard}>
-                    <label>Trials</label>
+                    <label>{t('experiment.trials')}</label>
                     <div className={styles.metricValue}>{trialCount}</div>
                   </div>
                   <div className={styles.metricCard}>
-                    <label>Accepted</label>
+                    <label>{t('experiment.accepted')}</label>
                     <div className={styles.metricValue}>
                       {trialCount > 0
                         ? `${acceptedCount} (${Math.round((acceptedCount / trialCount) * 100)}%)`
@@ -664,8 +697,8 @@ export default function ExperimentView({
 
                 {/* ── Metric Chart ── */}
                 <div className={styles.chartWrapper}>
-                  <div className={styles.chartTitle}>Metric Progression</div>
-                  <MetricChart trialEvents={trialEvents} />
+                  <div className={styles.chartTitle}>{t('experiment.metricProgression')}</div>
+                  <MetricChart trialEvents={trialEvents} t={t} />
                 </div>
 
                 {/* Event Log */}
@@ -675,7 +708,7 @@ export default function ExperimentView({
                     Key: use timestamp + subtype which is stable across re-renders. */}
                 <div className={styles.eventsList}>
                   {experimentEvents.length === 0 && (
-                    <div className={styles.eventsEmpty}>Waiting for events…</div>
+                    <div className={styles.eventsEmpty}>{t('experiment.waitingEvents')}</div>
                   )}
                   {experimentEvents.map((evt) => (
                     <div
@@ -695,19 +728,38 @@ export default function ExperimentView({
                       <span className={styles.type}>[{evt.subtype}]</span>
                       <span className={styles.info}>
                         {evt.subtype === 'trial_complete' &&
-                          `Trial ${evt.content?.trialNumber}: ${evt.content?.metric ?? 'metric failed'} — ${evt.content?.accepted ? '✓ ACCEPTED' : '✗ REJECTED'}`}
+                          t('experiment.evtTrialComplete', {
+                            n: evt.content?.trialNumber,
+                            metric: evt.content?.metric ?? t('experiment.metricFailed'),
+                            verdict: evt.content?.accepted
+                              ? t('common.accepted')
+                              : t('common.rejected'),
+                          })}
                         {evt.subtype === 'trial_rejected' &&
-                          `Trial ${evt.content?.trialNumber} rejected: ${evt.content?.reason}`}
+                          t('experiment.evtTrialRejected', {
+                            n: evt.content?.trialNumber,
+                            reason: evt.content?.reason ?? '',
+                          })}
                         {evt.subtype === 'trial_accepted' &&
-                          `Trial ${evt.content?.trialNumber} accepted (↑${evt.content?.improvement?.toFixed(2) ?? '?'}%)`}
-                        {evt.subtype === 'baseline' && `Baseline metric: ${evt.content?.metric}`}
+                          t('experiment.evtTrialAccepted', {
+                            n: evt.content?.trialNumber,
+                            pct: evt.content?.improvement?.toFixed(2) ?? '?',
+                          })}
+                        {evt.subtype === 'baseline' &&
+                          t('experiment.evtBaseline', { metric: evt.content?.metric })}
                         {evt.subtype === 'experiment_start' &&
-                          `Experiment started (max ${evt.content?.maxExperiments} trials)`}
+                          t('experiment.evtExperimentStart', {
+                            max: evt.content?.maxExperiments,
+                          })}
                         {evt.subtype === 'experiment_done' &&
-                          `✓ Finished — ${evt.content?.totalTrials} trials, best: ${evt.content?.bestMetric}`}
+                          t('experiment.evtExperimentDone', {
+                            trials: evt.content?.totalTrials,
+                            best: evt.content?.bestMetric,
+                          })}
                         {evt.subtype === 'budget_exhausted' &&
-                          `Budget exhausted: ${evt.content?.reason}`}
-                        {evt.subtype === 'experiment_error' && `Error: ${evt.content?.error}`}
+                          t('experiment.evtBudget', { reason: evt.content?.reason ?? '' })}
+                        {evt.subtype === 'experiment_error' &&
+                          t('experiment.evtError', { error: evt.content?.error ?? '' })}
                       </span>
                     </div>
                   ))}
@@ -718,7 +770,7 @@ export default function ExperimentView({
         ) : (
           <div className={styles.emptyState}>
             <div className={styles.emptyIcon}>🔬</div>
-            <div>Select an experiment or create one from a template.</div>
+            <div>{t('experiment.emptySelect')}</div>
           </div>
         )}
       </div>

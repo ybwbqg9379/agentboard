@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import styles from './SessionDrawer.module.css';
 import { apiFetch } from '../lib/apiFetch.js';
 import ConfirmDialog from './ConfirmDialog.jsx';
@@ -6,11 +7,12 @@ import ConfirmDialog from './ConfirmDialog.jsx';
 const API_BASE = '';
 
 export default function SessionDrawer({ open, onClose, onLoadSession, currentSessionId }) {
+  const { t } = useTranslation();
   const [sessions, setSessions] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState(new Set());
-  const [confirmState, setConfirmState] = useState(null); // { type, ids, message }
+  const [confirmState, setConfirmState] = useState(null);
 
   const fetchSessions = useCallback(async () => {
     setLoading(true);
@@ -52,11 +54,11 @@ export default function SessionDrawer({ open, onClose, onLoadSession, currentSes
     }
   }
 
-  function requestDeleteSingle(e, sessionId) {
+  function requestDeleteSingle(e, sessionIdToDelete) {
     e.stopPropagation();
     setConfirmState({
-      ids: [sessionId],
-      message: 'Delete this session and all its events?',
+      ids: [sessionIdToDelete],
+      kind: 'one',
     });
   }
 
@@ -64,7 +66,7 @@ export default function SessionDrawer({ open, onClose, onLoadSession, currentSes
     if (selected.size === 0) return;
     setConfirmState({
       ids: [...selected],
-      message: `Delete ${selected.size} session${selected.size > 1 ? 's' : ''} and all their events?`,
+      kind: 'many',
     });
   }
 
@@ -118,16 +120,18 @@ export default function SessionDrawer({ open, onClose, onLoadSession, currentSes
     <div className={styles.overlay} onClick={onClose}>
       <div className={styles.drawer} onClick={(e) => e.stopPropagation()}>
         <div className={styles.header}>
-          <span>Session History</span>
+          <span>{t('sessionDrawer.title')}</span>
           <span className={styles.count}>{total}</span>
           {sessions.length > 0 && (
             <button className={styles.selectAllBtn} onClick={toggleSelectAll}>
-              {selected.size === sessions.length ? 'Deselect All' : 'Select All'}
+              {selected.size === sessions.length
+                ? t('sessionDrawer.deselectAll')
+                : t('sessionDrawer.selectAll')}
             </button>
           )}
           {isSelectMode && (
             <button className={styles.batchDeleteBtn} onClick={requestDeleteBatch}>
-              Delete ({selected.size})
+              {t('sessionDrawer.deleteBatch', { count: selected.size })}
             </button>
           )}
           <button className={styles.closeBtn} onClick={onClose}>
@@ -135,7 +139,7 @@ export default function SessionDrawer({ open, onClose, onLoadSession, currentSes
           </button>
         </div>
         <div className={styles.list}>
-          {loading && <div className={styles.loading}>Loading...</div>}
+          {loading && <div className={styles.loading}>{t('sessionDrawer.loading')}</div>}
           {sessions.map((s) => (
             <div
               key={s.id}
@@ -157,7 +161,9 @@ export default function SessionDrawer({ open, onClose, onLoadSession, currentSes
               >
                 <div className={styles.itemHeader}>
                   <span className={`dot ${statusDot(s.status)}`} />
-                  <span className={styles.itemStatus}>{s.status}</span>
+                  <span className={styles.itemStatus}>
+                    {t(`sessionStatus.${s.status}`, { defaultValue: s.status })}
+                  </span>
                   <span className={styles.itemTime}>{new Date(s.created_at).toLocaleString()}</span>
                 </div>
                 <div className={styles.itemPrompt}>
@@ -182,21 +188,29 @@ export default function SessionDrawer({ open, onClose, onLoadSession, currentSes
               </button>
               <button
                 className={styles.deleteBtn}
-                title="Delete session"
+                title={t('sessionDrawer.deleteSessionTitle')}
                 onClick={(e) => requestDeleteSingle(e, s.id)}
               >
                 🗑
               </button>
             </div>
           ))}
-          {!loading && sessions.length === 0 && <div className={styles.empty}>No sessions yet</div>}
+          {!loading && sessions.length === 0 && (
+            <div className={styles.empty}>{t('sessionDrawer.empty')}</div>
+          )}
         </div>
       </div>
 
       <ConfirmDialog
         open={!!confirmState}
-        title="Delete Sessions"
-        message={confirmState?.message || ''}
+        title={t('sessionDrawer.confirmDeleteTitle')}
+        message={
+          confirmState?.kind === 'one'
+            ? t('sessionDrawer.confirmDeleteOne')
+            : t('sessionDrawer.confirmDeleteMany', { count: confirmState?.ids?.length ?? 0 })
+        }
+        confirmLabel={t('sessionDrawer.confirmDelete')}
+        cancelLabel={t('sessionDrawer.confirmCancel')}
         onConfirm={executeDelete}
         onCancel={() => setConfirmState(null)}
       />

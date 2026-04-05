@@ -1,4 +1,5 @@
 import { useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import styles from './ConfirmDialog.module.css';
 
 /**
@@ -6,24 +7,30 @@ import styles from './ConfirmDialog.module.css';
  * Replaces browser-native window.confirm().
  *
  * @param {boolean} open - Whether the dialog is visible
- * @param {string} title - Dialog title
- * @param {string} message - Confirmation message body
- * @param {string} [confirmLabel='Delete'] - Label for the confirm button
- * @param {string} [cancelLabel='Cancel'] - Label for the cancel button
+ * @param {string} [title] - Dialog title (defaults to i18n)
+ * @param {string} [message] - Confirmation message body (defaults to i18n)
+ * @param {string} [confirmLabel] - Label for the confirm button (defaults to i18n)
+ * @param {string} [cancelLabel] - Label for the cancel button (defaults to i18n)
  * @param {'danger'|'default'} [variant='danger'] - Visual style
  * @param {() => void} onConfirm - Called when user confirms
  * @param {() => void} onCancel - Called when user cancels
  */
 export default function ConfirmDialog({
   open,
-  title = 'Confirm',
-  message = 'Are you sure?',
-  confirmLabel = 'Delete',
-  cancelLabel = 'Cancel',
+  title,
+  message,
+  confirmLabel,
+  cancelLabel,
   variant = 'danger',
   onConfirm,
   onCancel,
 }) {
+  const { t } = useTranslation();
+  const resolvedTitle = title ?? t('confirmDialog.defaultTitle');
+  const resolvedMessage = message ?? t('confirmDialog.defaultMessage');
+  const resolvedConfirm = confirmLabel ?? t('confirmDialog.defaultConfirm');
+  const resolvedCancel = cancelLabel ?? t('confirmDialog.defaultCancel');
+
   const handleKeyDown = useCallback(
     (e) => {
       if (e.key === 'Escape') onCancel();
@@ -48,17 +55,17 @@ export default function ConfirmDialog({
   return (
     <div className={styles.overlay} onClick={onCancel}>
       <div className={styles.dialog} onClick={(e) => e.stopPropagation()}>
-        <div className={styles.title}>{title}</div>
-        <div className={styles.message}>{message}</div>
+        <div className={styles.title}>{resolvedTitle}</div>
+        <div className={styles.message}>{resolvedMessage}</div>
         <div className={styles.actions}>
           <button className={styles.cancelBtn} onClick={onCancel}>
-            {cancelLabel}
+            {resolvedCancel}
           </button>
           <button
             className={`${styles.confirmBtn} ${variant === 'danger' ? styles.danger : ''}`}
             onClick={onConfirm}
           >
-            {confirmLabel}
+            {resolvedConfirm}
           </button>
         </div>
       </div>

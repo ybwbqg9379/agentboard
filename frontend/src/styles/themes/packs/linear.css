@@ -1,0 +1,65 @@
+/*
+ * Theme pack: Linear-inspired (from awesome-design-md / Stitch-style palette).
+ * Loaded after agentboard.css; only color roles that differ are set.
+ */
+html[data-theme-pack='linear'] {
+  --bg-primary: #f7f8f8;
+  --bg-secondary: #f3f4f5;
+  --bg-tertiary: #e8eaed;
+  --bg-elevated: #ffffff;
+  --bg-hover: #e8eaed;
+  --bg-black-rgb: 15, 16, 17;
+
+  --border-primary: #d0d6e0;
+  --border-secondary: #c8ced8;
+  --border-accent: #5e6ad2;
+  --border-color: var(--border-primary);
+
+  --text-primary: #101828;
+  --text-secondary: #525866;
+  --text-tertiary: #6e7380;
+  --text-accent: #5e6ad2;
+  --bg-accent: #7170ff;
+
+  --status-running: #27a644;
+  --status-running-rgb: 39, 166, 68;
+  --status-thinking: #f59e0b;
+  --status-thinking-rgb: 245, 158, 11;
+  --status-error: #ef4444;
+  --status-error-rgb: 239, 68, 68;
+  --status-done: #7170ff;
+  --status-done-rgb: 113, 112, 255;
+  --status-tool: #0ea5e9;
+  --status-tool-rgb: 14, 165, 233;
+}
+
+html[data-theme-pack='linear'][data-theme='dark'] {
+  --bg-primary: #08090a;
+  --bg-secondary: #0f1011;
+  --bg-tertiary: #191a1b;
+  --bg-elevated: #191a1b;
+  --bg-hover: #28282c;
+  --bg-black-rgb: 8, 9, 10;
+
+  --border-primary: #23252a;
+  --border-secondary: #34343a;
+  --border-accent: #7170ff;
+  --border-color: rgba(255, 255, 255, 0.08);
+
+  --text-primary: #f7f8f8;
+  --text-secondary: #d0d6e0;
+  --text-tertiary: #8a8f98;
+  --text-accent: #828fff;
+  --bg-accent: #7170ff;
+
+  --status-running: #10b981;
+  --status-running-rgb: 16, 185, 129;
+  --status-thinking: #f59e0b;
+  --status-thinking-rgb: 245, 158, 11;
+  --status-error: #ef4444;
+  --status-error-rgb: 239, 68, 68;
+  --status-done: #828fff;
+  --status-done-rgb: 130, 143, 255;
+  --status-tool: #38bdf8;
+  --status-tool-rgb: 56, 189, 248;
+}

@@ -1,6 +1,6 @@
 {
   "name": "agentboard-backend",
-  "version": "0.16.0",
+  "version": "0.16.2",
   "private": true,
   "type": "module",
   "scripts": {

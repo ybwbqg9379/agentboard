@@ -27,6 +27,7 @@ export default [
         document: 'readonly',
         URLSearchParams: 'readonly',
         localStorage: 'readonly',
+        navigator: 'readonly',
         Math: 'readonly',
         __APP_VERSION__: 'readonly',
         requestAnimationFrame: 'readonly',

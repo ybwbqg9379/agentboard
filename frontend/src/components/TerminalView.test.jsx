@@ -1,8 +1,15 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeAll } from 'vitest';
 
 vi.mock('./TerminalView.module.css', () => ({ default: {} }));
 
+import i18n from '../i18n.js';
 import { extractTerminalLines, getCommandDisplay } from './TerminalView.jsx';
+
+beforeAll(async () => {
+  await i18n.changeLanguage('en');
+});
+
+const enT = i18n.getFixedT('en');
 
 // ---------------------------------------------------------------------------
 // getCommandDisplay
@@ -10,86 +17,99 @@ import { extractTerminalLines, getCommandDisplay } from './TerminalView.jsx';
 
 describe('getCommandDisplay', () => {
   it('returns Bash command with $ prefix', () => {
-    expect(getCommandDisplay('Bash', { command: 'ls' })).toEqual({ prefix: '$', text: 'ls' });
+    expect(getCommandDisplay('Bash', { command: 'ls' }, enT)).toEqual({
+      prefix: '$',
+      text: 'ls',
+    });
   });
 
   it('returns Bash with string input', () => {
-    expect(getCommandDisplay('Bash', 'echo hi')).toEqual({ prefix: '$', text: 'echo hi' });
+    expect(getCommandDisplay('Bash', 'echo hi', enT)).toEqual({ prefix: '$', text: 'echo hi' });
   });
 
   it('returns null for Bash with empty command', () => {
-    expect(getCommandDisplay('Bash', {})).toBeNull();
+    expect(getCommandDisplay('Bash', {}, enT)).toBeNull();
   });
 
   it('handles lowercase "bash"', () => {
-    expect(getCommandDisplay('bash', { command: 'pwd' })).toEqual({ prefix: '$', text: 'pwd' });
+    expect(getCommandDisplay('bash', { command: 'pwd' }, enT)).toEqual({
+      prefix: '$',
+      text: 'pwd',
+    });
   });
 
   it('returns WebSearch query with ? prefix', () => {
-    expect(getCommandDisplay('WebSearch', { query: 'test query' })).toEqual({
+    expect(getCommandDisplay('WebSearch', { query: 'test query' }, enT)).toEqual({
       prefix: '?',
       text: 'test query',
     });
   });
 
   it('returns null for WebSearch without query', () => {
-    expect(getCommandDisplay('WebSearch', {})).toBeNull();
+    expect(getCommandDisplay('WebSearch', {}, enT)).toBeNull();
   });
 
   it('returns WebFetch URL with > prefix', () => {
-    expect(getCommandDisplay('WebFetch', { url: 'https://example.com' })).toEqual({
+    expect(getCommandDisplay('WebFetch', { url: 'https://example.com' }, enT)).toEqual({
       prefix: '>',
       text: 'https://example.com',
     });
   });
 
   it('returns null for WebFetch without url', () => {
-    expect(getCommandDisplay('WebFetch', {})).toBeNull();
+    expect(getCommandDisplay('WebFetch', {}, enT)).toBeNull();
   });
 
   it('returns browser_navigate URL with > prefix', () => {
     expect(
-      getCommandDisplay('mcp__browser__browser_navigate', { url: 'https://yahoo.com' }),
+      getCommandDisplay('mcp__browser__browser_navigate', { url: 'https://yahoo.com' }, enT),
     ).toEqual({ prefix: '>', text: 'https://yahoo.com' });
   });
 
   it('returns browser_snapshot with > prefix', () => {
-    expect(getCommandDisplay('mcp__browser__browser_snapshot', {})).toEqual({
+    expect(getCommandDisplay('mcp__browser__browser_snapshot', {}, enT)).toEqual({
       prefix: '>',
       text: 'browser snapshot',
     });
   });
 
   it('returns browser_click with element info', () => {
-    expect(getCommandDisplay('mcp__browser__browser_click', { element: 'Submit' })).toEqual({
+    expect(getCommandDisplay('mcp__browser__browser_click', { element: 'Submit' }, enT)).toEqual({
       prefix: '>',
       text: 'click Submit',
     });
   });
 
   it('returns browser_click with selector fallback', () => {
-    expect(getCommandDisplay('mcp__browser__browser_click', { selector: '#btn' })).toEqual({
+    expect(getCommandDisplay('mcp__browser__browser_click', { selector: '#btn' }, enT)).toEqual({
       prefix: '>',
       text: 'click #btn',
     });
   });
 
+  it('returns browser_click with no target using i18n bare label', () => {
+    expect(getCommandDisplay('mcp__browser__browser_click', {}, enT)).toEqual({
+      prefix: '>',
+      text: 'click',
+    });
+  });
+
   it('returns browser_type with text', () => {
-    expect(getCommandDisplay('mcp__browser__browser_type', { text: 'hello' })).toEqual({
+    expect(getCommandDisplay('mcp__browser__browser_type', { text: 'hello' }, enT)).toEqual({
       prefix: '>',
       text: 'type "hello"',
     });
   });
 
   it('returns null for unknown tools', () => {
-    expect(getCommandDisplay('Read', { file_path: '/a' })).toBeNull();
-    expect(getCommandDisplay('Write', { file_path: '/b' })).toBeNull();
-    expect(getCommandDisplay('Grep', { pattern: 'x' })).toBeNull();
+    expect(getCommandDisplay('Read', { file_path: '/a' }, enT)).toBeNull();
+    expect(getCommandDisplay('Write', { file_path: '/b' }, enT)).toBeNull();
+    expect(getCommandDisplay('Grep', { pattern: 'x' }, enT)).toBeNull();
   });
 
   it('returns null for null/undefined name', () => {
-    expect(getCommandDisplay(null, {})).toBeNull();
-    expect(getCommandDisplay(undefined, {})).toBeNull();
+    expect(getCommandDisplay(null, {}, enT)).toBeNull();
+    expect(getCommandDisplay(undefined, {}, enT)).toBeNull();
   });
 });
 
@@ -99,7 +119,7 @@ describe('getCommandDisplay', () => {
 
 describe('extractTerminalLines - Bash', () => {
   it('returns empty array for empty events', () => {
-    expect(extractTerminalLines([])).toEqual([]);
+    expect(extractTerminalLines([], enT)).toEqual([]);
   });
 
   it('returns empty array when no terminal tools present', () => {
@@ -111,7 +131,7 @@ describe('extractTerminalLines - Bash', () => {
         },
       },
     ];
-    expect(extractTerminalLines(events)).toEqual([]);
+    expect(extractTerminalLines(events, enT)).toEqual([]);
   });
 
   it('extracts Bash commands from content blocks', () => {
@@ -123,7 +143,7 @@ describe('extractTerminalLines - Bash', () => {
         },
       },
     ];
-    const lines = extractTerminalLines(events);
+    const lines = extractTerminalLines(events, enT);
     expect(lines).toHaveLength(1);
     expect(lines[0]).toMatchObject({ type: 'command', prefix: '$', text: 'ls -la' });
     expect(lines[0].key).toMatch(/^cmd-/);
@@ -141,7 +161,7 @@ describe('extractTerminalLines - Bash', () => {
         },
       },
     ];
-    const lines = extractTerminalLines(events);
+    const lines = extractTerminalLines(events, enT);
     expect(lines).toHaveLength(2);
     expect(lines[0]).toMatchObject({ type: 'command', prefix: '$', text: 'echo hi' });
     expect(lines[1]).toMatchObject({ type: 'output', text: 'hi' });
@@ -159,14 +179,14 @@ describe('extractTerminalLines - Bash', () => {
         },
       },
     ];
-    expect(extractTerminalLines(events)).toEqual([]);
+    expect(extractTerminalLines(events, enT)).toEqual([]);
   });
 
   it('handles top-level tool_use events', () => {
     const events = [
       { type: 'tool_use', content: { name: 'Bash', id: 'tu1', input: { command: 'pwd' } } },
     ];
-    const lines = extractTerminalLines(events);
+    const lines = extractTerminalLines(events, enT);
     expect(lines).toHaveLength(1);
     expect(lines[0]).toMatchObject({ type: 'command', prefix: '$', text: 'pwd' });
   });
@@ -176,7 +196,7 @@ describe('extractTerminalLines - Bash', () => {
       { type: 'tool_use', content: { name: 'Bash', id: 'tu1', input: { command: 'pwd' } } },
       { type: 'tool_result', content: { tool_use_id: 'tu1', output: '/home/user' } },
     ];
-    const lines = extractTerminalLines(events);
+    const lines = extractTerminalLines(events, enT);
     expect(lines).toHaveLength(2);
     expect(lines[1]).toMatchObject({ type: 'output', text: '/home/user' });
   });
@@ -193,13 +213,13 @@ describe('extractTerminalLines - Bash', () => {
         },
       },
     ];
-    const lines = extractTerminalLines(events);
+    const lines = extractTerminalLines(events, enT);
     expect(lines[1]).toMatchObject({ type: 'error', text: 'not found' });
   });
 
   it('extracts stderr events', () => {
     const events = [{ type: 'stderr', content: { text: 'permission denied' } }];
-    const lines = extractTerminalLines(events);
+    const lines = extractTerminalLines(events, enT);
     expect(lines).toHaveLength(1);
     expect(lines[0]).toMatchObject({ type: 'error', text: 'permission denied' });
     expect(lines[0].key).toMatch(/^err-/);
@@ -219,7 +239,7 @@ describe('extractTerminalLines - Bash', () => {
         },
       },
     ];
-    const lines = extractTerminalLines(events);
+    const lines = extractTerminalLines(events, enT);
     expect(lines).toHaveLength(4);
     expect(lines[0]).toMatchObject({ type: 'command', text: 'ls' });
     expect(lines[1]).toMatchObject({ type: 'output', text: 'file.txt' });
@@ -236,7 +256,7 @@ describe('extractTerminalLines - Bash', () => {
         },
       },
     ];
-    const lines = extractTerminalLines(events);
+    const lines = extractTerminalLines(events, enT);
     expect(lines).toHaveLength(1);
     expect(lines[0]).toMatchObject({ prefix: '$', text: 'whoami' });
   });
@@ -250,7 +270,7 @@ describe('extractTerminalLines - Bash', () => {
         },
       },
     ];
-    expect(extractTerminalLines(events)).toEqual([]);
+    expect(extractTerminalLines(events, enT)).toEqual([]);
   });
 
   it('skips tool_result with empty output', () => {
@@ -265,7 +285,7 @@ describe('extractTerminalLines - Bash', () => {
         },
       },
     ];
-    const lines = extractTerminalLines(events);
+    const lines = extractTerminalLines(events, enT);
     expect(lines).toHaveLength(1); // only the command
   });
 
@@ -282,7 +302,7 @@ describe('extractTerminalLines - Bash', () => {
       },
       { type: 'stderr', content: { text: 'err' } },
     ];
-    const lines = extractTerminalLines(events);
+    const lines = extractTerminalLines(events, enT);
     const keys = lines.map((l) => l.key);
     expect(new Set(keys).size).toBe(keys.length);
   });
@@ -304,7 +324,7 @@ describe('extractTerminalLines - web tools', () => {
         },
       },
     ];
-    const lines = extractTerminalLines(events);
+    const lines = extractTerminalLines(events, enT);
     expect(lines).toHaveLength(1);
     expect(lines[0]).toMatchObject({ type: 'command', prefix: '?', text: 'S&P 500 Q1' });
   });
@@ -325,7 +345,7 @@ describe('extractTerminalLines - web tools', () => {
         },
       },
     ];
-    const lines = extractTerminalLines(events);
+    const lines = extractTerminalLines(events, enT);
     expect(lines).toHaveLength(1);
     expect(lines[0]).toMatchObject({ type: 'command', prefix: '>', text: 'https://example.com' });
   });
@@ -346,7 +366,7 @@ describe('extractTerminalLines - web tools', () => {
         },
       },
     ];
-    const lines = extractTerminalLines(events);
+    const lines = extractTerminalLines(events, enT);
     expect(lines).toHaveLength(1);
     expect(lines[0]).toMatchObject({ type: 'command', prefix: '>', text: 'https://yahoo.com' });
   });
@@ -362,7 +382,7 @@ describe('extractTerminalLines - web tools', () => {
         },
       },
     ];
-    const lines = extractTerminalLines(events);
+    const lines = extractTerminalLines(events, enT);
     expect(lines).toHaveLength(1);
     expect(lines[0]).toMatchObject({ type: 'command', prefix: '>', text: 'browser snapshot' });
   });
@@ -383,7 +403,7 @@ describe('extractTerminalLines - web tools', () => {
         },
       },
     ];
-    const lines = extractTerminalLines(events);
+    const lines = extractTerminalLines(events, enT);
     expect(lines[0]).toMatchObject({ prefix: '>', text: 'click Submit' });
   });
 
@@ -403,7 +423,7 @@ describe('extractTerminalLines - web tools', () => {
         },
       },
     ];
-    const lines = extractTerminalLines(events);
+    const lines = extractTerminalLines(events, enT);
     expect(lines[0]).toMatchObject({ prefix: '>', text: 'type "hello"' });
   });
 
@@ -428,7 +448,7 @@ describe('extractTerminalLines - web tools', () => {
         },
       },
     ];
-    const lines = extractTerminalLines(events);
+    const lines = extractTerminalLines(events, enT);
     // Only the command line, no output
     expect(lines).toHaveLength(1);
     expect(lines[0]).toMatchObject({ type: 'command', prefix: '?' });
@@ -456,7 +476,7 @@ describe('extractTerminalLines - web tools', () => {
         },
       },
     ];
-    const lines = extractTerminalLines(events);
+    const lines = extractTerminalLines(events, enT);
     // Bash cmd + output + WebSearch cmd + browser_navigate cmd = 4 lines
     // Read tool is ignored, WebSearch tool_result is ignored
     expect(lines).toHaveLength(4);
@@ -470,7 +490,7 @@ describe('extractTerminalLines - web tools', () => {
     const events = [
       { type: 'tool_use', content: { name: 'WebSearch', id: 'ws1', input: { query: 'q' } } },
     ];
-    const lines = extractTerminalLines(events);
+    const lines = extractTerminalLines(events, enT);
     expect(lines).toHaveLength(1);
     expect(lines[0]).toMatchObject({ prefix: '?', text: 'q' });
   });

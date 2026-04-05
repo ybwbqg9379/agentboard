@@ -13,10 +13,16 @@ npx prettier --check . || exit 1
 echo "[pre-commit] Running lint (zero warnings)..."
 npx eslint --max-warnings 0 backend/ frontend/src/ || exit 1
 
+echo "[pre-commit] Checking i18n (locales + source keys + unused en keys)..."
+node scripts/check-i18n.mjs || exit 1
+
 echo "[pre-commit] Running tests..."
 npm test || exit 1
 
 echo "[pre-commit] Running build..."
 npm run build || exit 1
+
+echo "[pre-commit] Running Playwright smoke (built preview)..."
+npx playwright test || exit 1
 
 echo "[pre-commit] All checks passed."

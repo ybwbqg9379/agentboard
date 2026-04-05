@@ -1,4 +1,5 @@
 import { Component } from 'react';
+import i18n from '../i18n.js';
 
 export class ErrorBoundary extends Component {
   constructor(props) {
@@ -20,17 +21,17 @@ export class ErrorBoundary extends Component {
 
   render() {
     if (this.state.hasError) {
-      const msg = this.state.error?.message || 'Unknown error';
+      const msg = this.state.error?.message || i18n.t('errorBoundary.unknownError');
       return (
         <div className="error-boundary-fallback" role="alert">
-          <h1 className="error-boundary-fallback__title">Something went wrong</h1>
+          <h1 className="error-boundary-fallback__title">{i18n.t('errorBoundary.title')}</h1>
           <p className="error-boundary-fallback__message">{msg}</p>
           <button
             type="button"
             className="error-boundary-fallback__retry"
             onClick={this.handleRetry}
           >
-            Try again
+            {i18n.t('errorBoundary.tryAgain')}
           </button>
         </div>
       );

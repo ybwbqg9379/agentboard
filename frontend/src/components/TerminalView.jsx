@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import styles from './TerminalView.module.css';
 
 const BASH_NAMES = new Set(['Bash', 'bash']);
@@ -7,7 +8,7 @@ const BASH_NAMES = new Set(['Bash', 'bash']);
  * Map a tool_use block to a terminal-displayable command.
  * Returns { prefix, text } or null if the tool should not appear in terminal.
  */
-export function getCommandDisplay(name, input) {
+export function getCommandDisplay(name, input, t) {
   if (BASH_NAMES.has(name)) {
     const cmd = input?.command || (typeof input === 'string' ? input : '');
     return cmd ? { prefix: '$', text: cmd } : null;
@@ -22,21 +23,24 @@ export function getCommandDisplay(name, input) {
     return input?.url ? { prefix: '>', text: input.url } : null;
   }
   if (name === 'mcp__browser__browser_snapshot') {
-    return { prefix: '>', text: 'browser snapshot' };
+    return { prefix: '>', text: t('terminal.browserSnapshot') };
   }
   if (name === 'mcp__browser__browser_click') {
-    return { prefix: '>', text: `click ${input?.element || input?.selector || ''}`.trim() };
+    const target = `${input?.element || input?.selector || ''}`.trim();
+    return {
+      prefix: '>',
+      text: target ? t('terminal.browserClick', { target }) : t('terminal.browserClickBare'),
+    };
   }
   if (name === 'mcp__browser__browser_type') {
-    return { prefix: '>', text: `type "${input?.text || ''}"` };
+    return { prefix: '>', text: t('terminal.browserType', { text: input?.text || '' }) };
   }
   return null;
 }
 
-export function extractTerminalLines(events) {
+export function extractTerminalLines(events, t) {
   const lines = [];
   let lineIdx = 0;
-  // Track Bash tool_use IDs so we only show their corresponding tool_results
   const bashToolIds = new Set();
 
   for (const event of events) {
@@ -46,7 +50,7 @@ export function extractTerminalLines(events) {
     if (Array.isArray(blocks)) {
       for (const block of blocks) {
         if (block.type === 'tool_use') {
-          const display = getCommandDisplay(block.name, block.input);
+          const display = getCommandDisplay(block.name, block.input, t);
           if (display) {
             if (block.id && BASH_NAMES.has(block.name)) bashToolIds.add(block.id);
             lines.push({
@@ -57,7 +61,6 @@ export function extractTerminalLines(events) {
             });
           }
         }
-        // Only show tool_result output for Bash tools
         if (
           block.type === 'tool_result' &&
           block.tool_use_id &&
@@ -74,9 +77,8 @@ export function extractTerminalLines(events) {
       }
     }
 
-    // Top-level tool_use
     if (type === 'tool_use') {
-      const display = getCommandDisplay(content?.name, content?.input || content);
+      const display = getCommandDisplay(content?.name, content?.input || content, t);
       if (display) {
         if (content?.id && BASH_NAMES.has(content.name)) bashToolIds.add(content.id);
         lines.push({
@@ -88,7 +90,6 @@ export function extractTerminalLines(events) {
       }
     }
 
-    // Top-level tool_result -- only for Bash
     if (type === 'tool_result' && content?.tool_use_id && bashToolIds.has(content.tool_use_id)) {
       const output =
         content?.output || (typeof content?.content === 'string' ? content.content : '');
@@ -100,7 +101,6 @@ export function extractTerminalLines(events) {
         });
     }
 
-    // stderr
     if (type === 'stderr') {
       lines.push({ type: 'error', text: content?.text || '', key: `err-${lineIdx++}` });
     }
@@ -110,8 +110,9 @@ export function extractTerminalLines(events) {
 }
 
 export default function TerminalView({ events }) {
+  const { t } = useTranslation();
   const bottomRef = useRef(null);
-  const lines = useMemo(() => extractTerminalLines(events), [events]);
+  const lines = useMemo(() => extractTerminalLines(events, t), [events, t]);
 
   useEffect(() => {
     const id = requestAnimationFrame(() => {
@@ -123,8 +124,8 @@ export default function TerminalView({ events }) {
   if (lines.length === 0) {
     return (
       <div className={styles.empty}>
-        <div>No terminal output</div>
-        <div>Commands executed by the agent will appear here</div>
+        <div>{t('terminal.emptyTitle')}</div>
+        <div>{t('terminal.emptyHint')}</div>
       </div>
     );
   }

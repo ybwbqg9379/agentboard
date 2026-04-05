@@ -1,55 +1,73 @@
+import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import styles from './ContextPanel.module.css';
 
-/**
- * Token 用量可视化面板 -- 展示 input/output/cache token 占比和分布条。
- */
 export default function ContextPanel({ sessionStats }) {
+  const { t } = useTranslation();
   const input = sessionStats?.input_tokens || 0;
   const output = sessionStats?.output_tokens || 0;
   const cache = sessionStats?.cache_read_tokens || 0;
   const total = input + output + cache;
 
+  const segments = useMemo(() => {
+    const segs = [
+      { key: 'input', label: t('contextPanel.input'), value: input, color: 'var(--status-tool)' },
+      {
+        key: 'output',
+        label: t('contextPanel.output'),
+        value: output,
+        color: 'var(--status-done)',
+      },
+    ];
+    if (cache > 0) {
+      segs.push({
+        key: 'cache',
+        label: t('contextPanel.cache'),
+        value: cache,
+        color: 'var(--status-thinking)',
+      });
+    }
+    return segs;
+  }, [t, input, output, cache]);
+
   if (total === 0) {
     return (
       <div className={styles.panel}>
-        <div className={styles.header}>Context Usage</div>
-        <div className={styles.empty}>No token data available</div>
+        <div className={styles.header}>{t('contextPanel.header')}</div>
+        <div className={styles.empty}>{t('contextPanel.empty')}</div>
       </div>
     );
-  }
-
-  const segments = [
-    { label: 'Input', value: input, color: 'var(--status-tool)' },
-    { label: 'Output', value: output, color: 'var(--status-done)' },
-  ];
-  if (cache > 0) {
-    segments.push({ label: 'Cache', value: cache, color: 'var(--status-thinking)' });
   }
 
   return (
     <div className={styles.panel}>
       <div className={styles.header}>
-        Context Usage
-        <span className={styles.total}>{formatTokens(total)} tokens</span>
+        {t('contextPanel.header')}
+        <span className={styles.total}>
+          {t('contextPanel.totalTokens', { formatted: formatTokens(total) })}
+        </span>
       </div>
 
       <div className={styles.bar}>
         {segments.map((seg) => (
           <div
-            key={seg.label}
+            key={seg.key}
             className={styles.segment}
             style={{
               width: `${(seg.value / total) * 100}%`,
               background: seg.color,
             }}
-            title={`${seg.label}: ${formatTokens(seg.value)}`}
+            title={t('contextPanel.segmentTitle', {
+              label: seg.label,
+              value: formatTokens(seg.value),
+            })}
           />
         ))}
       </div>
 
       <div className={styles.legend}>
         {segments.map((seg) => (
-          <div key={seg.label} className={styles.legendItem}>
+          <div key={seg.key} className={styles.legendItem}>
             <span className={styles.legendDot} style={{ background: seg.color }} />
             <span className={styles.legendLabel}>{seg.label}</span>
             <span className={styles.legendValue}>{formatTokens(seg.value)}</span>
@@ -60,8 +78,10 @@ export default function ContextPanel({ sessionStats }) {
 
       {sessionStats?.cost_usd > 0 && (
         <div className={styles.cost}>
-          Cost: ${sessionStats.cost_usd.toFixed(4)}
-          {sessionStats?.model && <span> ({sessionStats.model})</span>}
+          {t('contextPanel.cost', {
+            amount: sessionStats.cost_usd.toFixed(4),
+            model: sessionStats?.model ? ` (${sessionStats.model})` : '',
+          })}
         </div>
       )}
     </div>

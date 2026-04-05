@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import styles from './FileChangesPanel.module.css';
 
 /**
@@ -38,13 +39,14 @@ function basename(path) {
 }
 
 export default function FileChangesPanel({ events }) {
+  const { t } = useTranslation();
   const files = useMemo(() => extractFileChanges(events), [events]);
 
   if (files.length === 0) {
     return (
       <div className={styles.panel}>
-        <div className={styles.header}>Files Touched</div>
-        <div className={styles.empty}>No file operations yet</div>
+        <div className={styles.header}>{t('filesPanel.header')}</div>
+        <div className={styles.empty}>{t('filesPanel.empty')}</div>
       </div>
     );
   }
@@ -55,13 +57,15 @@ export default function FileChangesPanel({ events }) {
   return (
     <div className={styles.panel}>
       <div className={styles.header}>
-        Files Touched
+        {t('filesPanel.header')}
         <span className={styles.count}>{files.length}</span>
       </div>
       <div className={styles.list}>
         {modified.length > 0 && (
           <div className={styles.group}>
-            <div className={styles.groupLabel}>Modified ({modified.length})</div>
+            <div className={styles.groupLabel}>
+              {t('filesPanel.modified', { count: modified.length })}
+            </div>
             {modified.map((f) => (
               <div key={f.path} className={styles.file}>
                 <span className={styles.dot} style={{ background: 'var(--status-running)' }} />
@@ -79,7 +83,9 @@ export default function FileChangesPanel({ events }) {
         )}
         {readOnly.length > 0 && (
           <div className={styles.group}>
-            <div className={styles.groupLabel}>Read Only ({readOnly.length})</div>
+            <div className={styles.groupLabel}>
+              {t('filesPanel.readOnly', { count: readOnly.length })}
+            </div>
             {readOnly.map((f) => (
               <div key={f.path} className={styles.file}>
                 <span className={styles.dot} style={{ background: 'var(--text-tertiary)' }} />

@@ -10,7 +10,7 @@
 
 ## 二、测试先行 (Testing Guidelines)
 
-AgentBoard 是一个核心逻辑极其复杂的编排引擎。我们使用 `Vitest`：**全仓约 851** 个用例（后端 **633**、前端 **218**，随仓库演进持续补齐）。
+AgentBoard 是一个核心逻辑极其复杂的编排引擎。我们使用 `Vitest`：**全仓约 852** 个用例（后端 **633**、前端 **219**，随仓库演进持续补齐）。
 
 ### 1. 运行测试
 
@@ -66,11 +66,15 @@ npm run check
 
 - `npm run format:check`：由 Prettier 接管，确保文件完全符合作者指定的格式 (无单引号转抛、行宽 100 等)。
 - `npm run lint:strict`：由 ESLint 接管，**零警告 (Zero Warning) 容忍**。
+- `npm run i18n:check`：校验 en ↔ zh、源码 key、禁止的 `t()` 写法与未使用键等（见 `frontend/DESIGN.md`）。
 - `npm run build`：确保 Vite 生产构建打包一切正常。
+- **`playwright test`**：对构建产物启动 `vite preview`，跑 `e2e/` 冒烟用例（与 `npm run test:e2e` 中 Playwright 部分一致，后者会先执行 `build`）。
+
+`pre-commit` 在 `npm test` 与 `npm run build` 之后同样会执行 **`npx playwright test`**。首次在本机跑 E2E 前若缺浏览器，可执行：`npx playwright install chromium --only-shell`。
 
 ### 2. Husky Hook 防治
 
-项目已经集成基于 Husky 的 `pre-commit` 门禁，如果您绕过格式器试图强行提交流程，极大概率会被 Hooks 在本地级驳回。
+项目已经集成基于 Husky 的 `pre-commit` 门禁（含格式、lint、i18n、测试、构建与 Playwright），如果您绕过格式器试图强行提交流程，极大概率会被 Hooks 在本地级驳回。
 
 另外，请注意 **CHANGELOG.md 常态化更新**：如果有影响项目体验的 feature 交付，必须同步将其记录到未发布版本的 Changelog 内，避免文档漂移。
 

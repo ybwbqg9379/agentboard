@@ -1,0 +1,63 @@
+/* Default theme pack (AgentBoard / zinc–indigo). Maps semantic tokens for :root + light/dark. */
+
+:root {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f4f4f5;
+  --bg-tertiary: #e4e4e7;
+  --bg-elevated: #ffffff;
+  --bg-hover: #e4e4e7;
+  --bg-black-rgb: 0, 0, 0;
+
+  --border-primary: #e4e4e7;
+  --border-secondary: #d4d4d8;
+  --border-accent: #6366f1;
+  --border-color: var(--border-primary);
+
+  --text-primary: #09090b;
+  --text-secondary: #71717a;
+  --text-tertiary: #a1a1aa;
+  --text-accent: #6366f1;
+  --bg-accent: var(--text-accent);
+
+  --status-running: #22c55e;
+  --status-running-rgb: 34, 197, 94;
+  --status-thinking: #f59e0b;
+  --status-thinking-rgb: 245, 158, 11;
+  --status-error: #ef4444;
+  --status-error-rgb: 239, 68, 68;
+  --status-done: #6366f1;
+  --status-done-rgb: 99, 102, 241;
+  --status-tool: #0ea5e9;
+  --status-tool-rgb: 14, 165, 233;
+}
+
+[data-theme='dark'] {
+  --bg-primary: #09090b;
+  --bg-secondary: #111113;
+  --bg-tertiary: #18181b;
+  --bg-elevated: #1c1c1f;
+  --bg-hover: #27272a;
+  --bg-black-rgb: 0, 0, 0;
+
+  --border-primary: #27272a;
+  --border-secondary: #3f3f46;
+  --border-accent: #6366f1;
+  --border-color: var(--border-primary);
+
+  --text-primary: #fafafa;
+  --text-secondary: #a1a1aa;
+  --text-tertiary: #71717a;
+  --text-accent: #818cf8;
+  --bg-accent: var(--text-accent);
+
+  --status-running: #22c55e;
+  --status-running-rgb: 34, 197, 94;
+  --status-thinking: #f59e0b;
+  --status-thinking-rgb: 245, 158, 11;
+  --status-error: #ef4444;
+  --status-error-rgb: 239, 68, 68;
+  --status-done: #6366f1;
+  --status-done-rgb: 99, 102, 241;
+  --status-tool: #0ea5e9;
+  --status-tool-rgb: 14, 165, 233;
+}

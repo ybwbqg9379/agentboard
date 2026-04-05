@@ -1,5 +1,66 @@
 # Changelog
 
+## [0.16.2] - 2026-04-04
+
+### chore: 文档测试计数、i18n 边界门禁、E2E 与 document title / RTL
+
+#### Added
+
+- **Playwright 冒烟**：根目录 `e2e/smoke.spec.js` + `playwright.config.js`；`npm run test:e2e`（先 `build` 再测）；`npm run check`、Husky **`pre-commit`** 与 **GitHub Actions** 在构建后执行 `playwright test`（CI 中 `npx playwright install chromium --only-shell`）。
+- **Playwright `globalSetup`**：`e2e/global-setup.mjs` 在缺少 **`frontend/dist/index.html`** 时**先于** `vite preview` **报错退出**，提示先执行 **`npm run build`** 或 **`npm run test:e2e`**，避免裸跑 **`npx playwright test`** 时错误信息不明确。
+- **CI**：在 Lint 之后增加 **`npm run i18n:check`**，与本地 `check` 对齐。
+- **文案**：`common.appTitle`（en / zh-CN）；`i18n.js` 在初始化与 `languageChanged` 时设置 **`document.title`**，并据语言码设置 **`document.documentElement.dir`**（`ar` / `he` / `fa` / `ur` 为 `rtl`，其余 `ltr`）。
+
+#### Fixed
+
+- **`StatusBar`**：`subtaskEntries.filter` 回调参数由 **`t`** 改为 **`sub`**，避免遮蔽 **`useTranslation()`** 的翻译函数 **`t`**（与 `MetricChart` 刻度变量遮蔽同类）。
+
+#### Changed
+
+- **`.gitignore`**：忽略 Playwright **`test-results/`**、**`playwright-report/`**、**`blob-report/`**、**`playwright/.cache/`**；Vite **`.vite/`**、Vitest **`.vitest/`**；**`.eslintcache`**、**`*.tsbuildinfo`**；构建备份 **`dist.bak/`**；常见 **`*.log`** / 包管理器 debug 日志；**`Thumbs.db`**、**`.idea/`**。
+- **文档**：`README` / `CONTRIBUTING` / `ONBOARDING` 中 Vitest 全仓计数与前后端分项更新为 **852**（633 + 219）；`README` / `CONTRIBUTING` 中 `npm run check` 与 Husky 说明补充 **i18n** 与 **Playwright**。
+- **`scripts/check-i18n.mjs`**：禁止**裸变量** **`t(foo)`**（**允许** **`t(row.labelKey)`** 等属性访问）与 **`t(...+...)`** 拼接 key（单行；行末 `// i18n-exempt` 可豁免）；间接 key 扩展为 **`labelKey` / `titleKey` / `descriptionKey` / `messageKey`**。
+- **`frontend/DESIGN.md`**：记载 `document.title`、`dir`、i18n 禁止模式与 ICU 说明。
+
+#### Tests
+
+- 与 **GitHub Actions CI** 及 Husky **`pre-commit`** 对齐：`prettier --check`、`eslint --max-warnings 0`、`i18n:check`、**`npm test`**、**`npm run build`**、**`playwright test`**（`CI=true` 下不复用本地 preview 进程）均已验证通过。
+
+---
+
+## [0.16.1] - 2026-04-04
+
+### feat(frontend): 多语言落地、双轴主题与文档同步
+
+#### Added
+
+- **i18n**：`react-i18next` + `src/locales/en.json` / `zh-CN.json`；顶栏语言切换；`localStorage` 键 `agentboard-locale`；`document.documentElement.lang` 随语言更新。
+- **双轴主题**：明暗 `data-theme` 与可选 `data-theme-pack`（如 Linear 风格包），与 `DESIGN.md` 约定一致。
+- **`ConfirmDialog`**：未传入 `title` / `message` / 按钮文案时默认走 i18n（`confirmDialog.*`），避免英文硬编码遗留。
+- **`Dropdown`**：`variant="compact"` 与无障碍属性，供顶栏复用；`Header` 语言 / UI 调色板由原生 `<select>` 改为与 `WorkflowEditor` 一致的自定义下拉样式。
+- **i18n 门禁脚本 `scripts/check-i18n.mjs`**（`npm run i18n:check`）：在原有 **en ↔ zh-CN** 键对齐与 `{{var}}` 一致性之外，增加 **源码侧校验**（`t('…')` / `i18n.t('…')`、``t(`prefix.${…}`)`` 动态前缀、`labelKey: '…'` 间接引用）、**i18next 复数键**解析、以及 **en.json 未使用 key** 扫描（可用环境变量 `I18N_SKIP_UNUSED=1` 跳过未使用扫描）；已接入 **`npm run check`** 与 Husky **`pre-commit`**。
+
+#### Fixed
+
+- **i18n 插值**：工作流 Agent 提示词占位拆为 `promptPlaceholderPrefix` / `Suffix` + 字面量 `{{key}}`；输出摘要占位使用字面量 `{{result}}`，避免被 i18next 清空。
+- **终端**：`browser_click` 无目标时使用 `terminal.browserClickBare`；`TerminalView` 测试改用 `getFixedT('en')`；Vitest 下 `i18n` 默认语言固定为 `en`，避免 `AgentTimeline` 等与浏览器语言相关的断言漂移。
+- **其它**：移除未使用的 `EDGE_CONDITION_OPTIONS`；`workflowName` 初始值走 `workflow.defaultName`；`MetricChart` 刻度变量重命名避免遮蔽翻译函数 `t`。
+- **`StatusBar`**：状态文案改为 ``t(`statusBar.${status}`)``，与 i18n 动态前缀门禁一致。
+- **字典清理**：移除未再引用的 `common.trial`、`header.uiPaletteAria`（en / zh-CN 同步）。
+
+#### Changed
+
+- **`frontend/DESIGN.md`**：更新 i18n 覆盖说明，并记载 **`npm run i18n:check`** 与 `I18N_SKIP_UNUSED` 约定。
+- **`eslint.config.js`**：为浏览器全局补充 `navigator`，使 `i18n.js` 在 `eslint --max-warnings 0` 下通过。
+- **项目版本**：根目录、`backend`、`frontend` 的 `package.json` 与对应 `package-lock.json` 同步为 **0.16.1**；Vite 注入的 **`__APP_VERSION__`** 仍读取根 `package.json`，Header 展示与之一致。
+- **格式**：对上述前端组件与 `DESIGN.md` 执行 Prettier，与 Husky `pre-commit` 对齐。
+
+#### Tests
+
+- 全量 `npm test`（后端 + 前端 Vitest）与 `npm run build` 通过；质量门禁同 `npm run check` / Husky `pre-commit`（含 **`node scripts/check-i18n.mjs`**，当前约 **276** 条叶子键对齐、**251** 处静态 key 引用、**5** 个动态前缀校验、未使用 key 扫描通过）。
+
+---
+
 ## [0.16.0] - 2026-04-03
 
 ### feat: 引入本地独立 Worker 体系与前端可视化闭环 (0 漏洞版本)

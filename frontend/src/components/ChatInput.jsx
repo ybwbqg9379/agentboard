@@ -1,24 +1,29 @@
-import { useState, useRef } from 'react';
+import { useMemo, useState, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import styles from './ChatInput.module.css';
 import Dropdown from './Dropdown';
-
-const PERMISSION_MODES = [
-  { value: 'bypassPermissions', label: 'Bypass' },
-  { value: 'acceptEdits', label: 'Accept Edits' },
-  { value: 'default', label: 'Default' },
-  { value: 'plan', label: 'Plan' },
-];
 
 // Statuses that allow sending a follow-up message
 const CONTINUABLE = new Set(['completed', 'failed', 'stopped']);
 
 export default function ChatInput({ onSend, onFollowUp, onStop, status, sessionId, connected }) {
+  const { t } = useTranslation();
   const [value, setValue] = useState('');
   const [permissionMode, setPermissionMode] = useState('bypassPermissions');
   const inputRef = useRef(null);
   const isRunning = status === 'running';
   const canFollowUp = sessionId && CONTINUABLE.has(status);
   const canSubmit = connected && !isRunning && Boolean(value.trim());
+
+  const permissionModes = useMemo(
+    () => [
+      { value: 'bypassPermissions', label: t('chatInput.permissionBypass') },
+      { value: 'acceptEdits', label: t('chatInput.permissionAcceptEdits') },
+      { value: 'default', label: t('chatInput.permissionDefault') },
+      { value: 'plan', label: t('chatInput.permissionPlan') },
+    ],
+    [t],
+  );
 
   function handleSubmit(e) {
     e.preventDefault();
@@ -42,22 +47,22 @@ export default function ChatInput({ onSend, onFollowUp, onStop, status, sessionI
 
   const placeholder = connected
     ? canFollowUp
-      ? 'Send a follow-up message...'
-      : 'Enter a task for the agent...'
-    : 'Waiting for connection...';
+      ? t('chatInput.placeholderFollowUp')
+      : t('chatInput.placeholderTask')
+    : t('chatInput.placeholderWait');
 
-  const buttonLabel = canFollowUp ? 'Continue' : 'Run';
+  const buttonLabel = canFollowUp ? t('chatInput.continue') : t('chatInput.run');
 
   return (
     <form className={styles.wrapper} onSubmit={handleSubmit}>
       <div className={styles.inputRow}>
         <Dropdown
           className={styles.modeSelect}
-          options={PERMISSION_MODES}
+          options={permissionModes}
           value={permissionMode}
           onChange={setPermissionMode}
           disabled={isRunning || !connected}
-          title="Permission mode"
+          title={t('chatInput.permissionTitle')}
           direction="up"
         />
         <textarea
@@ -72,7 +77,7 @@ export default function ChatInput({ onSend, onFollowUp, onStop, status, sessionI
         />
         {isRunning ? (
           <button type="button" className={styles.stopBtn} onClick={onStop} disabled={!connected}>
-            Stop
+            {t('chatInput.stop')}
           </button>
         ) : (
           <button

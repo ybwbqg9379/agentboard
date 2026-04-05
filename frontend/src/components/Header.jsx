@@ -1,3 +1,6 @@
+import { useId, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
+import Dropdown from './Dropdown';
 import styles from './Header.module.css';
 
 const MCP_STATE_COLORS = {
@@ -18,42 +21,92 @@ export default function Header({
   onModeChange,
   theme,
   onToggleTheme,
+  themePack,
+  onThemePackChange,
 }) {
+  const { t, i18n } = useTranslation();
+  const langLabelId = useId();
+  const paletteLabelId = useId();
   const mcpEntries = Object.entries(mcpHealth || {});
+  const themeLabel = theme === 'dark' ? t('header.themeDark') : t('header.themeLight');
+  const langValue = i18n.language?.startsWith('zh') ? 'zh-CN' : 'en';
+
+  const langOptions = useMemo(
+    () => [
+      { value: 'en', label: t('header.langEnglish') },
+      { value: 'zh-CN', label: t('header.langZhCN') },
+    ],
+    [t],
+  );
+  const themePackOptions = useMemo(
+    () => [
+      { value: 'default', label: t('header.paletteDefault') },
+      { value: 'linear', label: t('header.paletteLinear') },
+    ],
+    [t],
+  );
 
   return (
     <header className={styles.header}>
       <div className={styles.left}>
-        <span className={styles.logo}>AgentBoard</span>
+        <span className={styles.logo}>{t('header.logo')}</span>
         <span className={styles.version}>v{__APP_VERSION__}</span>
         <div className={styles.modeTabs}>
           <button
             className={`${styles.modeTab} ${mode === 'agent' ? styles.modeActive : ''}`}
             onClick={() => onModeChange('agent')}
           >
-            Agent
+            {t('header.modeAgent')}
           </button>
           <button
             className={`${styles.modeTab} ${mode === 'workflow' ? styles.modeActive : ''}`}
             onClick={() => onModeChange('workflow')}
           >
-            Workflow
+            {t('header.modeWorkflow')}
           </button>
           <button
             className={`${styles.modeTab} ${mode === 'experiment' ? styles.modeActive : ''}`}
             onClick={() => onModeChange('experiment')}
           >
-            Experiment
+            {t('header.modeExperiment')}
           </button>
         </div>
       </div>
 
       <div className={styles.right}>
+        <div className={styles.themePackWrap}>
+          <span id={langLabelId} className={styles.visuallyHidden}>
+            {t('header.language')}
+          </span>
+          <Dropdown
+            variant="compact"
+            options={langOptions}
+            value={langValue}
+            onChange={(v) => {
+              void i18n.changeLanguage(v);
+            }}
+            title={t('header.language')}
+            ariaLabelledBy={langLabelId}
+          />
+        </div>
+        <div className={styles.themePackWrap}>
+          <span id={paletteLabelId} className={styles.visuallyHidden}>
+            {t('header.uiPalette')}
+          </span>
+          <Dropdown
+            variant="compact"
+            options={themePackOptions}
+            value={themePack}
+            onChange={onThemePackChange}
+            title={t('header.uiPaletteTitle')}
+            ariaLabelledBy={paletteLabelId}
+          />
+        </div>
         <button
           className={styles.themeBtn}
           onClick={onToggleTheme}
-          title={`Switch theme (current: ${theme})`}
-          aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
+          title={t('header.themeTitle', { theme: themeLabel })}
+          aria-label={theme === 'dark' ? t('header.themeToLight') : t('header.themeToDark')}
         >
           {theme === 'dark' ? (
             <svg
@@ -93,13 +146,18 @@ export default function Header({
         </button>
         {mcpEntries.length > 0 && (
           <div className={styles.mcpHealth}>
-            <span className={styles.mcpLabel}>MCP</span>
+            <span className={styles.mcpLabel}>{t('header.mcp')}</span>
             {mcpEntries.map(([name, info]) => (
               <span
                 key={name}
                 className={styles.mcpDot}
                 style={{ background: MCP_STATE_COLORS[info.state] || MCP_STATE_COLORS.pending }}
-                title={`${name}: ${info.state} (${info.toolCalls} calls, ${info.toolErrors} errors)`}
+                title={t('header.mcpTooltip', {
+                  name,
+                  state: info.state,
+                  calls: info.toolCalls,
+                  errors: info.toolErrors,
+                })}
               />
             ))}
           </div>
@@ -107,18 +165,20 @@ export default function Header({
         {mode === 'agent' && (
           <>
             <button className={styles.historyBtn} onClick={onOpenHistory}>
-              History
+              {t('header.history')}
             </button>
             {sessionId && (
               <button className={styles.clearBtn} onClick={onClear}>
-                New Session
+                {t('header.newSession')}
               </button>
             )}
           </>
         )}
         <div className={styles.connStatus}>
           <span className={styles.connDot} data-connected={connected} />
-          <span className={styles.connText}>{connected ? 'Connected' : 'Disconnected'}</span>
+          <span className={styles.connText}>
+            {connected ? t('header.connected') : t('header.disconnected')}
+          </span>
         </div>
       </div>
     </header>

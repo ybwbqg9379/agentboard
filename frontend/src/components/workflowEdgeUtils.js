@@ -1,9 +1,3 @@
-export const EDGE_CONDITION_OPTIONS = [
-  { value: '', label: 'Always' },
-  { value: 'true', label: 'True Branch' },
-  { value: 'false', label: 'False Branch' },
-];
-
 let nextEdgeId = 1;
 
 export function genEdgeId() {

@@ -11,3 +11,34 @@ workspace/*
 *.db-shm
 .venv/
 .DS_Store
+
+# Playwright
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
+# Vite (cache if created at package root, not only under node_modules)
+.vite/
+
+# Vitest
+.vitest/
+
+# Tooling caches
+.eslintcache
+*.tsbuildinfo
+
+# Ad-hoc build copies / backups (e.g. mv dist dist.bak)
+dist.bak/
+**/dist.bak/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS / editors (optional noise)
+Thumbs.db
+.idea/

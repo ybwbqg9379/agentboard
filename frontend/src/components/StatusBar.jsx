@@ -1,12 +1,5 @@
+import { useTranslation } from 'react-i18next';
 import styles from './StatusBar.module.css';
-
-const STATUS_TEXT = {
-  idle: 'Ready',
-  running: 'Agent running',
-  completed: 'Completed',
-  failed: 'Failed',
-  stopped: 'Stopped',
-};
 
 function formatTokens(n) {
   if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
@@ -20,10 +13,14 @@ function formatDuration(ms) {
 }
 
 export default function StatusBar({ status, sessionId, eventCount, sessionStats, subtasks }) {
+  const { t } = useTranslation();
   const totalTokens = (sessionStats?.input_tokens || 0) + (sessionStats?.output_tokens || 0);
   const subtaskEntries = Object.values(subtasks || {});
-  const activeSubtasks = subtaskEntries.filter((t) => t.status === 'running');
+  const activeSubtasks = subtaskEntries.filter((sub) => sub.status === 'running');
   const turns = sessionStats?.num_turns || 0;
+  const statusLabel = ['idle', 'running', 'completed', 'failed', 'stopped'].includes(status)
+    ? t(`statusBar.${status}`)
+    : status;
 
   return (
     <footer className={styles.bar}>
@@ -31,13 +28,13 @@ export default function StatusBar({ status, sessionId, eventCount, sessionStats,
         <span
           className={`dot dot-${status === 'running' ? 'running' : status === 'failed' ? 'error' : 'done'}`}
         />
-        <span>{STATUS_TEXT[status] || status}</span>
+        <span>{statusLabel}</span>
         {sessionStats?.model && <span className={styles.meta}>{sessionStats.model}</span>}
-        {turns > 0 && <span className={styles.meta}>{turns} turns</span>}
+        {turns > 0 && <span className={styles.meta}>{t('statusBar.turns', { count: turns })}</span>}
         {activeSubtasks.length > 0 && (
           <span className={styles.subtask}>
             <span className="dot dot-running" />
-            {activeSubtasks.length} subtask{activeSubtasks.length > 1 ? 's' : ''}
+            {t('statusBar.subtask', { count: activeSubtasks.length })}
           </span>
         )}
       </div>
@@ -45,7 +42,10 @@ export default function StatusBar({ status, sessionId, eventCount, sessionStats,
         {totalTokens > 0 && (
           <div
             className={styles.tokenBar}
-            title={`In: ${formatTokens(sessionStats?.input_tokens || 0)} / Out: ${formatTokens(sessionStats?.output_tokens || 0)}`}
+            title={t('statusBar.tokenTooltip', {
+              input: formatTokens(sessionStats?.input_tokens || 0),
+              output: formatTokens(sessionStats?.output_tokens || 0),
+            })}
           >
             <span className={styles.tokenLabel}>{formatTokens(totalTokens)}</span>
             <div className={styles.tokenTrack}>
@@ -70,8 +70,12 @@ export default function StatusBar({ status, sessionId, eventCount, sessionStats,
         {sessionStats?.duration_ms > 0 && (
           <span className={styles.meta}>{formatDuration(sessionStats.duration_ms)}</span>
         )}
-        {sessionId && <span className={styles.meta}>Session: {sessionId.slice(0, 8)}</span>}
-        <span className={styles.meta}>Events: {eventCount}</span>
+        {sessionId && (
+          <span className={styles.meta}>
+            {t('statusBar.session', { id: sessionId.slice(0, 8) })}
+          </span>
+        )}
+        <span className={styles.meta}>{t('statusBar.events', { count: eventCount })}</span>
       </div>
     </footer>
   );

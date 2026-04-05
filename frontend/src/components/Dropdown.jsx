@@ -9,6 +9,10 @@ export default function Dropdown({
   className = '',
   title = '',
   direction = 'down', // 'up' or 'down'
+  /** Matches header / toolbar selects: smaller, mono, max-width */
+  variant = 'default',
+  ariaLabel,
+  ariaLabelledBy,
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef(null);
@@ -29,6 +33,18 @@ export default function Dropdown({
     if (!disabled) setIsOpen(!isOpen);
   };
 
+  const handleSelectedKeyDown = (e) => {
+    if (disabled) return;
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      setIsOpen((open) => !open);
+    }
+    if (e.key === 'Escape' && isOpen) {
+      e.preventDefault();
+      setIsOpen(false);
+    }
+  };
+
   const handleSelect = (val, e) => {
     e.stopPropagation();
     onChange(val);
@@ -38,10 +54,21 @@ export default function Dropdown({
   return (
     <div
       ref={containerRef}
-      className={`${styles.container} ${disabled ? styles.disabled : ''} ${className}`}
+      className={`${styles.container} ${variant === 'compact' ? styles.compact : ''} ${disabled ? styles.disabled : ''} ${className}`}
       title={title}
+      role="group"
+      aria-label={ariaLabel}
+      aria-labelledby={ariaLabelledBy}
     >
-      <div className={`${styles.selected} ${isOpen ? styles.open : ''}`} onClick={handleToggle}>
+      <div
+        className={`${styles.selected} ${isOpen ? styles.open : ''}`}
+        onClick={handleToggle}
+        onKeyDown={handleSelectedKeyDown}
+        role="button"
+        tabIndex={disabled ? -1 : 0}
+        aria-expanded={isOpen}
+        aria-haspopup="listbox"
+      >
         <span>{selectedOption?.label}</span>
         <svg
           className={styles.chevron}

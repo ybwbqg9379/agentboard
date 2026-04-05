@@ -1,6 +1,6 @@
 {
   "name": "agentboard",
-  "version": "0.16.0",
+  "version": "0.16.2",
   "private": true,
   "type": "module",
   "scripts": {
@@ -19,7 +19,9 @@
     "test:coverage:frontend": "cd frontend && npx vitest run --coverage",
     "test:backend": "cd backend && npx vitest run",
     "test:frontend": "cd frontend && npx vitest run",
-    "check": "npm run format:check && npm run lint:strict && npm run build",
+    "test:e2e": "npm run build && playwright test",
+    "i18n:check": "node scripts/check-i18n.mjs",
+    "check": "npm run format:check && npm run lint:strict && npm run i18n:check && npm run build && playwright test",
     "prepare": "husky"
   },
   "devDependencies": {
@@ -28,10 +30,8 @@
     "eslint": "^10.1.0",
     "husky": "^9.1.7",
     "jsdom": "^29.0.1",
+    "@playwright/test": "^1.59.0",
     "prettier": "^3.8.1",
     "vitest": "^4.1.2"
-  },
-  "dependencies": {
-    "playwright": "^1.59.0"
   }
 }

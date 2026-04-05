@@ -1,4 +1,5 @@
-import { useState, useRef, useCallback, useEffect, useId } from 'react';
+import { useState, useRef, useCallback, useEffect, useId, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import styles from './WorkflowEditor.module.css';
 import Dropdown from './Dropdown';
 import ConfirmDialog from './ConfirmDialog.jsx';
@@ -11,7 +12,6 @@ import {
   scheduleWsReconnect,
 } from '../lib/wsConnection.js';
 import {
-  EDGE_CONDITION_OPTIONS,
   createEdge,
   edgeMatches,
   getEdgeKey,
@@ -62,13 +62,6 @@ function edgePath(x1, y1, x2, y2) {
 
 // --- Node Config Panel ---
 
-const PERMISSION_MODES = [
-  { value: 'bypassPermissions', label: 'Bypass' },
-  { value: 'acceptEdits', label: 'Accept Edits' },
-  { value: 'default', label: 'Default' },
-  { value: 'plan', label: 'Plan' },
-];
-
 function JsonTextarea({ value, onChange, placeholder }) {
   const [text, setText] = useState(() => JSON.stringify(value || {}, null, 2));
   const prevValueRef = useRef(value);
@@ -103,7 +96,7 @@ function JsonTextarea({ value, onChange, placeholder }) {
   );
 }
 
-function NodeConfigPanel({ node, onUpdate, onDelete, onClose }) {
+function NodeConfigPanel({ node, onUpdate, onDelete, onClose, t, permissionOptions }) {
   if (!node) return null;
 
   const updateConfig = (key, value) => {
@@ -114,15 +107,20 @@ function NodeConfigPanel({ node, onUpdate, onDelete, onClose }) {
     <div className={styles.configPanel}>
       <div className={styles.configHeader}>
         <span className={styles.configTitle}>
-          {node.type.toUpperCase()}: {node.label}
+          {t('workflow.nodeTypeTitle', { type: node.type.toUpperCase(), label: node.label })}
         </span>
-        <button className={styles.configClose} onClick={onClose}>
-          x
+        <button
+          type="button"
+          className={styles.configClose}
+          onClick={onClose}
+          aria-label={t('workflow.configClose')}
+        >
+          ×
         </button>
       </div>
       <div className={styles.configBody}>
         <div className={styles.configField}>
-          <label>Label</label>
+          <label>{t('workflow.label')}</label>
           <input
             value={node.label || ''}
             onChange={(e) => onUpdate(node.id, { label: e.target.value })}
@@ -132,15 +130,15 @@ function NodeConfigPanel({ node, onUpdate, onDelete, onClose }) {
         {node.type === 'agent' && (
           <>
             <div className={styles.configField}>
-              <label>Prompt</label>
+              <label>{t('workflow.prompt')}</label>
               <textarea
                 value={node.config?.prompt || ''}
                 onChange={(e) => updateConfig('prompt', e.target.value)}
-                placeholder="Agent prompt. Use {{key}} for context variables."
+                placeholder={`${t('workflow.promptPlaceholderPrefix')}{{key}}${t('workflow.promptPlaceholderSuffix')}`}
               />
             </div>
             <div className={styles.configField}>
-              <label>Max Turns</label>
+              <label>{t('workflow.maxTurns')}</label>
               <input
                 type="number"
                 value={node.config?.maxTurns || 30}
@@ -150,9 +148,9 @@ function NodeConfigPanel({ node, onUpdate, onDelete, onClose }) {
               />
             </div>
             <div className={styles.configField}>
-              <label>Permission Mode</label>
+              <label>{t('workflow.permissionMode')}</label>
               <Dropdown
-                options={PERMISSION_MODES}
+                options={permissionOptions}
                 value={node.config?.permissionMode || 'bypassPermissions'}
                 onChange={(val) => updateConfig('permissionMode', val)}
                 direction="down"
@@ -163,57 +161,66 @@ function NodeConfigPanel({ node, onUpdate, onDelete, onClose }) {
 
         {node.type === 'condition' && (
           <div className={styles.configField}>
-            <label>Expression</label>
+            <label>{t('workflow.expression')}</label>
             <input
               value={node.config?.expression || ''}
               onChange={(e) => updateConfig('expression', e.target.value)}
-              placeholder='e.g. status == "success"'
+              placeholder={t('workflow.expressionPlaceholder')}
             />
           </div>
         )}
 
         {node.type === 'transform' && (
           <div className={styles.configField}>
-            <label>Mapping (JSON)</label>
+            <label>{t('workflow.mappingJson')}</label>
             <JsonTextarea
               value={node.config?.mapping}
               onChange={(parsed) => updateConfig('mapping', parsed)}
-              placeholder='{"key": "{{source}}"}'
+              placeholder={t('workflow.mappingPlaceholder')}
             />
           </div>
         )}
 
         {node.type === 'output' && (
           <div className={styles.configField}>
-            <label>Summary Template</label>
+            <label>{t('workflow.summaryTemplate')}</label>
             <input
               value={node.config?.summary || ''}
               onChange={(e) => updateConfig('summary', e.target.value)}
-              placeholder="{{result}}"
+              placeholder={'{{result}}'}
             />
           </div>
         )}
 
         {node.type === 'experiment' && (
           <div className={styles.configField}>
-            <label>Experiment ID (UUID)</label>
+            <label>{t('workflow.experimentId')}</label>
             <input
               value={node.config?.experimentId || ''}
               onChange={(e) => updateConfig('experimentId', e.target.value)}
-              placeholder="paste UUID from Experiment tab"
+              placeholder={t('workflow.experimentIdPlaceholder')}
             />
           </div>
         )}
 
-        <button className={`${styles.deleteBtn}`} onClick={() => onDelete(node.id)}>
-          Delete Node
+        <button type="button" className={`${styles.deleteBtn}`} onClick={() => onDelete(node.id)}>
+          {t('workflow.deleteNode')}
         </button>
       </div>
     </div>
   );
 }
 
-function EdgeConfigPanel({ edge, sourceNode, targetNode, onUpdate, onDelete, onClose }) {
+function EdgeConfigPanel({
+  edge,
+  sourceNode,
+  targetNode,
+  onUpdate,
+  onDelete,
+  onClose,
+  t,
+  edgeBranchOptions,
+}) {
   if (!edge) return null;
 
   const sourceLabel = sourceNode?.label || edge.from;
@@ -224,38 +231,41 @@ function EdgeConfigPanel({ edge, sourceNode, targetNode, onUpdate, onDelete, onC
     <div className={styles.configPanel}>
       <div className={styles.configHeader}>
         <span className={styles.configTitle}>
-          EDGE: {sourceLabel} {'->'} {targetLabel}
+          {t('workflow.edgeTitle', { from: sourceLabel, to: targetLabel })}
         </span>
-        <button className={styles.configClose} onClick={onClose}>
-          x
+        <button
+          type="button"
+          className={styles.configClose}
+          onClick={onClose}
+          aria-label={t('workflow.configClose')}
+        >
+          ×
         </button>
       </div>
       <div className={styles.configBody}>
         <div className={styles.configField}>
-          <label>From</label>
+          <label>{t('workflow.from')}</label>
           <input value={sourceLabel} readOnly />
         </div>
         <div className={styles.configField}>
-          <label>To</label>
+          <label>{t('workflow.to')}</label>
           <input value={targetLabel} readOnly />
         </div>
         {canConfigureBranch ? (
           <div className={styles.configField}>
-            <label>Branch</label>
+            <label>{t('workflow.branch')}</label>
             <Dropdown
-              options={EDGE_CONDITION_OPTIONS}
+              options={edgeBranchOptions}
               value={edge.condition || ''}
               onChange={(value) => onUpdate({ condition: value })}
               direction="down"
             />
           </div>
         ) : (
-          <div className={styles.edgeHint}>
-            Only edges leaving a condition node can be tagged as `true` or `false`.
-          </div>
+          <div className={styles.edgeHint}>{t('workflow.edgeHint')}</div>
         )}
-        <button className={styles.deleteBtn} onClick={onDelete}>
-          Delete Edge
+        <button type="button" className={styles.deleteBtn} onClick={onDelete}>
+          {t('workflow.deleteEdge')}
         </button>
       </div>
     </div>
@@ -265,6 +275,24 @@ function EdgeConfigPanel({ edge, sourceNode, targetNode, onUpdate, onDelete, onC
 // --- Main Editor ---
 
 export default function WorkflowEditor() {
+  const { t } = useTranslation();
+  const permissionOptions = useMemo(
+    () => [
+      { value: 'bypassPermissions', label: t('chatInput.permissionBypass') },
+      { value: 'acceptEdits', label: t('chatInput.permissionAcceptEdits') },
+      { value: 'default', label: t('chatInput.permissionDefault') },
+      { value: 'plan', label: t('chatInput.permissionPlan') },
+    ],
+    [t],
+  );
+  const edgeBranchOptions = useMemo(
+    () => [
+      { value: '', label: t('workflow.edgeAlways') },
+      { value: 'true', label: t('workflow.edgeTrue') },
+      { value: 'false', label: t('workflow.edgeFalse') },
+    ],
+    [t],
+  );
   const svgIdPrefix = useId();
   const arrowheadId = `${svgIdPrefix}-arrowhead`;
   const gridId = `${svgIdPrefix}-grid`;
@@ -272,7 +300,7 @@ export default function WorkflowEditor() {
   const [currentWorkflow, setCurrentWorkflow] = useState(null);
   const [nodes, setNodes] = useState([]);
   const [edges, setEdges] = useState([]);
-  const [workflowName, setWorkflowName] = useState('New Workflow');
+  const [workflowName, setWorkflowName] = useState(() => t('workflow.defaultName'));
   const [selectedNode, setSelectedNode] = useState(null);
   const [selectedEdge, setSelectedEdge] = useState(null);
   const [draggingNode, setDraggingNode] = useState(null);
@@ -285,7 +313,7 @@ export default function WorkflowEditor() {
   const [activeNodes, setActiveNodes] = useState(new Set());
   const [isEditing, setIsEditing] = useState(false);
   const [wfSelected, setWfSelected] = useState(new Set());
-  const [wfConfirm, setWfConfirm] = useState(null); // { ids, message }
+  const [wfConfirm, setWfConfirm] = useState(null); // { ids, kind: 'one'|'many', name? }
   const svgRef = useRef(null);
 
   // Fetch workflow list
@@ -335,19 +363,19 @@ export default function WorkflowEditor() {
     const inputNode = {
       id: genId(),
       type: 'input',
-      label: 'Start',
+      label: t('workflow.nodeStart'),
       config: DEFAULT_CONFIGS.input,
       position: { x: 100, y: 200 },
     };
     const outputNode = {
       id: genId(),
       type: 'output',
-      label: 'End',
+      label: t('workflow.nodeEnd'),
       config: DEFAULT_CONFIGS.output,
       position: { x: 500, y: 200 },
     };
     setCurrentWorkflow(null);
-    setWorkflowName('New Workflow');
+    setWorkflowName(t('workflow.defaultName'));
     setNodes([inputNode, outputNode]);
     setEdges([createEdge(inputNode.id, outputNode.id, inputNode, [])]);
     setSelectedNode(null);
@@ -355,7 +383,7 @@ export default function WorkflowEditor() {
     setRunStatus(null);
     setActiveNodes(new Set());
     setIsEditing(true);
-  }, []);
+  }, [t]);
 
   // Add node
   const addNode = useCallback(
@@ -364,7 +392,7 @@ export default function WorkflowEditor() {
       const node = {
         id,
         type,
-        label: type.charAt(0).toUpperCase() + type.slice(1),
+        label: t(`workflow.defaultNodeLabel.${type}`, { defaultValue: type }),
         config: { ...DEFAULT_CONFIGS[type] },
         position: { x: 300 - pan.x + Math.random() * 60, y: 200 - pan.y + Math.random() * 60 },
       };
@@ -372,7 +400,7 @@ export default function WorkflowEditor() {
       setSelectedNode(id);
       setSelectedEdge(null);
     },
-    [pan],
+    [pan, t],
   );
 
   // Update node
@@ -861,7 +889,8 @@ export default function WorkflowEditor() {
       e.stopPropagation();
       setWfConfirm({
         ids: [wf.id],
-        message: `Delete workflow "${wf.name}"?`,
+        kind: 'one',
+        name: wf.name,
       });
     }
 
@@ -869,7 +898,7 @@ export default function WorkflowEditor() {
       if (wfSelected.size === 0) return;
       setWfConfirm({
         ids: [...wfSelected],
-        message: `Delete ${wfSelected.size} workflow${wfSelected.size > 1 ? 's' : ''}?`,
+        kind: 'many',
       });
     }
 
@@ -901,23 +930,31 @@ export default function WorkflowEditor() {
     return (
       <div className={styles.editor}>
         <div className={styles.toolbar}>
-          <button onClick={newWorkflow}>+ New Workflow</button>
-          <button onClick={fetchWorkflows}>Refresh</button>
+          <button type="button" onClick={newWorkflow}>
+            {t('workflow.newWorkflow')}
+          </button>
+          <button type="button" onClick={fetchWorkflows}>
+            {t('workflow.refresh')}
+          </button>
           {workflows.length > 0 && (
-            <button onClick={toggleWfSelectAll}>
-              {wfSelected.size === workflows.length ? 'Deselect All' : 'Select All'}
+            <button type="button" onClick={toggleWfSelectAll}>
+              {wfSelected.size === workflows.length
+                ? t('workflow.deselectAll')
+                : t('workflow.selectAll')}
             </button>
           )}
           {wfIsSelectMode && (
-            <button className={styles.batchDeleteBtn} onClick={requestWfDeleteBatch}>
-              Delete ({wfSelected.size})
+            <button type="button" className={styles.batchDeleteBtn} onClick={requestWfDeleteBatch}>
+              {t('workflow.deleteBatch', { count: wfSelected.size })}
             </button>
           )}
         </div>
         {workflows.length === 0 ? (
           <div className={styles.emptyState}>
-            <span>No workflows yet</span>
-            <button onClick={newWorkflow}>Create your first workflow</button>
+            <span>{t('workflow.emptyTitle')}</span>
+            <button type="button" onClick={newWorkflow}>
+              {t('workflow.emptyCta')}
+            </button>
           </div>
         ) : (
           <div className={styles.workflowList}>
@@ -936,13 +973,18 @@ export default function WorkflowEditor() {
                 <button className={styles.workflowItemContent} onClick={() => loadWorkflow(wf)}>
                   <div className={styles.workflowItemName}>{wf.name}</div>
                   <div className={styles.workflowItemMeta}>
-                    {wf.definition?.nodes?.length || 0} nodes / {wf.definition?.edges?.length || 0}{' '}
-                    edges
+                    {t('workflow.listMeta', {
+                      nodeCount: wf.definition?.nodes?.length || 0,
+                      edgeCount: wf.definition?.edges?.length || 0,
+                      nodes: t('common.nodes'),
+                      edges: t('common.edges'),
+                    })}
                   </div>
                 </button>
                 <button
+                  type="button"
                   className={styles.workflowDeleteBtn}
-                  title="Delete workflow"
+                  title={t('workflow.deleteWorkflowTitle')}
                   onClick={(e) => requestWfDeleteSingle(e, wf)}
                 >
                   🗑
@@ -954,8 +996,14 @@ export default function WorkflowEditor() {
 
         <ConfirmDialog
           open={!!wfConfirm}
-          title="Delete Workflows"
-          message={wfConfirm?.message || ''}
+          title={t('workflow.confirmDeleteTitle')}
+          message={
+            wfConfirm?.kind === 'one'
+              ? t('workflow.confirmDeleteOne', { name: wfConfirm?.name ?? '' })
+              : t('workflow.confirmDeleteMany', { count: wfConfirm?.ids?.length ?? 0 })
+          }
+          confirmLabel={t('sessionDrawer.confirmDelete')}
+          cancelLabel={t('sessionDrawer.confirmCancel')}
           onConfirm={executeWfDelete}
           onCancel={() => setWfConfirm(null)}
         />
@@ -967,6 +1015,7 @@ export default function WorkflowEditor() {
     <div className={styles.editor}>
       <div className={styles.toolbar}>
         <button
+          type="button"
           onClick={() => {
             setNodes([]);
             setEdges([]);
@@ -976,27 +1025,43 @@ export default function WorkflowEditor() {
             setIsEditing(false);
           }}
         >
-          Back
+          {t('workflow.back')}
         </button>
         <input
           className={styles.workflowName}
           value={workflowName}
           onChange={(e) => setWorkflowName(e.target.value)}
-          placeholder="Workflow name"
+          placeholder={t('workflow.namePlaceholder')}
+          aria-label={t('workflow.namePlaceholder')}
         />
-        <button onClick={() => addNode('agent')}>+ Agent</button>
-        <button onClick={() => addNode('condition')}>+ Condition</button>
-        <button onClick={() => addNode('transform')}>+ Transform</button>
-        <button onClick={() => addNode('experiment')}>+ Experiment</button>
-        <button onClick={saveWorkflow}>Save</button>
-        <button className={styles.runBtn} onClick={runWorkflow} disabled={runStatus === 'running'}>
-          {runStatus === 'running' ? 'Running...' : 'Run'}
+        <button type="button" onClick={() => addNode('agent')}>
+          {t('workflow.addAgent')}
+        </button>
+        <button type="button" onClick={() => addNode('condition')}>
+          {t('workflow.addCondition')}
+        </button>
+        <button type="button" onClick={() => addNode('transform')}>
+          {t('workflow.addTransform')}
+        </button>
+        <button type="button" onClick={() => addNode('experiment')}>
+          {t('workflow.addExperiment')}
+        </button>
+        <button type="button" onClick={saveWorkflow}>
+          {t('workflow.save')}
+        </button>
+        <button
+          type="button"
+          className={styles.runBtn}
+          onClick={runWorkflow}
+          disabled={runStatus === 'running'}
+        >
+          {runStatus === 'running' ? t('workflow.running') : t('workflow.run')}
         </button>
         {runStatus && runStatus !== 'running' && (
           <span
             className={`${styles.statusBadge} ${runStatus === 'completed' ? styles.statusCompleted : styles.statusFailed}`}
           >
-            {runStatus}
+            {t(`workflow.runStatus.${runStatus}`, { defaultValue: runStatus })}
           </span>
         )}
       </div>
@@ -1117,7 +1182,7 @@ export default function WorkflowEditor() {
                     {node.label || node.id}
                   </text>
                   <text className={styles.nodeType} x={NODE_W / 2} y={NODE_H / 2 + 10}>
-                    {node.type}
+                    {t(`workflow.defaultNodeLabel.${node.type}`, { defaultValue: node.type })}
                   </text>
                   {/* Input port (left) */}
                   {node.type !== 'input' && (
@@ -1168,6 +1233,8 @@ export default function WorkflowEditor() {
             onUpdate={updateSelectedEdge}
             onDelete={deleteSelectedEdge}
             onClose={() => setSelectedEdge(null)}
+            t={t}
+            edgeBranchOptions={edgeBranchOptions}
           />
         ) : (
           <NodeConfigPanel
@@ -1175,6 +1242,8 @@ export default function WorkflowEditor() {
             onUpdate={updateNode}
             onDelete={deleteNode}
             onClose={() => setSelectedNode(null)}
+            t={t}
+            permissionOptions={permissionOptions}
           />
         )}
       </div>

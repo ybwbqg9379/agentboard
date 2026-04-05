@@ -1,6 +1,6 @@
 {
   "name": "agentboard-frontend",
-  "version": "0.1.0",
+  "version": "0.16.2",
   "private": true,
   "type": "module",
   "scripts": {
@@ -12,9 +12,11 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "i18next": "^26.0.3",
     "mermaid": "^10.9.5",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
+    "react-i18next": "^17.0.2",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1"
   },

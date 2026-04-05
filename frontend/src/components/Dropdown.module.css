@@ -94,3 +94,58 @@
   color: var(--text-primary);
   font-weight: 600;
 }
+
+/* Header / toolbar: align with legacy native <select> sizing */
+.compact {
+  font-size: 11px;
+}
+
+.compact .selected {
+  gap: 4px;
+  padding: 4px 8px;
+  min-height: 26px;
+  max-width: 7.5rem;
+  font-size: 11px;
+  font-weight: 500;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+}
+
+.compact:not(.disabled) .selected:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.compact:not(.disabled) .selected:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(var(--status-done-rgb), 0.3);
+  border-color: var(--border-accent);
+}
+
+.compact .selected span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.compact .chevron {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+}
+
+.compact .menu {
+  font-family: var(--font-sans);
+  font-size: 12px;
+}
+
+@media (max-width: 768px) {
+  .compact .selected {
+    max-width: 5.5rem;
+    font-size: 10px;
+  }
+}
