@@ -14,6 +14,13 @@
 #### Fixed
 
 - **`StatusBar`**：`subtaskEntries.filter` 回调参数由 **`t`** 改为 **`sub`**，避免遮蔽 **`useTranslation()`** 的翻译函数 **`t`**（与 `MetricChart` 刻度变量遮蔽同类）。
+- **`ConfirmDialog`**：关闭按钮 **`aria-label`** 由跨模块 **`experiment.close`** 改为 **`confirmDialog.dismiss`**，与对话框命名空间一致。
+- **`backend/package-lock.json`**：与 **`package.json`** 的 **`0.16.2`** 版本字段对齐（`npm install` 同步）。
+
+#### Developer experience
+
+- **`scripts/check-i18n.mjs`**：校验通过后输出 **`// i18n-exempt`** 行数及按文件分布，便于审计豁免堆积。
+- **`StatusBar`**：开发模式（**`import.meta.env.DEV`**）下对未知 **`status`** 输出 **`console.warn`**，提示补充 **`statusBar.<status>`** 或上游归一化。
 
 #### Changed
 

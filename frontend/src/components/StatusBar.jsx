@@ -1,7 +1,10 @@
+import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Braces, Clock, DollarSign, Hash, ListOrdered } from 'lucide-react';
 import { BarStatusIcon, normalizeBarStatus } from './LucideStatusIcons.jsx';
 import styles from './StatusBar.module.css';
+
+const KNOWN_SESSION_STATUSES = ['idle', 'running', 'completed', 'failed', 'stopped'];
 
 function formatTokens(n) {
   if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
@@ -20,9 +23,21 @@ export default function StatusBar({ status, sessionId, eventCount, sessionStats,
   const subtaskEntries = Object.values(subtasks || {});
   const activeSubtasks = subtaskEntries.filter((sub) => sub.status === 'running');
   const turns = sessionStats?.num_turns || 0;
-  const statusLabel = ['idle', 'running', 'completed', 'failed', 'stopped'].includes(status)
-    ? t(`statusBar.${status}`)
-    : status;
+
+  useEffect(() => {
+    if (
+      import.meta.env.DEV &&
+      status != null &&
+      status !== '' &&
+      !KNOWN_SESSION_STATUSES.includes(status)
+    ) {
+      console.warn(
+        `[StatusBar] Unknown session status "${String(status)}" — add locales statusBar.${status} or normalize upstream.`,
+      );
+    }
+  }, [status]);
+
+  const statusLabel = KNOWN_SESSION_STATUSES.includes(status) ? t(`statusBar.${status}`) : status;
 
   return (
     <footer className={styles.bar}>

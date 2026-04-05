@@ -62,7 +62,7 @@ export default function ConfirmDialog({
             type="button"
             className={styles.dismiss}
             onClick={onCancel}
-            aria-label={t('experiment.close')}
+            aria-label={t('confirmDialog.dismiss')}
           >
             <X size={18} strokeWidth={2} aria-hidden />
           </button>

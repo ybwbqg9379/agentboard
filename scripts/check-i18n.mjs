@@ -4,7 +4,7 @@
  *
  * 1) Locale integrity: en.json ↔ zh-CN.json (keys, {{vars}}, non-empty, balanced "{{")
  * 2) Source keys: static t('…') / i18n.t('…') and template t(`prefix.${…}`) must resolve in en.json
- * 3) Forbidden patterns: bare t(variable) / string concat keys — first arg must be '…', "…", `…`, or obj.prop (exempt: // i18n-exempt on line)
+ * 3) Forbidden patterns: bare t(variable) / string concat keys — first arg must be '…', "…", `…`, or obj.prop (exempt: // i18n-exempt on line; run logs exempt counts)
  * 4) Indirect keys: labelKey | titleKey | descriptionKey | messageKey string props must exist in en.json
  * 5) Unused keys in en.json vs source (set I18N_SKIP_UNUSED=1 to skip this step)
  *
@@ -133,6 +133,27 @@ function listAppSourceFiles(dir, acc = []) {
     }
   }
   return acc;
+}
+
+/** Count lines containing // i18n-exempt (same scan roots as source key check). */
+function gatherI18nExemptAudit() {
+  const files = listAppSourceFiles(SRC);
+  const byFile = [];
+  let total = 0;
+  for (const abs of files) {
+    const rel = relative(REPO_ROOT, abs);
+    const content = readFileSync(abs, 'utf8');
+    let count = 0;
+    for (const line of content.split('\n')) {
+      if (line.includes('// i18n-exempt')) count++;
+    }
+    if (count > 0) {
+      byFile.push({ rel, count });
+      total += count;
+    }
+  }
+  byFile.sort((a, b) => b.count - a.count || a.rel.localeCompare(b.rel));
+  return { total, byFile };
 }
 
 function extractKeysFromSource(content, fileRel, report) {
@@ -324,6 +345,22 @@ function main() {
   console.log(
     `[i18n:check] Source OK — ${allStatic.size} static key refs, ${allPrefixes.size} dynamic prefix(es) validated against en.json.`,
   );
+
+  const exempt = gatherI18nExemptAudit();
+  if (exempt.total === 0) {
+    console.log('[i18n:check] i18n-exempt audit: 0 lines.');
+  } else {
+    console.log(
+      `[i18n:check] i18n-exempt audit: ${exempt.total} line(s) across ${exempt.byFile.length} file(s).`,
+    );
+    const maxList = 25;
+    for (const { rel, count } of exempt.byFile.slice(0, maxList)) {
+      console.log(`  - ${rel}: ${count}`);
+    }
+    if (exempt.byFile.length > maxList) {
+      console.log(`  … and ${exempt.byFile.length - maxList} more file(s)`);
+    }
+  }
 
   const checkUnused = process.env.I18N_SKIP_UNUSED !== '1';
   if (checkUnused) {

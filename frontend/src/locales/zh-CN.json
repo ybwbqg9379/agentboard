@@ -317,7 +317,8 @@
     "defaultTitle": "确认",
     "defaultMessage": "确定要继续吗？",
     "defaultConfirm": "删除",
-    "defaultCancel": "取消"
+    "defaultCancel": "取消",
+    "dismiss": "关闭"
   },
   "errorBoundary": {
     "title": "出错了",

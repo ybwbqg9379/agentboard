@@ -317,7 +317,8 @@
     "defaultTitle": "Confirm",
     "defaultMessage": "Are you sure?",
     "defaultConfirm": "Delete",
-    "defaultCancel": "Cancel"
+    "defaultCancel": "Cancel",
+    "dismiss": "Close"
   },
   "errorBoundary": {
     "title": "Something went wrong",
