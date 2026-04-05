@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, act } from '@testing-library/react';
 import WorkflowEditor from './WorkflowEditor.jsx';
+import { __resetSharedWebSocketsForTests } from '../lib/sharedWebSocket.js';
 
 vi.mock('../lib/clientAuth.js', () => ({
   buildWsUrl: () => 'ws://localhost/ws',
@@ -18,7 +19,8 @@ class MockWebSocket {
     this.onclose = null;
     this.onerror = null;
     this.onmessage = null;
-    this.listeners = { open: [], close: [], error: [] };
+    this.listeners = { open: [], close: [], error: [], message: [] };
+    this.closeCalls = 0;
     sockets.push(this);
   }
 
@@ -33,6 +35,7 @@ class MockWebSocket {
   send() {}
 
   close() {
+    this.closeCalls += 1;
     this.readyState = MockWebSocket.CLOSED;
     this.emit('close');
   }
@@ -65,11 +68,13 @@ function jsonResponse(data) {
 describe('WorkflowEditor', () => {
   beforeEach(() => {
     sockets = [];
+    __resetSharedWebSocketsForTests();
     vi.useFakeTimers();
     fetch.mockResolvedValue(jsonResponse({ workflows: [] }));
   });
 
   afterEach(() => {
+    __resetSharedWebSocketsForTests();
     vi.useRealTimers();
   });
 
@@ -89,5 +94,32 @@ describe('WorkflowEditor', () => {
     });
 
     expect(sockets).toHaveLength(2);
+  });
+
+  it('reuses the shared socket across an immediate remount', async () => {
+    const first = render(<WorkflowEditor />);
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(sockets).toHaveLength(1);
+    const initialSocket = sockets[0];
+
+    act(() => {
+      first.unmount();
+    });
+
+    render(<WorkflowEditor />);
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(sockets).toHaveLength(1);
+
+    act(() => {
+      vi.advanceTimersByTime(150);
+    });
+
+    expect(initialSocket.closeCalls).toBe(0);
   });
 });

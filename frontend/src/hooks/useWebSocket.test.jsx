@@ -6,6 +6,7 @@ import { renderHook, act } from '@testing-library/react';
 // Mock WebSocket
 // ---------------------------------------------------------------------------
 let lastWs;
+let sockets = [];
 
 class MockWebSocket {
   constructor(url) {
@@ -16,13 +17,34 @@ class MockWebSocket {
     this.onmessage = null;
     this.onerror = null;
     this.sent = [];
+    this.closeCalls = 0;
+    this.listeners = { open: [], close: [], message: [], error: [] };
     lastWs = this;
+    sockets.push(this);
+  }
+  addEventListener(type, handler) {
+    this.listeners[type]?.push(handler);
+  }
+  removeEventListener(type, handler) {
+    this.listeners[type] = (this.listeners[type] || []).filter((item) => item !== handler);
   }
   send(data) {
     this.sent.push(data);
   }
   close() {
+    this.closeCalls += 1;
     this.readyState = MockWebSocket.CLOSED;
+    this.emit('close');
+  }
+  emit(type, event = {}) {
+    const payload = { target: this, ...event };
+    const callback = this[`on${type}`];
+    if (typeof callback === 'function') {
+      callback(payload);
+    }
+    for (const handler of this.listeners[type] || []) {
+      handler(payload);
+    }
   }
 }
 MockWebSocket.CONNECTING = 0;
@@ -41,6 +63,7 @@ vi.stubGlobal('localStorage', {
 // Import after mocks are in place
 // ---------------------------------------------------------------------------
 import { useWebSocket } from './useWebSocket.js';
+import { __resetSharedWebSocketsForTests } from '../lib/sharedWebSocket.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -50,14 +73,14 @@ function renderAndConnect() {
   // Trigger onopen to simulate connection
   act(() => {
     lastWs.readyState = MockWebSocket.OPEN;
-    lastWs.onopen();
+    lastWs.emit('open');
   });
   return result;
 }
 
 function simulateMessage(msg) {
   act(() => {
-    lastWs.onmessage({ data: JSON.stringify(msg) });
+    lastWs.emit('message', { data: JSON.stringify(msg) });
   });
 }
 
@@ -67,10 +90,13 @@ function simulateMessage(msg) {
 describe('useWebSocket', () => {
   beforeEach(() => {
     lastWs = null;
+    sockets = [];
+    __resetSharedWebSocketsForTests();
     vi.useFakeTimers();
   });
 
   afterEach(() => {
+    __resetSharedWebSocketsForTests();
     vi.useRealTimers();
   });
 
@@ -281,7 +307,7 @@ describe('useWebSocket', () => {
     // Push 5001 events
     act(() => {
       for (let i = 0; i < 5001; i++) {
-        lastWs.onmessage({
+        lastWs.emit('message', {
           data: JSON.stringify({ type: 'assistant', content: { text: `msg-${i}` } }),
         });
       }
@@ -387,7 +413,7 @@ describe('useWebSocket', () => {
     expect(result.current.connected).toBe(true);
     act(() => {
       lastWs.readyState = MockWebSocket.CLOSED;
-      lastWs.onclose();
+      lastWs.emit('close');
     });
     expect(result.current.connected).toBe(false);
   });
@@ -395,7 +421,7 @@ describe('useWebSocket', () => {
   it('malformed JSON messages are ignored', () => {
     const { result } = renderAndConnect();
     act(() => {
-      lastWs.onmessage({ data: 'not-json{{{' });
+      lastWs.emit('message', { data: 'not-json{{{' });
     });
     expect(result.current.events).toEqual([]);
   });
@@ -405,7 +431,7 @@ describe('useWebSocket', () => {
   it('session_resumed updates sessionIdRef and sessionId state', () => {
     const { result } = renderAndConnect();
     act(() => {
-      lastWs.onmessage({
+      lastWs.emit('message', {
         data: JSON.stringify({ type: 'session_resumed', sessionId: 'resumed-sid-123' }),
       });
     });
@@ -416,7 +442,7 @@ describe('useWebSocket', () => {
   it('result message extracts cache_read_tokens into sessionStats', () => {
     const { result } = renderAndConnect();
     act(() => {
-      lastWs.onmessage({
+      lastWs.emit('message', {
         data: JSON.stringify({
           type: 'result',
           content: {
@@ -435,7 +461,7 @@ describe('useWebSocket', () => {
   it('result message extracts cache_read_input_tokens as fallback', () => {
     const { result } = renderAndConnect();
     act(() => {
-      lastWs.onmessage({
+      lastWs.emit('message', {
         data: JSON.stringify({
           type: 'result',
           content: {
@@ -459,6 +485,25 @@ describe('useWebSocket', () => {
     });
     expect(result.current.status).toBe('idle');
     expect(lastWs.sent).toEqual([]);
+  });
+
+  it('reuses the shared socket across an immediate remount', () => {
+    const first = renderHook(() => useWebSocket());
+    expect(sockets).toHaveLength(1);
+    const initialSocket = sockets[0];
+
+    act(() => {
+      first.unmount();
+    });
+
+    renderHook(() => useWebSocket());
+    expect(sockets).toHaveLength(1);
+
+    act(() => {
+      vi.advanceTimersByTime(150);
+    });
+
+    expect(initialSocket.closeCalls).toBe(0);
   });
 
   it('MCP health transitions to failed after 3 consecutive errors, not 2 (M3 fix)', () => {

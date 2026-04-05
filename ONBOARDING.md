@@ -109,6 +109,8 @@ npm run dev
 
 **下一步**: 您的应用现已启动。请打开浏览器并访问 **[http://localhost:5173](http://localhost:5173)**。
 
+**开发提示**: Agent 主时间线与 Workflow 订阅会复用同一条 **`/ws`** socket；若您在本地开发时仍持续看到 `[front] ws proxy socket error: ECONNRESET`，通常表示后端连接真的被重置，而不再是 React **`StrictMode`** 探测阶段的预期噪声。
+
 ---
 
 ## 5. 快速导航：完成您的初次探索
@@ -137,6 +139,6 @@ npm run dev
 大功告成，您现在已经完全掌握了项目结构！如果您打算在底层做修改或提交 PR，我们为您准备了以下路标文档：
 
 - **内部架构透视**: 好奇 `workflowEngine.js` 如何调度工作流？WebSocket 的 5 种状态机是如何流转的？搜索/爬取 MCP 是如何分层激活的？请参阅位于根目录的 [`ARCHITECTURE.md`](ARCHITECTURE.md)。
-- **代码规范与自动化测试**: 我们对于入库的代码执行极严标准；当前全仓约 **900** 个 Vitest 用例（后端 645 + 前端 255）。提交代码或发起 PR 之前可在根目录运行 `npm run test`；需要覆盖率时可运行 `npm run test:coverage`。与根目录 `npx vitest run`（workspace 全量）说明见 [`CONTRIBUTING.md`](CONTRIBUTING.md)。`npm run check`、Husky `pre-commit` 与更细说明亦见该文档。
+- **代码规范与自动化测试**: 我们对于入库的代码执行极严标准；当前全仓约 **902** 个 Vitest 用例（后端 645 + 前端 257）。提交代码或发起 PR 之前可在根目录运行 `npm run test`；需要覆盖率时可运行 `npm run test:coverage`。与根目录 `npx vitest run`（workspace 全量）说明见 [`CONTRIBUTING.md`](CONTRIBUTING.md)。`npm run check`、Husky `pre-commit` 与更细说明亦见该文档。
 
 开心编程，尽情打造您的超级 Agent 平台！

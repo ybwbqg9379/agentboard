@@ -115,6 +115,8 @@ npm run dev
 
 打开浏览器访问 `http://localhost:5173`。
 
+**开发模式说明**：前端主时间线与 Workflow 订阅共用一层 **`/ws`** 共享连接租约；在 React **`StrictMode`** 的即时 remount 下会复用同一条 socket，正常情况下不应再因为预期内卸载而在 Vite 侧刷出 **`ws proxy socket error: ECONNRESET`**。如果该错误持续出现，应按真实后端断连处理。
+
 **持久化说明**：会话、工作流、实验、Swarm、记忆等全部由 **远程 Supabase 托管 PostgreSQL** 承担（`@supabase/supabase-js` 访问云端项目）；本地无需、也不使用 SQLite 等嵌入式数据库文件。
 
 ## API 文档与技术架构
@@ -128,7 +130,7 @@ AgentBoard 使用了复杂的流式数据处理和分发技术，包含 **远程
 我们通过严格的自动化流水线来保持极高的代码纯度：
 
 - 代码格式遵循 Prettier（单引号、100 行宽）。
-- 全仓 **900** 个 `Vitest` 用例（后端 **645** + 前端 **255**），覆盖 DAG 条件引擎、代理层、沙箱/MCP、`server` 关键 REST 路由、环境校验、请求关联，以及 Header / 用户壳时间线与会话文件 API 的 i18n 与可访问性回归。
+- 全仓 **902** 个 `Vitest` 用例（后端 **645** + 前端 **257**），覆盖 DAG 条件引擎、代理层、沙箱/MCP、`server` 关键 REST 路由、环境校验、请求关联，以及 Header / 用户壳时间线与会话文件 API 的 i18n 与可访问性回归。
 
 您可以随时通过下发全局质量门禁命令来确保代码没有退化：
 

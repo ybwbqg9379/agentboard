@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { buildWsUrl } from '../lib/clientAuth.js';
 import { apiFetch, API_BASE } from '../lib/apiFetch.js';
+import { acquireSharedWebSocket } from '../lib/sharedWebSocket.js';
 import {
   WS_RECONNECT_MS,
   startWsHeartbeat,
@@ -28,6 +29,7 @@ export function useWebSocket() {
   const [swarmReasoning, setSwarmReasoning] = useState(null); // Coordinator selection reasoning
 
   const wsRef = useRef(null);
+  const sharedSocketLeaseRef = useRef(null);
   const reconnectTimer = useRef(null);
   const heartbeatTimer = useRef(null);
   const sessionIdRef = useRef(null);
@@ -38,16 +40,23 @@ export function useWebSocket() {
 
   const connect = useCallback(() => {
     if (unmountedRef.current) return;
-    if (
-      wsRef.current?.readyState === WebSocket.OPEN ||
-      wsRef.current?.readyState === WebSocket.CONNECTING
-    )
-      return;
+    if (!sharedSocketLeaseRef.current) {
+      sharedSocketLeaseRef.current = acquireSharedWebSocket(buildWsUrl('/ws'));
+    }
 
-    const ws = new WebSocket(buildWsUrl('/ws'));
+    const ws = sharedSocketLeaseRef.current.getSocket();
     wsRef.current = ws;
+    return ws;
+  }, []);
 
-    ws.onopen = () => {
+  useEffect(() => {
+    unmountedRef.current = false;
+    const sharedSocket = acquireSharedWebSocket(buildWsUrl('/ws'));
+    sharedSocketLeaseRef.current = sharedSocket;
+
+    const handleOpen = () => {
+      const ws = sharedSocket.getSocket();
+      wsRef.current = ws;
       if (unmountedRef.current) {
         ws.close();
         return;
@@ -68,19 +77,28 @@ export function useWebSocket() {
       }
     };
 
-    ws.onclose = () => {
+    const handleClose = () => {
+      wsRef.current = null;
       setConnected(false);
       clearInterval(heartbeatTimer.current);
       if (!unmountedRef.current) {
-        reconnectTimer.current = scheduleWsReconnect(connect, WS_RECONNECT_MS);
+        reconnectTimer.current = scheduleWsReconnect(() => {
+          const ws = connect();
+          if (ws?.readyState === WebSocket.OPEN) {
+            handleOpen();
+          }
+        }, WS_RECONNECT_MS);
       }
     };
 
-    ws.onerror = () => {
-      ws.close();
+    const handleError = () => {
+      const ws = wsRef.current;
+      if (ws && ws.readyState !== WebSocket.CLOSED) {
+        ws.close();
+      }
     };
 
-    ws.onmessage = (e) => {
+    const handleMessage = (e) => {
       touchWsLastActivity(lastMessageTimeRef);
       let msg;
       try {
@@ -330,16 +348,28 @@ export function useWebSocket() {
         return next.length > MAX_EVENTS ? next.slice(-MAX_EVENTS) : next;
       });
     };
-  }, []);
 
-  useEffect(() => {
-    unmountedRef.current = false;
-    connect();
+    const removeOpenListener = sharedSocket.addEventListener('open', handleOpen);
+    const removeCloseListener = sharedSocket.addEventListener('close', handleClose);
+    const removeErrorListener = sharedSocket.addEventListener('error', handleError);
+    const removeMessageListener = sharedSocket.addEventListener('message', handleMessage);
+
+    const ws = connect();
+    if (ws?.readyState === WebSocket.OPEN) {
+      handleOpen();
+    }
+
     return () => {
       unmountedRef.current = true;
       clearTimeout(reconnectTimer.current);
       clearInterval(heartbeatTimer.current);
-      wsRef.current?.close();
+      removeOpenListener();
+      removeCloseListener();
+      removeErrorListener();
+      removeMessageListener();
+      sharedSocketLeaseRef.current?.release();
+      sharedSocketLeaseRef.current = null;
+      wsRef.current = null;
     };
   }, [connect]);
 

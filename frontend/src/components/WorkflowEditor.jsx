@@ -6,6 +6,7 @@ import Dropdown from './Dropdown';
 import ConfirmDialog from './ConfirmDialog.jsx';
 import { buildWsUrl } from '../lib/clientAuth.js';
 import { apiFetch, API_BASE } from '../lib/apiFetch.js';
+import { acquireSharedWebSocket } from '../lib/sharedWebSocket.js';
 import {
   WS_RECONNECT_MS,
   startWsHeartbeat,
@@ -475,8 +476,9 @@ export default function WorkflowEditor() {
     return null;
   }, [nodes, edges, workflowName, currentWorkflow, fetchWorkflows]);
 
-  // Dedicated workflow event socket for run-scoped subscriptions.
+  // Shared websocket lease for workflow run-scoped subscriptions.
   const wsRef = useRef(null);
+  const sharedSocketLeaseRef = useRef(null);
   const pendingWorkflowSubscriptionsRef = useRef(new Map());
   const reconnectTimerRef = useRef(null);
   const workflowHeartbeatRef = useRef(null);
@@ -611,111 +613,128 @@ export default function WorkflowEditor() {
     }
 
     function connectWorkflowSocket() {
-      const existing = wsRef.current;
-      if (
-        existing &&
-        (existing.readyState === WebSocket.OPEN || existing.readyState === WebSocket.CONNECTING)
-      ) {
-        return existing;
-      }
       if (workflowSocketDisposedRef.current) {
         return null;
       }
 
-      const ws = new WebSocket(buildWsUrl('/ws'));
+      if (!sharedSocketLeaseRef.current) {
+        sharedSocketLeaseRef.current = acquireSharedWebSocket(buildWsUrl('/ws'));
+      }
+
+      const ws = sharedSocketLeaseRef.current.getSocket();
       wsRef.current = ws;
-
-      ws.onopen = () => {
-        clearTimeout(reconnectTimerRef.current);
-        clearInterval(workflowHeartbeatRef.current);
-        workflowHeartbeatRef.current = startWsHeartbeat(ws, wfLastMessageRef);
-        if (activeRunIdRef.current && activeWorkflowIdRef.current) {
-          ws.send(
-            JSON.stringify({
-              action: 'subscribe_workflow',
-              workflowId: activeWorkflowIdRef.current,
-              runId: activeRunIdRef.current,
-            }),
-          );
-        }
-      };
-
-      ws.onmessage = (e) => {
-        touchWsLastActivity(wfLastMessageRef);
-        try {
-          const msg = JSON.parse(e.data);
-          if (msg.type === 'workflow_subscribed' && msg.runId) {
-            const pending = pendingWorkflowSubscriptionsRef.current.get(msg.runId);
-            if (pending) {
-              clearTimeout(pending.timeoutId);
-              pendingWorkflowSubscriptionsRef.current.delete(msg.runId);
-              pending.resolve();
-            }
-            return;
-          }
-          if (msg.type === 'workflow_unsubscribed') {
-            return;
-          }
-          if (msg.type !== 'workflow') return;
-          const { subtype, content } = msg;
-          if (subtype === 'run_start') {
-            setRunStatus('running');
-            setActiveNodes(new Set());
-          }
-          if (subtype === 'agent_started') {
-            if (content.nodeId) {
-              setActiveNodes((prev) => new Set([...prev, content.nodeId]));
-            }
-          }
-          if (subtype === 'node_start') {
-            setActiveNodes((prev) => new Set([...prev, content.nodeId]));
-          }
-          if (subtype === 'node_complete') {
-            setActiveNodes((prev) => {
-              const next = new Set(prev);
-              next.delete(content.nodeId);
-              return next;
-            });
-          }
-          if (subtype === 'run_complete') {
-            setRunStatus(content.status || 'completed');
-            setActiveNodes(new Set());
-            activeRunIdRef.current = null;
-            activeWorkflowIdRef.current = null;
-            if (content.runId && ws.readyState === WebSocket.OPEN) {
-              ws.send(JSON.stringify({ action: 'unsubscribe_workflow', runId: content.runId }));
-            }
-          }
-        } catch {
-          /* ignore */
-        }
-      };
-
-      ws.onclose = () => {
-        clearInterval(workflowHeartbeatRef.current);
-        rejectPendingWorkflowSubscriptions('workflow socket closed');
-        if (wsRef.current === ws) {
-          wsRef.current = null;
-        }
-        scheduleReconnect();
-      };
-
-      ws.onerror = () => {
-        rejectPendingWorkflowSubscriptions('workflow socket error');
-      };
-
       return ws;
     }
 
+    const sharedSocket = acquireSharedWebSocket(buildWsUrl('/ws'));
+    sharedSocketLeaseRef.current = sharedSocket;
+
+    const handleOpen = () => {
+      const ws = sharedSocket.getSocket();
+      wsRef.current = ws;
+      clearTimeout(reconnectTimerRef.current);
+      clearInterval(workflowHeartbeatRef.current);
+      workflowHeartbeatRef.current = startWsHeartbeat(ws, wfLastMessageRef);
+      if (activeRunIdRef.current && activeWorkflowIdRef.current) {
+        ws.send(
+          JSON.stringify({
+            action: 'subscribe_workflow',
+            workflowId: activeWorkflowIdRef.current,
+            runId: activeRunIdRef.current,
+          }),
+        );
+      }
+    };
+
+    const handleMessage = (e) => {
+      touchWsLastActivity(wfLastMessageRef);
+      try {
+        const msg = JSON.parse(e.data);
+        if (msg.type === 'workflow_subscribed' && msg.runId) {
+          const pending = pendingWorkflowSubscriptionsRef.current.get(msg.runId);
+          if (pending) {
+            clearTimeout(pending.timeoutId);
+            pendingWorkflowSubscriptionsRef.current.delete(msg.runId);
+            pending.resolve();
+          }
+          return;
+        }
+        if (msg.type === 'workflow_unsubscribed') {
+          return;
+        }
+        if (msg.type !== 'workflow') return;
+        const { subtype, content } = msg;
+        if (subtype === 'run_start') {
+          setRunStatus('running');
+          setActiveNodes(new Set());
+        }
+        if (subtype === 'agent_started') {
+          if (content.nodeId) {
+            setActiveNodes((prev) => new Set([...prev, content.nodeId]));
+          }
+        }
+        if (subtype === 'node_start') {
+          setActiveNodes((prev) => new Set([...prev, content.nodeId]));
+        }
+        if (subtype === 'node_complete') {
+          setActiveNodes((prev) => {
+            const next = new Set(prev);
+            next.delete(content.nodeId);
+            return next;
+          });
+        }
+        if (subtype === 'run_complete') {
+          const ws = wsRef.current;
+          setRunStatus(content.status || 'completed');
+          setActiveNodes(new Set());
+          activeRunIdRef.current = null;
+          activeWorkflowIdRef.current = null;
+          if (content.runId && ws?.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ action: 'unsubscribe_workflow', runId: content.runId }));
+          }
+        }
+      } catch {
+        /* ignore */
+      }
+    };
+
+    const handleClose = () => {
+      clearInterval(workflowHeartbeatRef.current);
+      rejectPendingWorkflowSubscriptions('workflow socket closed');
+      wsRef.current = null;
+      scheduleReconnect();
+    };
+
+    const handleError = () => {
+      rejectPendingWorkflowSubscriptions('workflow socket error');
+      const ws = wsRef.current;
+      if (ws && ws.readyState !== WebSocket.CLOSED) {
+        ws.close();
+      }
+    };
+
     connectWorkflowSocketRef.current = connectWorkflowSocket;
-    connectWorkflowSocket();
+    const removeOpenListener = sharedSocket.addEventListener('open', handleOpen);
+    const removeMessageListener = sharedSocket.addEventListener('message', handleMessage);
+    const removeCloseListener = sharedSocket.addEventListener('close', handleClose);
+    const removeErrorListener = sharedSocket.addEventListener('error', handleError);
+
+    const ws = connectWorkflowSocket();
+    if (ws?.readyState === WebSocket.OPEN) {
+      handleOpen();
+    }
 
     return () => {
       workflowSocketDisposedRef.current = true;
       clearTimeout(reconnectTimerRef.current);
       clearInterval(workflowHeartbeatRef.current);
       rejectPendingWorkflowSubscriptions('workflow socket disposed');
-      wsRef.current?.close();
+      removeOpenListener();
+      removeMessageListener();
+      removeCloseListener();
+      removeErrorListener();
+      sharedSocketLeaseRef.current?.release();
+      sharedSocketLeaseRef.current = null;
       wsRef.current = null;
       connectWorkflowSocketRef.current = () => null;
     };

@@ -4,19 +4,21 @@
 
 ### Fixed
 
+- **前端 WebSocket 生命周期**：新增 **`sharedWebSocket.js`**，以引用计数 + 短延迟释放复用 **`/ws`** 连接；**`useWebSocket`** 与 **`WorkflowEditor`** 在 React **`StrictMode`** 开发期即时 remount 下不再各自建连后立刻关闭，避免 Vite 代理侧出现预期内的 **`ws proxy socket error: ECONNRESET`** 噪声，同时保留既有心跳与重连语义。
 - **`WorkspaceFilesProvider`**：仅在同一 `sessionId` 的增量刷新时保留现有列表；一旦切换会话，立即清空 `workspaceList` 并进入 loading，避免 **`SessionDownloadablesStrip`** / **`FileChangesPanel`** 短暂展示上一个会话的文件并把链接错误地绑到新 `sessionId`。
 - **会话文件下载 API**：新增 **`GET /api/sessions/:id/files?path=...`**，支持下载嵌套产物（如 `reports/out/report.pdf`）；**`FileChangesPanel`** 对工具路径改传完整 `file_path`，仅 `download` 文件名保留 basename；旧的 **`/files/:fileName`** basename 路由继续保留以兼容已有链接。
 - **实验白名单扫描**：`runExperimentLoop` 在隐藏 `git` 噪声 stderr 的同时，新增对 **`git diff --name-only`** / **`git ls-files --others --exclude-standard`** 返回码的显式校验；若扫描命令本身失败，则以 **fatal error / fail-closed** 终止整轮实验，避免把“扫描失败”误当成“无文件改动”。
 
 ### Tests
 
+- **前端**：**`useWebSocket.test.jsx`** 与 **`WorkflowEditor.test.jsx`** 新增“即时卸载再挂载时复用同一条 socket”的回归覆盖；原有断线重连断言继续保留。
 - **后端**：`experimentEngine.test.js` 覆盖白名单扫描失败时的 fail-closed；`server.test.js` 覆盖嵌套路径下载与 `?path=../...` 越界拒绝。
 - **前端**：`WorkspaceFilesProvider.test.jsx` 覆盖切 session 时即时清空旧列表；`FileChangesPanel.render.test.jsx` 覆盖嵌套工具路径下载链接；`sessionDownloads.test.js` 覆盖新的 query-string 下载 URL。
 
 ### Documentation
 
-- **`README.md`**、**`CONTRIBUTING.md`**、**`ONBOARDING.md`**：Vitest 计数更新为 **900**（**645** + **255**）。
-- **`ARCHITECTURE.md`**、**`frontend/DESIGN.md`**：同步下载 API 的 `?path=` 语义、`WorkspaceFilesProvider` 的切会话清空行为，以及实验白名单的 fail-closed 边界。
+- **`README.md`**、**`CONTRIBUTING.md`**、**`ONBOARDING.md`**：Vitest 计数更新为 **902**（**645** + **257**），并补充开发期共享 **`/ws`** 连接的说明。
+- **`ARCHITECTURE.md`**、**`frontend/DESIGN.md`**：同步下载 API 的 `?path=` 语义、`WorkspaceFilesProvider` 的切会话清空行为，以及实验白名单的 fail-closed 边界；**`ARCHITECTURE.md`** 另补充前端共享 WebSocket 租约层与 **`StrictMode`** remount 行为。
 
 ---
 

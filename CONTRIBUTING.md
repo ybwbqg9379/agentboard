@@ -8,9 +8,11 @@
 2. **三端同开**：推荐在具有充足屏幕空间的设备上使用 `npm run dev` 启动前端、后端以及 Proxy。
 3. **API Key 获取**：在根目录拷贝建立 `.env.local` 即可，详细参数列表见 `.env.example`。
 
+前端 **`/ws`** 连接在开发模式下会由共享租约层跨 React **`StrictMode`** 的即时 remount 复用；若仍反复看到 Vite **`ws proxy socket error: ECONNRESET`**，应按真实断连排查，而不是预期噪声。
+
 ## 二、测试先行 (Testing Guidelines)
 
-AgentBoard 是一个核心逻辑极其复杂的编排引擎。我们使用 `Vitest`：**全仓约 900** 个用例（后端 **645**、前端 **255**，随仓库演进持续补齐）。
+AgentBoard 是一个核心逻辑极其复杂的编排引擎。我们使用 `Vitest`：**全仓约 902** 个用例（后端 **645**、前端 **257**，随仓库演进持续补齐）。
 
 ### 1. 运行测试
 
