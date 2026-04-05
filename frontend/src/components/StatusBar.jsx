@@ -1,4 +1,6 @@
 import { useTranslation } from 'react-i18next';
+import { Braces, Clock, DollarSign, Hash, ListOrdered } from 'lucide-react';
+import { BarStatusIcon, normalizeBarStatus } from './LucideStatusIcons.jsx';
 import styles from './StatusBar.module.css';
 
 function formatTokens(n) {
@@ -25,15 +27,13 @@ export default function StatusBar({ status, sessionId, eventCount, sessionStats,
   return (
     <footer className={styles.bar}>
       <div className={styles.left}>
-        <span
-          className={`dot dot-${status === 'running' ? 'running' : status === 'failed' ? 'error' : 'done'}`}
-        />
+        <BarStatusIcon status={normalizeBarStatus(status)} />
         <span>{statusLabel}</span>
         {sessionStats?.model && <span className={styles.meta}>{sessionStats.model}</span>}
         {turns > 0 && <span className={styles.meta}>{t('statusBar.turns', { count: turns })}</span>}
         {activeSubtasks.length > 0 && (
           <span className={styles.subtask}>
-            <span className="dot dot-running" />
+            <BarStatusIcon status="running" />
             {t('statusBar.subtask', { count: activeSubtasks.length })}
           </span>
         )}
@@ -47,6 +47,7 @@ export default function StatusBar({ status, sessionId, eventCount, sessionStats,
               output: formatTokens(sessionStats?.output_tokens || 0),
             })}
           >
+            <Braces size={11} strokeWidth={2} className={styles.metaGlyph} aria-hidden />
             <span className={styles.tokenLabel}>{formatTokens(totalTokens)}</span>
             <div className={styles.tokenTrack}>
               <div
@@ -65,17 +66,27 @@ export default function StatusBar({ status, sessionId, eventCount, sessionStats,
           </div>
         )}
         {sessionStats?.cost_usd > 0 && (
-          <span className={styles.meta}>${sessionStats.cost_usd.toFixed(4)}</span>
+          <span className={styles.meta}>
+            <DollarSign size={11} strokeWidth={2} className={styles.metaGlyph} aria-hidden />
+            <span>${sessionStats.cost_usd.toFixed(4)}</span>
+          </span>
         )}
         {sessionStats?.duration_ms > 0 && (
-          <span className={styles.meta}>{formatDuration(sessionStats.duration_ms)}</span>
+          <span className={styles.meta}>
+            <Clock size={11} strokeWidth={2} className={styles.metaGlyph} aria-hidden />
+            <span>{formatDuration(sessionStats.duration_ms)}</span>
+          </span>
         )}
         {sessionId && (
           <span className={styles.meta}>
-            {t('statusBar.session', { id: sessionId.slice(0, 8) })}
+            <Hash size={11} strokeWidth={2} className={styles.metaGlyph} aria-hidden />
+            <span>{t('statusBar.session', { id: sessionId.slice(0, 8) })}</span>
           </span>
         )}
-        <span className={styles.meta}>{t('statusBar.events', { count: eventCount })}</span>
+        <span className={styles.meta}>
+          <ListOrdered size={11} strokeWidth={2} className={styles.metaGlyph} aria-hidden />
+          <span>{t('statusBar.events', { count: eventCount })}</span>
+        </span>
       </div>
     </footer>
   );

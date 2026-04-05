@@ -6,10 +6,23 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: var(--space-sm);
   font-size: 12px;
   font-weight: 600;
   color: var(--text-secondary);
   margin-bottom: var(--space-md);
+}
+
+.headerLead {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.headerIcon {
+  flex-shrink: 0;
+  color: var(--text-tertiary);
 }
 
 .total {
@@ -46,13 +59,6 @@
   font-size: 11px;
 }
 
-.legendDot {
-  width: 8px;
-  height: 8px;
-  border-radius: 2px;
-  flex-shrink: 0;
-}
-
 .legendLabel {
   color: var(--text-secondary);
   min-width: 48px;
@@ -70,6 +76,9 @@
 }
 
 .cost {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
   margin-top: var(--space-md);
   font-size: 11px;
   color: var(--text-tertiary);
@@ -78,9 +87,24 @@
   border-top: 1px solid var(--border-primary);
 }
 
+.costIcon {
+  flex-shrink: 0;
+  margin-top: 1px;
+  opacity: 0.9;
+}
+
 .empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
   color: var(--text-tertiary);
   font-size: 12px;
   text-align: center;
   padding: var(--space-xl) 0;
+}
+
+.emptyIcon {
+  color: var(--text-tertiary);
+  opacity: 0.35;
 }

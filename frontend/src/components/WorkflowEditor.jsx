@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect, useId, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { ArrowLeft, Loader2, Play, Plus, RefreshCw, Save, Trash2, X } from 'lucide-react';
 import styles from './WorkflowEditor.module.css';
 import Dropdown from './Dropdown';
 import ConfirmDialog from './ConfirmDialog.jsx';
@@ -115,7 +116,7 @@ function NodeConfigPanel({ node, onUpdate, onDelete, onClose, t, permissionOptio
           onClick={onClose}
           aria-label={t('workflow.configClose')}
         >
-          ×
+          <X size={18} strokeWidth={2} aria-hidden />
         </button>
       </div>
       <div className={styles.configBody}>
@@ -203,7 +204,12 @@ function NodeConfigPanel({ node, onUpdate, onDelete, onClose, t, permissionOptio
           </div>
         )}
 
-        <button type="button" className={`${styles.deleteBtn}`} onClick={() => onDelete(node.id)}>
+        <button
+          type="button"
+          className={`${styles.deleteBtn} ${styles.deleteBtnWithIcon}`}
+          onClick={() => onDelete(node.id)}
+        >
+          <Trash2 size={14} strokeWidth={2} className={styles.deleteBtnIcon} aria-hidden />
           {t('workflow.deleteNode')}
         </button>
       </div>
@@ -239,7 +245,7 @@ function EdgeConfigPanel({
           onClick={onClose}
           aria-label={t('workflow.configClose')}
         >
-          ×
+          <X size={18} strokeWidth={2} aria-hidden />
         </button>
       </div>
       <div className={styles.configBody}>
@@ -264,7 +270,12 @@ function EdgeConfigPanel({
         ) : (
           <div className={styles.edgeHint}>{t('workflow.edgeHint')}</div>
         )}
-        <button type="button" className={styles.deleteBtn} onClick={onDelete}>
+        <button
+          type="button"
+          className={`${styles.deleteBtn} ${styles.deleteBtnWithIcon}`}
+          onClick={onDelete}
+        >
+          <Trash2 size={14} strokeWidth={2} className={styles.deleteBtnIcon} aria-hidden />
           {t('workflow.deleteEdge')}
         </button>
       </div>
@@ -930,10 +941,12 @@ export default function WorkflowEditor() {
     return (
       <div className={styles.editor}>
         <div className={styles.toolbar}>
-          <button type="button" onClick={newWorkflow}>
+          <button type="button" className={styles.toolbarIconBtn} onClick={newWorkflow}>
+            <Plus size={15} strokeWidth={2} className={styles.toolbarIcon} aria-hidden />
             {t('workflow.newWorkflow')}
           </button>
-          <button type="button" onClick={fetchWorkflows}>
+          <button type="button" className={styles.toolbarIconBtn} onClick={fetchWorkflows}>
+            <RefreshCw size={15} strokeWidth={2} className={styles.toolbarIcon} aria-hidden />
             {t('workflow.refresh')}
           </button>
           {workflows.length > 0 && (
@@ -944,7 +957,12 @@ export default function WorkflowEditor() {
             </button>
           )}
           {wfIsSelectMode && (
-            <button type="button" className={styles.batchDeleteBtn} onClick={requestWfDeleteBatch}>
+            <button
+              type="button"
+              className={`${styles.batchDeleteBtn} ${styles.toolbarIconBtn}`}
+              onClick={requestWfDeleteBatch}
+            >
+              <Trash2 size={14} strokeWidth={2} aria-hidden />
               {t('workflow.deleteBatch', { count: wfSelected.size })}
             </button>
           )}
@@ -952,7 +970,8 @@ export default function WorkflowEditor() {
         {workflows.length === 0 ? (
           <div className={styles.emptyState}>
             <span>{t('workflow.emptyTitle')}</span>
-            <button type="button" onClick={newWorkflow}>
+            <button type="button" className={styles.toolbarIconBtn} onClick={newWorkflow}>
+              <Plus size={15} strokeWidth={2} className={styles.toolbarIcon} aria-hidden />
               {t('workflow.emptyCta')}
             </button>
           </div>
@@ -985,9 +1004,10 @@ export default function WorkflowEditor() {
                   type="button"
                   className={styles.workflowDeleteBtn}
                   title={t('workflow.deleteWorkflowTitle')}
+                  aria-label={t('workflow.deleteWorkflowTitle')}
                   onClick={(e) => requestWfDeleteSingle(e, wf)}
                 >
-                  🗑
+                  <Trash2 size={16} strokeWidth={2} aria-hidden />
                 </button>
               </div>
             ))}
@@ -1016,6 +1036,7 @@ export default function WorkflowEditor() {
       <div className={styles.toolbar}>
         <button
           type="button"
+          className={styles.toolbarIconBtn}
           onClick={() => {
             setNodes([]);
             setEdges([]);
@@ -1025,6 +1046,7 @@ export default function WorkflowEditor() {
             setIsEditing(false);
           }}
         >
+          <ArrowLeft size={15} strokeWidth={2} className={styles.toolbarIcon} aria-hidden />
           {t('workflow.back')}
         </button>
         <input
@@ -1034,27 +1056,54 @@ export default function WorkflowEditor() {
           placeholder={t('workflow.namePlaceholder')}
           aria-label={t('workflow.namePlaceholder')}
         />
-        <button type="button" onClick={() => addNode('agent')}>
+        <button type="button" className={styles.toolbarIconBtn} onClick={() => addNode('agent')}>
+          <Plus size={15} strokeWidth={2} className={styles.toolbarIcon} aria-hidden />
           {t('workflow.addAgent')}
         </button>
-        <button type="button" onClick={() => addNode('condition')}>
+        <button
+          type="button"
+          className={styles.toolbarIconBtn}
+          onClick={() => addNode('condition')}
+        >
+          <Plus size={15} strokeWidth={2} className={styles.toolbarIcon} aria-hidden />
           {t('workflow.addCondition')}
         </button>
-        <button type="button" onClick={() => addNode('transform')}>
+        <button
+          type="button"
+          className={styles.toolbarIconBtn}
+          onClick={() => addNode('transform')}
+        >
+          <Plus size={15} strokeWidth={2} className={styles.toolbarIcon} aria-hidden />
           {t('workflow.addTransform')}
         </button>
-        <button type="button" onClick={() => addNode('experiment')}>
+        <button
+          type="button"
+          className={styles.toolbarIconBtn}
+          onClick={() => addNode('experiment')}
+        >
+          <Plus size={15} strokeWidth={2} className={styles.toolbarIcon} aria-hidden />
           {t('workflow.addExperiment')}
         </button>
-        <button type="button" onClick={saveWorkflow}>
+        <button type="button" className={styles.toolbarIconBtn} onClick={saveWorkflow}>
+          <Save size={15} strokeWidth={2} className={styles.toolbarIcon} aria-hidden />
           {t('workflow.save')}
         </button>
         <button
           type="button"
-          className={styles.runBtn}
+          className={`${styles.runBtn} ${styles.toolbarIconBtn}`}
           onClick={runWorkflow}
           disabled={runStatus === 'running'}
         >
+          {runStatus === 'running' ? (
+            <Loader2
+              size={15}
+              strokeWidth={2}
+              className={`${styles.toolbarIcon} ${styles.toolbarSpin}`}
+              aria-hidden
+            />
+          ) : (
+            <Play size={15} strokeWidth={2} className={styles.toolbarIcon} aria-hidden />
+          )}
           {runStatus === 'running' ? t('workflow.running') : t('workflow.run')}
         </button>
         {runStatus && runStatus !== 'running' && (
@@ -1216,7 +1265,7 @@ export default function WorkflowEditor() {
                       cy={10}
                       r={4}
                       fill="var(--status-running)"
-                      className="pulse"
+                      className={styles.nodeActiveIndicator}
                     />
                   )}
                 </g>

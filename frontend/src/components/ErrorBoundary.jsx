@@ -1,4 +1,5 @@
 import { Component } from 'react';
+import { RefreshCw } from 'lucide-react';
 import i18n from '../i18n.js';
 
 export class ErrorBoundary extends Component {
@@ -31,7 +32,10 @@ export class ErrorBoundary extends Component {
             className="error-boundary-fallback__retry"
             onClick={this.handleRetry}
           >
-            {i18n.t('errorBoundary.tryAgain')}
+            <span className="error-boundary-fallback__retryInner">
+              <RefreshCw size={14} strokeWidth={2} aria-hidden />
+              {i18n.t('errorBoundary.tryAgain')}
+            </span>
           </button>
         </div>
       );

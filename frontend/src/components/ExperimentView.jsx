@@ -1,5 +1,18 @@
 import { useState, useEffect, useMemo, useId, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import {
+  Check,
+  Eye,
+  FilePenLine,
+  GitBranch,
+  History,
+  Microscope,
+  Play,
+  Plus,
+  Square,
+  TrendingUp,
+  X,
+} from 'lucide-react';
 import { apiFetch, ApiFetchError } from '../lib/apiFetch.js';
 import { SwarmBranchCard } from './SwarmBranchCard.jsx';
 import styles from './ExperimentView.module.css';
@@ -429,7 +442,8 @@ export default function ExperimentView({
       <div className={styles.sidebar}>
         <div className={styles.sidebarHeader}>
           <h3>{t('experiment.sidebarTitle')}</h3>
-          <button type="button" onClick={handleNewExperiment}>
+          <button type="button" className={styles.sidebarNewBtn} onClick={handleNewExperiment}>
+            <Plus size={15} strokeWidth={2} className={styles.btnIcon} aria-hidden />
             {t('experiment.new')}
           </button>
         </div>
@@ -485,14 +499,21 @@ export default function ExperimentView({
             <div className={styles.actions}>
               <button
                 type="button"
+                className={styles.btnWithIcon}
                 onClick={() => {
                   setIsEditing(false);
                   setSaveError(null);
                 }}
               >
+                <X size={16} strokeWidth={2} className={styles.btnIcon} aria-hidden />
                 {t('experiment.cancel')}
               </button>
-              <button type="button" onClick={handleSave} className={styles.primaryButton}>
+              <button
+                type="button"
+                onClick={handleSave}
+                className={`${styles.primaryButton} ${styles.btnWithIcon}`}
+              >
+                <Check size={16} strokeWidth={2} className={styles.btnIcon} aria-hidden />
                 {t('experiment.save')}
               </button>
             </div>
@@ -510,27 +531,31 @@ export default function ExperimentView({
                 <button
                   type="button"
                   onClick={() => handleRun(selectedExperiment.id)}
-                  className={styles.primaryButton}
+                  className={`${styles.primaryButton} ${styles.btnWithIcon}`}
                 >
+                  <Play size={16} strokeWidth={2} className={styles.btnIcon} aria-hidden />
                   {t('experiment.runExperiment')}
                 </button>
                 {runSwarm && (
                   <button
                     type="button"
                     onClick={() => runSwarm(selectedExperiment.id)}
-                    className={styles.swarmButton}
+                    className={`${styles.swarmButton} ${styles.btnWithIcon}`}
                     title={t('experiment.runSwarmTitle')}
                   >
+                    <GitBranch size={16} strokeWidth={2} className={styles.btnIcon} aria-hidden />
                     {t('experiment.runSwarm')}
                   </button>
                 )}
                 <button
                   type="button"
+                  className={styles.btnWithIcon}
                   onClick={() => {
                     setEditForm(JSON.stringify(selectedExperiment.plan ?? {}, null, 2));
                     setIsEditing(true);
                   }}
                 >
+                  <FilePenLine size={16} strokeWidth={2} className={styles.btnIcon} aria-hidden />
                   {t('experiment.editPlan')}
                 </button>
               </div>
@@ -563,19 +588,23 @@ export default function ExperimentView({
                     {r.status === 'running' && experimentRunId !== r.id && (
                       <button
                         type="button"
+                        className={styles.btnWithIcon}
                         onClick={() => subscribeExperiment(r.id, selectedExperiment.id)}
                       >
+                        <Eye size={14} strokeWidth={2} className={styles.btnIcon} aria-hidden />
                         {t('experiment.watch')}
                       </button>
                     )}
                     {r.status !== 'running' && (
                       <button
                         type="button"
+                        className={styles.btnWithIcon}
                         onClick={() => {
                           loadExperimentRunsEvents(r.id, selectedExperiment.id);
                           if (loadSwarmBranches) loadSwarmBranches(r.id);
                         }}
                       >
+                        <History size={14} strokeWidth={2} className={styles.btnIcon} aria-hidden />
                         {t('experiment.viewHistory')}
                       </button>
                     )}
@@ -603,17 +632,34 @@ export default function ExperimentView({
                         <button
                           type="button"
                           onClick={() => abortSwarmRun(experimentRunId)}
-                          className={styles.dangerButton}
+                          className={`${styles.dangerButton} ${styles.btnWithIcon}`}
                         >
+                          <Square
+                            size={14}
+                            strokeWidth={2}
+                            className={styles.btnIcon}
+                            aria-hidden
+                          />
                           {t('experiment.abortSwarm')}
                         </button>
                       )}
                     {experimentStatus === 'running' && swarmBranches.length === 0 && (
-                      <button type="button" onClick={handleAbort} className={styles.dangerButton}>
+                      <button
+                        type="button"
+                        onClick={handleAbort}
+                        className={`${styles.dangerButton} ${styles.btnWithIcon}`}
+                      >
+                        <Square size={14} strokeWidth={2} className={styles.btnIcon} aria-hidden />
                         {t('experiment.abort')}
                       </button>
                     )}
-                    <button type="button" onClick={unsubscribeExperiment}>
+                    <button
+                      type="button"
+                      className={styles.btnWithIcon}
+                      onClick={unsubscribeExperiment}
+                      aria-label={t('experiment.close')}
+                    >
+                      <X size={16} strokeWidth={2} className={styles.btnIcon} aria-hidden />
                       {t('experiment.close')}
                     </button>
                   </div>
@@ -740,11 +786,19 @@ export default function ExperimentView({
                             n: evt.content?.trialNumber,
                             reason: evt.content?.reason ?? '',
                           })}
-                        {evt.subtype === 'trial_accepted' &&
-                          t('experiment.evtTrialAccepted', {
-                            n: evt.content?.trialNumber,
-                            pct: evt.content?.improvement?.toFixed(2) ?? '?',
-                          })}
+                        {evt.subtype === 'trial_accepted' && (
+                          <>
+                            {t('experiment.evtTrialAcceptedLead', {
+                              n: evt.content?.trialNumber,
+                            })}
+                            <span className={styles.eventTrendIcon} aria-hidden>
+                              <TrendingUp size={13} strokeWidth={2} />
+                            </span>
+                            {t('experiment.evtTrialAcceptedPct', {
+                              pct: evt.content?.improvement?.toFixed(2) ?? '?',
+                            })}
+                          </>
+                        )}
                         {evt.subtype === 'baseline' &&
                           t('experiment.evtBaseline', { metric: evt.content?.metric })}
                         {evt.subtype === 'experiment_start' &&
@@ -769,7 +823,7 @@ export default function ExperimentView({
           </div>
         ) : (
           <div className={styles.emptyState}>
-            <div className={styles.emptyIcon}>🔬</div>
+            <Microscope size={40} strokeWidth={1.5} className={styles.emptyDecorIcon} aria-hidden />
             <div>{t('experiment.emptySelect')}</div>
           </div>
         )}

@@ -1,5 +1,6 @@
 import { useId, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Disc, History, Moon, Plus, Sun, Wifi, WifiOff } from 'lucide-react';
 import Dropdown from './Dropdown';
 import styles from './Header.module.css';
 
@@ -109,73 +110,52 @@ export default function Header({
           aria-label={theme === 'dark' ? t('header.themeToLight') : t('header.themeToDark')}
         >
           {theme === 'dark' ? (
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <circle cx="12" cy="12" r="4"></circle>
-              <path d="M12 2v2"></path>
-              <path d="M12 20v2"></path>
-              <path d="m4.93 4.93 1.41 1.41"></path>
-              <path d="m17.66 17.66 1.41 1.41"></path>
-              <path d="M2 12h2"></path>
-              <path d="M20 12h2"></path>
-              <path d="m6.34 17.66-1.41 1.41"></path>
-              <path d="m19.07 4.93-1.41 1.41"></path>
-            </svg>
+            <Sun size={14} strokeWidth={2} aria-hidden />
           ) : (
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path>
-            </svg>
+            <Moon size={14} strokeWidth={2} aria-hidden />
           )}
         </button>
         {mcpEntries.length > 0 && (
           <div className={styles.mcpHealth}>
             <span className={styles.mcpLabel}>{t('header.mcp')}</span>
             {mcpEntries.map(([name, info]) => (
-              <span
+              <Disc
                 key={name}
-                className={styles.mcpDot}
-                style={{ background: MCP_STATE_COLORS[info.state] || MCP_STATE_COLORS.pending }}
+                size={10}
+                strokeWidth={0}
+                className={styles.mcpGlyph}
+                fill={MCP_STATE_COLORS[info.state] || MCP_STATE_COLORS.pending}
                 title={t('header.mcpTooltip', {
                   name,
                   state: info.state,
                   calls: info.toolCalls,
                   errors: info.toolErrors,
                 })}
+                aria-hidden
               />
             ))}
           </div>
         )}
         {mode === 'agent' && (
           <>
-            <button className={styles.historyBtn} onClick={onOpenHistory}>
+            <button type="button" className={styles.historyBtn} onClick={onOpenHistory}>
+              <History size={14} strokeWidth={2} className={styles.headerBtnIcon} aria-hidden />
               {t('header.history')}
             </button>
             {sessionId && (
-              <button className={styles.clearBtn} onClick={onClear}>
+              <button type="button" className={styles.clearBtn} onClick={onClear}>
+                <Plus size={14} strokeWidth={2} className={styles.headerBtnIcon} aria-hidden />
                 {t('header.newSession')}
               </button>
             )}
           </>
         )}
         <div className={styles.connStatus}>
-          <span className={styles.connDot} data-connected={connected} />
+          {connected ? (
+            <Wifi size={14} strokeWidth={2} className={styles.connIcon} aria-hidden />
+          ) : (
+            <WifiOff size={14} strokeWidth={2} className={styles.connIconMuted} aria-hidden />
+          )}
           <span className={styles.connText}>
             {connected ? t('header.connected') : t('header.disconnected')}
           </span>

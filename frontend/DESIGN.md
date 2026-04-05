@@ -48,3 +48,14 @@
 **设计**：长文案语言下注意顶栏 **语言 + 调色板** 两个下拉的 `max-width`（见 `Header.module.css` 移动端规则）。
 
 本文件随主题包与断点演进更新；新增 `themes/packs/<name>.css` 后在此登记名称与参考来源（如 awesome-design-md 路径）。
+
+## 5. 图标（Lucide / `lucide-react`）
+
+- **唯一图标体系**：界面中表达「动作 / 状态 / 对象类型」的图形符号，统一使用 **[Lucide](https://lucide.dev/)** 的 React 包 **`lucide-react`**（与社区常说的 “Lucide icons” 同义）。禁止用 **emoji**、禁止把 **Unicode 符号**（如 `×`、`→`、`▶`、`+` 前缀等）当作图标替代；**文案里**仅用文字描述，**图标**由组件渲染。
+- **典型映射**（示例，非穷举）：关闭 `X`、删除 `Trash2`、确认/保存 `Check`、运行 `Play`、停止 `Square`、发送 `Send`、继续 `ArrowRight`、刷新 `RefreshCw`、返回 `ArrowLeft`、新建/添加节点 `Plus`、下载 `FileDown`、主题 `Sun`/`Moon`、历史 `History`、下拉 `ChevronDown`、加载 `Loader2`（可配合 CSS 旋转）、趋势 `TrendingUp` 等。
+- **尺寸与描边**：默认 `strokeWidth={2}`；顶栏/工具条常用 **14–16px**；列表内徽标可 **11–13px**。保持 `currentColor` 以继承 `--text-*` / 按钮前景色。
+- **无障碍**：装饰性图标加 **`aria-hidden`**；仅图标的按钮用 **`aria-label` / `title`**（或可见文案足够时仅隐藏图标）。`ConfirmDialog` 标题栏关闭钮使用 `experiment.close` 作为 `aria-label`。
+- **布局**：图标与文案并排时使用 **`display: inline-flex; align-items: center; gap: 6px`**（各模块可在对应 `*.module.css` 中以 `btnWithIcon`、`toolbarIconBtn` 等类实现，命名可局部化，语义一致即可）。
+- **共享组件**：时间线事件 gutter、底栏状态、会话列表状态、上下文图例等复用 `src/components/LucideStatusIcons.jsx`（`TimelineDotIcon`、`BarStatusIcon`、`ContextSegmentIcon`、`normalizeBarStatus`），避免同一语义在多处手写不同图标。
+- **例外**：**数据可视化 / 画布** 内联 SVG（如图表折线、工作流画布箭头 `marker`）不属于 Lucide 替换范围；**终端模拟区**（`TerminalView`）中 `$`、`>`、`?` 等前缀表示 shell / 工具语义，保留为终端惯例，不改为 Lucide。
+- **已移除**：全局 `.dot` / `.dot-*` 色点工具类（原 `index.css`）已由上述 Lucide 组件替代，勿再新增依赖该模式的 UI。

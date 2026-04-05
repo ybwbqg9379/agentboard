@@ -20,7 +20,7 @@ You are executing a structured data extraction workflow. Your goal is to **locat
 
 ```
 ┌──────────────┐     ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-│  1. LOCATE   │────▶│  2. EXTRACT  │────▶│ 3. VALIDATE  │────▶│  4. EXPORT   │
+│  1. LOCATE   │----->│  2. EXTRACT  │----->│ 3. VALIDATE  │----->│  4. EXPORT   │
 │              │     │              │     │              │     │              │
 │ tavily-search│     │ firecrawl    │     │ (type check, │     │ filesystem   │
 │ (find pages) │     │ jina-reader  │     │  dedup, clean)│     │ (JSON/CSV)   │

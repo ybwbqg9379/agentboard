@@ -85,12 +85,17 @@
   position: relative;
 }
 
+.headerBtnIcon {
+  flex-shrink: 0;
+}
+
 .historyBtn,
 .clearBtn,
 .themeBtn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 5px;
   font-size: 12px;
   font-weight: 500;
   color: var(--text-secondary);
@@ -130,11 +135,9 @@
   margin-right: 2px;
 }
 
-.mcpDot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  transition: background 0.3s;
+.mcpGlyph {
+  flex-shrink: 0;
+  cursor: default;
 }
 
 .connStatus {
@@ -143,16 +146,15 @@
   gap: 6px;
 }
 
-.connDot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--status-error);
-  transition: background 0.3s;
+.connIcon {
+  flex-shrink: 0;
+  color: var(--status-running);
 }
 
-.connDot[data-connected='true'] {
-  background: var(--status-running);
+.connIconMuted {
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+  opacity: 0.85;
 }
 
 .connText {

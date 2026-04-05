@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { BookOpen, File, FilePenLine, FilePlus, FolderOpen, Pencil } from 'lucide-react';
 import styles from './FileChangesPanel.module.css';
 
 /**
@@ -45,8 +46,14 @@ export default function FileChangesPanel({ events }) {
   if (files.length === 0) {
     return (
       <div className={styles.panel}>
-        <div className={styles.header}>{t('filesPanel.header')}</div>
-        <div className={styles.empty}>{t('filesPanel.empty')}</div>
+        <div className={styles.header}>
+          <FolderOpen size={14} strokeWidth={2} className={styles.headerIcon} aria-hidden />
+          {t('filesPanel.header')}
+        </div>
+        <div className={styles.empty}>
+          <FolderOpen size={36} strokeWidth={1.5} className={styles.emptyIcon} aria-hidden />
+          {t('filesPanel.empty')}
+        </div>
       </div>
     );
   }
@@ -57,7 +64,10 @@ export default function FileChangesPanel({ events }) {
   return (
     <div className={styles.panel}>
       <div className={styles.header}>
-        {t('filesPanel.header')}
+        <span className={styles.headerLead}>
+          <FolderOpen size={14} strokeWidth={2} className={styles.headerIcon} aria-hidden />
+          {t('filesPanel.header')}
+        </span>
         <span className={styles.count}>{files.length}</span>
       </div>
       <div className={styles.list}>
@@ -68,14 +78,34 @@ export default function FileChangesPanel({ events }) {
             </div>
             {modified.map((f) => (
               <div key={f.path} className={styles.file}>
-                <span className={styles.dot} style={{ background: 'var(--status-running)' }} />
+                <FilePenLine
+                  size={12}
+                  strokeWidth={2}
+                  className={styles.fileKindIcon}
+                  aria-hidden
+                />
                 <span className={styles.name} title={f.path}>
                   {basename(f.path)}
                 </span>
                 <span className={styles.ops}>
-                  {f.writes > 0 && <span className={styles.write}>W{f.writes}</span>}
-                  {f.edits > 0 && <span className={styles.edit}>E{f.edits}</span>}
-                  {f.reads > 0 && <span className={styles.read}>R{f.reads}</span>}
+                  {f.writes > 0 && (
+                    <span className={styles.write} title={t('filesPanel.opWrite')}>
+                      <FilePlus size={11} strokeWidth={2} className={styles.opsIcon} aria-hidden />
+                      {f.writes}
+                    </span>
+                  )}
+                  {f.edits > 0 && (
+                    <span className={styles.edit} title={t('filesPanel.opEdit')}>
+                      <Pencil size={11} strokeWidth={2} className={styles.opsIcon} aria-hidden />
+                      {f.edits}
+                    </span>
+                  )}
+                  {f.reads > 0 && (
+                    <span className={styles.read} title={t('filesPanel.opRead')}>
+                      <BookOpen size={11} strokeWidth={2} className={styles.opsIcon} aria-hidden />
+                      {f.reads}
+                    </span>
+                  )}
                 </span>
               </div>
             ))}
@@ -88,12 +118,15 @@ export default function FileChangesPanel({ events }) {
             </div>
             {readOnly.map((f) => (
               <div key={f.path} className={styles.file}>
-                <span className={styles.dot} style={{ background: 'var(--text-tertiary)' }} />
+                <File size={12} strokeWidth={2} className={styles.fileKindIconMuted} aria-hidden />
                 <span className={styles.name} title={f.path}>
                   {basename(f.path)}
                 </span>
                 <span className={styles.ops}>
-                  <span className={styles.read}>R{f.reads}</span>
+                  <span className={styles.read} title={t('filesPanel.opRead')}>
+                    <BookOpen size={11} strokeWidth={2} className={styles.opsIcon} aria-hidden />
+                    {f.reads}
+                  </span>
                 </span>
               </div>
             ))}

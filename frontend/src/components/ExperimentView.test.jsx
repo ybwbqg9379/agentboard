@@ -146,7 +146,7 @@ describe('ExperimentView', () => {
       />,
     );
 
-    fireEvent.click(await screen.findByRole('button', { name: '+ New' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'New' }));
     // CSS Modules mock returns the prop key as the class string directly.
     const saveBtn = screen.getByRole('button', { name: 'Save' });
     expect(saveBtn.className.includes('primaryButton')).toBe(true);

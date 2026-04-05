@@ -21,6 +21,10 @@
 - **文档**：`README` / `CONTRIBUTING` / `ONBOARDING` 中 Vitest 全仓计数与前后端分项更新为 **852**（633 + 219）；`README` / `CONTRIBUTING` 中 `npm run check` 与 Husky 说明补充 **i18n** 与 **Playwright**。
 - **`scripts/check-i18n.mjs`**：禁止**裸变量** **`t(foo)`**（**允许** **`t(row.labelKey)`** 等属性访问）与 **`t(...+...)`** 拼接 key（单行；行末 `// i18n-exempt` 可豁免）；间接 key 扩展为 **`labelKey` / `titleKey` / `descriptionKey` / `messageKey`**。
 - **`frontend/DESIGN.md`**：记载 `document.title`、`dir`、i18n 禁止模式与 ICU 说明。
+- **前端图标（Lucide）**：依赖 **`lucide-react`**；以矢量图标替代 emoji / Unicode 假图标（如文案中的 `+`、`→` 前缀等）；共享 **`frontend/src/components/LucideStatusIcons.jsx`**（`TimelineDotIcon`、`BarStatusIcon`、`ContextSegmentIcon`、`normalizeBarStatus`）统一时间线 gutter、**StatusBar**、**SessionDrawer**、上下文图例等语义。
+- **面板与壳层**：**Header**（主题/历史/新会话/连接 **Wifi**/**WifiOff**、MCP **`Disc`**）、**Dropdown**（**ChevronDown**）、**ChatInput**、**WorkflowEditor** 工具条与配置删除、**ExperimentView**、**RightPanel** Tab、**ContextPanel** / **FileChangesPanel** 标题与空态、**AgentTimeline**、**ConfirmDialog** 关闭钮、**ErrorBoundary** 重试、**SessionDrawer** / **StatusBar** 元信息前缀图标等与 **DESIGN.md §5** 对齐。
+- **清理**：移除 **`index.css`** 中已废弃的全局 **`.dot` / `.dot-*`** 及仅服务于色点的 **`@keyframes pulse`**；**WorkflowEditor** 运行中节点角标由原无效全局 **`pulse`** 改为 **`WorkflowEditor.module.css`** 的 **`nodeActiveIndicator`**（`nodeActivePulse` 动画）。**`frontend/DESIGN.md`** 增补图标约定与 **`LucideStatusIcons`** 说明。
+- **文案**：工作流/实验「新建、添加节点」等去掉字面 **`+`**（由 **Plus** 图标表达）；**`workflow.edgeTitle`** 使用 **`—`** 连接；**`filesPanel.opWrite` / `opEdit` / `opRead`** 供文件操作徽标 **title**。
 
 #### Tests
 
@@ -404,9 +408,9 @@
   - `GET /api/experiment-runs/:id/swarm-status`——查询 Swarm 是否仍在运行
 - **Swarm WebSocket 事件广播**：服务端复用 `experimentSubs` map，新增 8 种 `swarm` 类型 WS 事件（`swarm_decompose_start`、`swarm_hypothesis`、`swarm_branch_start/complete`、`swarm_synthesize_start`、`swarm_branch_selected`、`swarm_complete/error`）。
 - **`frontend/src/hooks/useWebSocket.js`**：新增 swarm 状态（`swarmBranches`/`swarmHypotheses`/`swarmStatus`/`swarmReasoning`）及 `runSwarm()`/`abortSwarmRun()`/`loadSwarmBranches()` API；swarm 事件自动与 `subscribe_experiment` 同订阅，无需额外操作。
-- **`frontend/src/components/SwarmBranchCard.jsx`**：单个 Branch 状态卡片，展示假说文本、运行状态（旋转动画 / 完成 / 失败 / 已选中高亮）、最优 Metric、Trial 进度。
+- **`frontend/src/components/SwarmBranchCard.jsx`**：单个 Branch 状态卡片，展示假说文本、运行状态（运行中 / 完成 / 失败 / 已选中高亮）、最优 Metric、Trial 进度。
 - **Swarm Dashboard**（`ExperimentView.jsx`）：Live Dashboard 升级为 Swarm Dashboard，包含 Coordinator 状态行、假说列表（Decompose 阶段）、Branch 卡片网格（自适应列数）、Coordinator 选择理由展示。
-- **"⚡ Run as Swarm" 按钮**（`ExperimentView.jsx`）：在实验头部新增 Swarm 启动按钮（紫色渐变，区别于普通 Run 按钮）。
+- **「Run as Swarm」按钮**（`ExperimentView.jsx`）：在实验头部新增 Swarm 启动按钮（紫色渐变，区别于普通 Run 按钮）。
 
 #### Architecture
 

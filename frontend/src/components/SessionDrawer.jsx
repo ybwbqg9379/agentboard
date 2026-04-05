@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Trash2, X } from 'lucide-react';
+import { BarStatusIcon, normalizeBarStatus } from './LucideStatusIcons.jsx';
 import styles from './SessionDrawer.module.css';
 import { apiFetch } from '../lib/apiFetch.js';
 import ConfirmDialog from './ConfirmDialog.jsx';
@@ -107,13 +109,6 @@ export default function SessionDrawer({ open, onClose, onLoadSession, currentSes
 
   if (!open) return null;
 
-  const statusDot = (s) => {
-    if (s === 'running') return 'dot-running';
-    if (s === 'failed' || s === 'interrupted') return 'dot-error';
-    if (s === 'stopped') return 'dot-thinking';
-    return 'dot-done';
-  };
-
   const isSelectMode = selected.size > 0;
 
   return (
@@ -134,8 +129,13 @@ export default function SessionDrawer({ open, onClose, onLoadSession, currentSes
               {t('sessionDrawer.deleteBatch', { count: selected.size })}
             </button>
           )}
-          <button className={styles.closeBtn} onClick={onClose}>
-            ✕
+          <button
+            type="button"
+            className={styles.closeBtn}
+            onClick={onClose}
+            aria-label={t('experiment.close')}
+          >
+            <X size={18} strokeWidth={2} aria-hidden />
           </button>
         </div>
         <div className={styles.list}>
@@ -160,7 +160,10 @@ export default function SessionDrawer({ open, onClose, onLoadSession, currentSes
                 }}
               >
                 <div className={styles.itemHeader}>
-                  <span className={`dot ${statusDot(s.status)}`} />
+                  <BarStatusIcon
+                    status={normalizeBarStatus(s.status)}
+                    className={styles.sessionStatusIcon}
+                  />
                   <span className={styles.itemStatus}>
                     {t(`sessionStatus.${s.status}`, { defaultValue: s.status })}
                   </span>
@@ -187,11 +190,13 @@ export default function SessionDrawer({ open, onClose, onLoadSession, currentSes
                   })()}
               </button>
               <button
+                type="button"
                 className={styles.deleteBtn}
                 title={t('sessionDrawer.deleteSessionTitle')}
+                aria-label={t('sessionDrawer.deleteSessionTitle')}
                 onClick={(e) => requestDeleteSingle(e, s.id)}
               >
-                🗑
+                <Trash2 size={16} strokeWidth={2} aria-hidden />
               </button>
             </div>
           ))}

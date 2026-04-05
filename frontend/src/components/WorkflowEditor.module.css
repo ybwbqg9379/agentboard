@@ -37,6 +37,41 @@
   color: var(--text-accent);
 }
 
+.toolbarIconBtn {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+
+.toolbarIcon {
+  flex-shrink: 0;
+}
+
+.toolbarSpin {
+  animation: wfToolbarSpin 0.9s linear infinite;
+}
+
+@keyframes wfToolbarSpin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.deleteBtnWithIcon {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.deleteBtnIcon {
+  flex-shrink: 0;
+}
+
 .runBtn {
   background: var(--status-running) !important;
   color: white !important;
@@ -142,6 +177,21 @@
   r: 6;
 }
 
+/* Running-node active indicator (replaces legacy global `.pulse`, which was removed with index.css dots) */
+.nodeActiveIndicator {
+  animation: nodeActivePulse 1.5s ease-in-out infinite;
+}
+
+@keyframes nodeActivePulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
 /* Edges */
 .edge {
   fill: none;
@@ -197,12 +247,16 @@
 }
 
 .configClose {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
   background: none;
   border: none;
   color: var(--text-tertiary);
   cursor: pointer;
-  font-size: 16px;
-  padding: 2px 6px;
+  padding: 4px;
+  border-radius: 4px;
 }
 
 .configClose:hover {
@@ -384,11 +438,12 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  line-height: 0;
   background: none;
   border: none;
   cursor: pointer;
   padding: 0 var(--space-md);
-  font-size: 14px;
+  color: var(--text-tertiary);
   opacity: 0;
   transition: opacity 0.15s;
   flex-shrink: 0;

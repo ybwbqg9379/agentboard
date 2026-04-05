@@ -40,11 +40,43 @@
   }
 }
 
+.titleRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+  margin-bottom: var(--space-sm);
+}
+
 .title {
   font-size: 15px;
   font-weight: 600;
   color: var(--text-primary);
-  margin-bottom: var(--space-sm);
+  flex: 1;
+  min-width: 0;
+}
+
+.dismiss {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+  flex-shrink: 0;
+  padding: 2px;
+  margin: -2px -4px 0 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition:
+    color 0.15s,
+    background 0.15s;
+}
+
+.dismiss:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
 }
 
 .message {

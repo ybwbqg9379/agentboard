@@ -127,6 +127,6 @@
   transform: translateY(-1px);
 }
 
-.downloadIcon {
-  font-size: 14px;
+.downloadBtnIcon {
+  flex-shrink: 0;
 }

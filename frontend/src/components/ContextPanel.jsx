@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { BarChart2, DollarSign } from 'lucide-react';
+import { ContextSegmentIcon } from './LucideStatusIcons.jsx';
 import styles from './ContextPanel.module.css';
 
 export default function ContextPanel({ sessionStats }) {
@@ -33,8 +35,16 @@ export default function ContextPanel({ sessionStats }) {
   if (total === 0) {
     return (
       <div className={styles.panel}>
-        <div className={styles.header}>{t('contextPanel.header')}</div>
-        <div className={styles.empty}>{t('contextPanel.empty')}</div>
+        <div className={styles.header}>
+          <span className={styles.headerLead}>
+            <BarChart2 size={14} strokeWidth={2} className={styles.headerIcon} aria-hidden />
+            {t('contextPanel.header')}
+          </span>
+        </div>
+        <div className={styles.empty}>
+          <BarChart2 size={36} strokeWidth={1.5} className={styles.emptyIcon} aria-hidden />
+          {t('contextPanel.empty')}
+        </div>
       </div>
     );
   }
@@ -42,7 +52,10 @@ export default function ContextPanel({ sessionStats }) {
   return (
     <div className={styles.panel}>
       <div className={styles.header}>
-        {t('contextPanel.header')}
+        <span className={styles.headerLead}>
+          <BarChart2 size={14} strokeWidth={2} className={styles.headerIcon} aria-hidden />
+          {t('contextPanel.header')}
+        </span>
         <span className={styles.total}>
           {t('contextPanel.totalTokens', { formatted: formatTokens(total) })}
         </span>
@@ -68,7 +81,7 @@ export default function ContextPanel({ sessionStats }) {
       <div className={styles.legend}>
         {segments.map((seg) => (
           <div key={seg.key} className={styles.legendItem}>
-            <span className={styles.legendDot} style={{ background: seg.color }} />
+            <ContextSegmentIcon segmentKey={seg.key} />
             <span className={styles.legendLabel}>{seg.label}</span>
             <span className={styles.legendValue}>{formatTokens(seg.value)}</span>
             <span className={styles.legendPct}>{((seg.value / total) * 100).toFixed(0)}%</span>
@@ -78,10 +91,13 @@ export default function ContextPanel({ sessionStats }) {
 
       {sessionStats?.cost_usd > 0 && (
         <div className={styles.cost}>
-          {t('contextPanel.cost', {
-            amount: sessionStats.cost_usd.toFixed(4),
-            model: sessionStats?.model ? ` (${sessionStats.model})` : '',
-          })}
+          <DollarSign size={11} strokeWidth={2} className={styles.costIcon} aria-hidden />
+          <span>
+            {t('contextPanel.cost', {
+              amount: sessionStats.cost_usd.toFixed(4),
+              model: sessionStats?.model ? ` (${sessionStats.model})` : '',
+            })}
+          </span>
         </div>
       )}
     </div>

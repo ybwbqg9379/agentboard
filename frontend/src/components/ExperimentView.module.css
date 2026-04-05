@@ -48,6 +48,12 @@
   opacity: 0.85;
 }
 
+.sidebarNewBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
 /* ─── Template Section ─────────────────────────────────────────────────────── */
 
 .templateSection {
@@ -147,14 +153,14 @@
   align-items: center;
   justify-content: center;
   height: 100%;
-  gap: 16px;
+  gap: 12px;
   color: var(--text-tertiary);
   font-size: 1rem;
 }
 
-.emptyIcon {
-  font-size: 3rem;
-  opacity: 0.5;
+.emptyDecorIcon {
+  color: var(--text-tertiary);
+  opacity: 0.4;
 }
 
 /* ─── Editor ───────────────────────────────────────────────────────────────── */
@@ -264,6 +270,16 @@
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+.btnWithIcon {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btnIcon {
+  flex-shrink: 0;
 }
 
 .headerActions button {
@@ -602,6 +618,14 @@
 
 .eventRow .info {
   color: var(--text-primary);
+}
+
+.eventTrendIcon {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+  margin: 0 3px;
+  color: #34c759;
 }
 
 /* ─── Swarm Button ──────────────────────────────────────────────────────────── */

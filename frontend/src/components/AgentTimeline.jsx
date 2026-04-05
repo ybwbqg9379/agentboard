@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import { FileDown, Inbox, MessagesSquare } from 'lucide-react';
 import MarkdownBody from './MarkdownBody.jsx';
+import { BarStatusIcon, normalizeBarStatus, TimelineDotIcon } from './LucideStatusIcons.jsx';
 import styles from './AgentTimeline.module.css';
 import i18n from '../i18n.js';
 
@@ -44,7 +46,7 @@ const DownloadButton = ({ fileName, sessionId }) => {
 
   return (
     <a href={downloadUrl} download={fileName} className={styles.downloadBtn}>
-      <span className={styles.downloadIcon}>📄</span>
+      <FileDown size={14} strokeWidth={2} className={styles.downloadBtnIcon} aria-hidden />
       {t('timeline.download', { fileName })}
     </a>
   );
@@ -412,7 +414,7 @@ function TimelineItem({ item, index, sessionId }) {
       style={{ animationDelay: `${Math.min(index, 20) * 30}ms` }}
     >
       <div className={styles.eventGutter}>
-        <span className={`dot dot-${item.dot}`} />
+        <TimelineDotIcon variant={item.dot} />
         <span className={styles.eventLine} />
       </div>
       <div className={styles.eventContent}>
@@ -469,10 +471,11 @@ export default function AgentTimeline({ events, status, sessionId }) {
     return (
       <div className="panel">
         <div className="panel-header">
-          <span className="dot dot-done" />
+          <MessagesSquare size={14} strokeWidth={2} className="panel-header-icon" aria-hidden />
           {t('timeline.title')}
         </div>
         <div className="empty-state">
+          <Inbox size={40} strokeWidth={1.5} className="empty-state-icon" aria-hidden />
           <div className="empty-state-title">{t('timeline.emptyTitle')}</div>
           <div>{t('timeline.emptyHint')}</div>
         </div>
@@ -483,7 +486,7 @@ export default function AgentTimeline({ events, status, sessionId }) {
   return (
     <div className="panel">
       <div className="panel-header">
-        <span className={`dot ${status === 'running' ? 'dot-running' : 'dot-done'}`} />
+        <BarStatusIcon status={normalizeBarStatus(status)} />
         {t('timeline.title')}
         <span style={{ marginLeft: 'auto', fontVariantNumeric: 'tabular-nums' }}>
           {t('timeline.eventsCount', { count: displayItems.length })}
@@ -495,7 +498,7 @@ export default function AgentTimeline({ events, status, sessionId }) {
         ))}
         {status === 'running' && (
           <div className={styles.runningIndicator}>
-            <span className="dot dot-running" />
+            <TimelineDotIcon variant="running" />
             <span>{t('timeline.working')}</span>
           </div>
         )}

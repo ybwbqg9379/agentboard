@@ -22,7 +22,7 @@ You are executing a structured web research workflow. Your goal is to **search �
 
 ```
 ┌──────────────┐     ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-│   1. SEARCH  │────▶│   2. CRAWL   │────▶│  3. ANALYSE  │────▶│  4. PERSIST  │
+│   1. SEARCH  │----->│   2. CRAWL   │----->│  3. ANALYSE  │----->│  4. PERSIST  │
 │              │     │              │     │              │     │              │
 │ tavily-search│     │ firecrawl    │     │ sequential-  │     │ memory       │
 │ exa-search   │     │ fetch        │     │ thinking     │     │ filesystem   │

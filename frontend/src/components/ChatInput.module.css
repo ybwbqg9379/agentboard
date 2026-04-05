@@ -56,6 +56,10 @@
 .sendBtn,
 .continueBtn,
 .stopBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   height: 44px;
   padding: 0 24px;
   border: none;
@@ -64,6 +68,10 @@
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.inputActionIcon {
   flex-shrink: 0;
 }
 

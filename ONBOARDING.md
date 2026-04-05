@@ -1,4 +1,4 @@
-# 🚀 Onboarding 快速上手指南
+# Onboarding 快速上手指南
 
 欢迎来到 **AgentBoard**！这份指南专门为您（无论是打算 Clone 进行本地部署，还是 Fork 进行二次开发）准备，旨在帮助您在 5 分钟内搭建并运行您的第一个 AI Agent 工作流。
 
@@ -103,9 +103,9 @@ npm run dev
 
 启动后，您的终端中会亮起三种颜色的日志流：
 
-1. 🟡 `[proxy]` (端口 4000): LLM 通信代理，负责执行请求翻译和包体透传。
-2. 🔵 `[back]` (端口 3001): Express + WebSocket 服务中枢，挂载着 DAG 调度引擎以及 Supabase 云端数据库。
-3. 🟢 `[front]` (端口 5173): Vite React 前端 SPA 数据驾驶舱。
+1. `[proxy]` (端口 4000): LLM 通信代理，负责执行请求翻译和包体透传。
+2. `[back]` (端口 3001): Express + WebSocket 服务中枢，挂载着 DAG 调度引擎以及 Supabase 云端数据库。
+3. `[front]` (端口 5173): Vite React 前端 SPA 数据驾驶舱。
 
 **下一步**: 您的应用现已启动。请打开浏览器并访问 **[http://localhost:5173](http://localhost:5173)**。
 
@@ -139,4 +139,4 @@ npm run dev
 - **内部架构透视**: 好奇 `workflowEngine.js` 如何调度工作流？WebSocket 的 5 种状态机是如何流转的？搜索/爬取 MCP 是如何分层激活的？请参阅位于根目录的 [`ARCHITECTURE.md`](ARCHITECTURE.md)。
 - **代码规范与自动化测试**: 我们对于入库的代码执行极严标准；当前全仓约 **852** 个 Vitest 用例（后端 633 + 前端 219）。提交代码或发起 PR 之前可在根目录运行 `npm run test`；需要覆盖率时可运行 `npm run test:coverage`。`npm run check`、Husky `pre-commit` 与更细说明见 [`CONTRIBUTING.md`](CONTRIBUTING.md)。
 
-开心编程，尽情打造您的超级 Agent 平台！🚀
+开心编程，尽情打造您的超级 Agent 平台！

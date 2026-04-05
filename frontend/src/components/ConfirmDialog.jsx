@@ -1,5 +1,6 @@
 import { useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { X } from 'lucide-react';
 import styles from './ConfirmDialog.module.css';
 
 /**
@@ -55,7 +56,17 @@ export default function ConfirmDialog({
   return (
     <div className={styles.overlay} onClick={onCancel}>
       <div className={styles.dialog} onClick={(e) => e.stopPropagation()}>
-        <div className={styles.title}>{resolvedTitle}</div>
+        <div className={styles.titleRow}>
+          <div className={styles.title}>{resolvedTitle}</div>
+          <button
+            type="button"
+            className={styles.dismiss}
+            onClick={onCancel}
+            aria-label={t('experiment.close')}
+          >
+            <X size={18} strokeWidth={2} aria-hidden />
+          </button>
+        </div>
         <div className={styles.message}>{resolvedMessage}</div>
         <div className={styles.actions}>
           <button className={styles.cancelBtn} onClick={onCancel}>

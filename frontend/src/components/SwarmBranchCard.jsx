@@ -4,14 +4,35 @@
  * 展示单个 Research Swarm 分支的状态卡片。
  */
 import { useTranslation } from 'react-i18next';
+import { BookmarkCheck, CheckCircle2, CircleStop, Loader2, XCircle } from 'lucide-react';
 import styles from './SwarmBranchCard.module.css';
 
-const STATUS_ICON = {
-  running: '⟳',
-  completed: '✅',
-  failed: '❌',
-  aborted: '⏹',
-};
+const ICON_PROPS = { size: 13, strokeWidth: 2, 'aria-hidden': true };
+
+function StatusGlyph({ status, isSelected }) {
+  if (isSelected) {
+    return <BookmarkCheck {...ICON_PROPS} />;
+  }
+  switch (status) {
+    case 'running':
+      return (
+        <Loader2
+          size={ICON_PROPS.size}
+          strokeWidth={ICON_PROPS.strokeWidth}
+          aria-hidden
+          className={styles.lucideSpin}
+        />
+      );
+    case 'completed':
+      return <CheckCircle2 {...ICON_PROPS} />;
+    case 'failed':
+      return <XCircle {...ICON_PROPS} />;
+    case 'aborted':
+      return <CircleStop {...ICON_PROPS} />;
+    default:
+      return null;
+  }
+}
 
 export function SwarmBranchCard({ branch, index }) {
   const { t } = useTranslation();
@@ -47,9 +68,7 @@ export function SwarmBranchCard({ branch, index }) {
       <div className={styles.header}>
         <span className={styles.branchLabel}>{t('swarmCard.branch', { index })}</span>
         <span className={`${styles.statusBadge} ${statusClass}`}>
-          <span className={status === 'running' ? styles.spinIcon : ''}>
-            {STATUS_ICON[status] ?? '○'}
-          </span>
+          <StatusGlyph status={status} isSelected={isSelected} />
           {isSelected ? t('swarmCard.selected') : statusLabel}
         </span>
       </div>

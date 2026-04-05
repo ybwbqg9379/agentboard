@@ -1,0 +1,24 @@
+/* Shared Lucide affordances for timeline, status bar, drawers, and panels */
+
+.timelineDot,
+.barIcon,
+.segIcon {
+  flex-shrink: 0;
+}
+
+.spin {
+  animation: lucideSpin 1s linear infinite;
+}
+
+.spinSlow {
+  animation: lucideSpin 2.5s linear infinite;
+}
+
+@keyframes lucideSpin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}

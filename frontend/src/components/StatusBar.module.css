@@ -19,8 +19,17 @@
 }
 
 .meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   padding-left: var(--space-md);
   border-left: 1px solid var(--border-primary);
+}
+
+.metaGlyph {
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+  opacity: 0.9;
 }
 
 .subtask {
@@ -35,7 +44,7 @@
 .tokenBar {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   padding-left: var(--space-md);
   border-left: 1px solid var(--border-primary);
 }

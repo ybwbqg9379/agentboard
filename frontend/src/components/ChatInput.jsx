@@ -1,5 +1,6 @@
 import { useMemo, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import { ArrowRight, Send, Square } from 'lucide-react';
 import styles from './ChatInput.module.css';
 import Dropdown from './Dropdown';
 
@@ -77,6 +78,7 @@ export default function ChatInput({ onSend, onFollowUp, onStop, status, sessionI
         />
         {isRunning ? (
           <button type="button" className={styles.stopBtn} onClick={onStop} disabled={!connected}>
+            <Square size={14} strokeWidth={2} className={styles.inputActionIcon} aria-hidden />
             {t('chatInput.stop')}
           </button>
         ) : (
@@ -85,6 +87,16 @@ export default function ChatInput({ onSend, onFollowUp, onStop, status, sessionI
             className={canFollowUp ? styles.continueBtn : styles.sendBtn}
             disabled={!canSubmit}
           >
+            {canFollowUp ? (
+              <ArrowRight
+                size={16}
+                strokeWidth={2}
+                className={styles.inputActionIcon}
+                aria-hidden
+              />
+            ) : (
+              <Send size={16} strokeWidth={2} className={styles.inputActionIcon} aria-hidden />
+            )}
             {buttonLabel}
           </button>
         )}

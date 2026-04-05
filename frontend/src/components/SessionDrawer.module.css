@@ -80,13 +80,16 @@
 }
 
 .closeBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
   margin-left: auto;
   background: none;
   border: none;
   color: var(--text-tertiary);
   cursor: pointer;
-  font-size: 14px;
-  padding: 2px 6px;
+  padding: 4px;
   border-radius: var(--radius-sm);
 }
 
@@ -157,11 +160,12 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  line-height: 0;
   background: none;
   border: none;
   cursor: pointer;
   padding: 0 var(--space-sm);
-  font-size: 14px;
+  color: var(--text-tertiary);
   opacity: 0;
   transition: opacity 0.15s;
   flex-shrink: 0;
@@ -180,6 +184,10 @@
   align-items: center;
   gap: var(--space-xs);
   margin-bottom: 2px;
+}
+
+.sessionStatusIcon {
+  align-self: center;
 }
 
 .itemStatus {
