@@ -10,7 +10,7 @@
 
 ## 二、测试先行 (Testing Guidelines)
 
-AgentBoard 是一个核心逻辑极其复杂的编排引擎。我们使用 `Vitest`：**全仓约 852** 个用例（后端 **633**、前端 **219**，随仓库演进持续补齐）。
+AgentBoard 是一个核心逻辑极其复杂的编排引擎。我们使用 `Vitest`：**全仓约 858** 个用例（后端 **637**、前端 **221**，随仓库演进持续补齐）。
 
 ### 1. 运行测试
 
@@ -66,7 +66,7 @@ npm run check
 
 - `npm run format:check`：由 Prettier 接管，确保文件完全符合作者指定的格式 (无单引号转抛、行宽 100 等)。
 - `npm run lint:strict`：由 ESLint 接管，**零警告 (Zero Warning) 容忍**。
-- `npm run i18n:check`：校验 en ↔ zh、源码 key、禁止的 `t()` 写法与未使用键等（见 `frontend/DESIGN.md`）。
+- `npm run i18n:check`：校验 en ↔ zh、源码 key、动态前缀、跨多行的非法 `t()` 调用，以及仅允许 `*.labelKey|*.titleKey|*.descriptionKey|*.messageKey` 这类受支持的间接 key 属性访问（见 `frontend/DESIGN.md`）。
 - `npm run build`：确保 Vite 生产构建打包一切正常。
 - **`playwright test`**：对构建产物启动 `vite preview`，跑 `e2e/` 冒烟用例（与 `npm run test:e2e` 中 Playwright 部分一致，后者会先执行 `build`）。
 

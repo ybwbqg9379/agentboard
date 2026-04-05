@@ -41,7 +41,7 @@
 
 核心壳与 **Workflow / Experiment / Timeline / 终端与侧栏** 等已走 `t()` / `i18n.t()`；新增 key 时 **禁止整句硬编码拼接**，复杂句用 `t('key', { var })`；需要展示给用户的 `{{…}}` 模板字面量勿放进 JSON（避免被插值吞掉），可拆成 prefix/suffix 或在 JSX 中写死花括号段。
 
-**门禁**：仓库根目录 `npm run i18n:check`（`scripts/check-i18n.mjs`）校验 en ↔ zh 键与占位符一致、源码中的静态 key 在 `en.json` 存在、动态 `t(\`prefix.\${…}\`)`前缀下至少有一条翻译、**禁止裸变量**`t(foo)` 与 **`t('…' + …)`** 拼接 key（**允许** `t(row.labelKey)`等属性访问，且`labelKey`等仍须被间接 key 扫描命中）、单行扫描、行末`// i18n-exempt` 可豁免；间接 key 属性 **`labelKey`/`titleKey`/`descriptionKey`/`messageKey`** 的字符串值须在 `en.json` 存在；并默认扫描 **未使用的 en 键**（紧急跳过：`I18N_SKIP_UNUSED=1`）。日期/数字格式逐步用 `Intl`与当前`lang` 对齐。文案使用 **i18next 插值**（`{{var}}` 等），非 ICU MessageFormat；若引入 ICU 需另加校验。
+**门禁**：仓库根目录 `npm run i18n:check`（`scripts/check-i18n.mjs`）校验 en ↔ zh 键与占位符一致、源码中的静态 key 在 `en.json` 存在、动态 `t(\`prefix.\${…}\`)`前缀下至少有一条翻译、**禁止裸变量**`t(foo)` 与 **`t('…' + …)`** 拼接 key；这类非法写法会按**整个调用跨度**扫描，跨多行也会命中。属性访问只允许 **`_.labelKey`/`_.titleKey`/`_.descriptionKey`/`_.messageKey`** 这几类受支持的间接 key 引用，其对应字符串值仍须被间接 key 扫描命中；任意 `t(row.badKey)`一类访问会直接报错。任一调用跨度内带`// i18n-exempt` 可豁免；并默认扫描 **未使用的 en 键**（紧急跳过：`I18N_SKIP_UNUSED=1`）。日期/数字格式逐步用 `Intl`与当前`lang` 对齐。文案使用 **i18next 插值**（`{{var}}` 等），非 ICU MessageFormat；若引入 ICU 需另加校验。
 
 **RTL**：`i18n.js` 在语言切换时对 `ar` / `he` / `fa` / `ur` 设 `dir="rtl"`，其余为 `ltr`；新增 RTL 语言时把关键布局改为逻辑属性（`margin-inline-*`）。
 
@@ -54,7 +54,7 @@
 - **唯一图标体系**：界面中表达「动作 / 状态 / 对象类型」的图形符号，统一使用 **[Lucide](https://lucide.dev/)** 的 React 包 **`lucide-react`**（与社区常说的 “Lucide icons” 同义）。禁止用 **emoji**、禁止把 **Unicode 符号**（如 `×`、`→`、`▶`、`+` 前缀等）当作图标替代；**文案里**仅用文字描述，**图标**由组件渲染。
 - **典型映射**（示例，非穷举）：关闭 `X`、删除 `Trash2`、确认/保存 `Check`、运行 `Play`、停止 `Square`、发送 `Send`、继续 `ArrowRight`、刷新 `RefreshCw`、返回 `ArrowLeft`、新建/添加节点 `Plus`、下载 `FileDown`、主题 `Sun`/`Moon`、历史 `History`、下拉 `ChevronDown`、加载 `Loader2`（可配合 CSS 旋转）、趋势 `TrendingUp` 等。
 - **尺寸与描边**：默认 `strokeWidth={2}`；顶栏/工具条常用 **14–16px**；列表内徽标可 **11–13px**。保持 `currentColor` 以继承 `--text-*` / 按钮前景色。
-- **无障碍**：装饰性图标加 **`aria-hidden`**；仅图标的按钮用 **`aria-label` / `title`**（或可见文案足够时仅隐藏图标）。`ConfirmDialog` 标题栏关闭钮使用 `experiment.close` 作为 `aria-label`。
+- **无障碍**：装饰性图标加 **`aria-hidden`**；仅图标的按钮用 **`aria-label` / `title`**（或可见文案足够时仅隐藏图标）。`ConfirmDialog` 标题栏关闭钮使用 `confirmDialog.dismiss` 作为 `aria-label`。
 - **布局**：图标与文案并排时使用 **`display: inline-flex; align-items: center; gap: 6px`**（各模块可在对应 `*.module.css` 中以 `btnWithIcon`、`toolbarIconBtn` 等类实现，命名可局部化，语义一致即可）。
 - **共享组件**：时间线事件 gutter、底栏状态、会话列表状态、上下文图例等复用 `src/components/LucideStatusIcons.jsx`（`TimelineDotIcon`、`BarStatusIcon`、`ContextSegmentIcon`、`normalizeBarStatus`），避免同一语义在多处手写不同图标。
 - **例外**：**数据可视化 / 画布** 内联 SVG（如图表折线、工作流画布箭头 `marker`）不属于 Lucide 替换范围；**终端模拟区**（`TerminalView`）中 `$`、`>`、`?` 等前缀表示 shell / 工具语义，保留为终端惯例，不改为 Lucide。

@@ -15,6 +15,7 @@
 
 - **`StatusBar`**：`subtaskEntries.filter` 回调参数由 **`t`** 改为 **`sub`**，避免遮蔽 **`useTranslation()`** 的翻译函数 **`t`**（与 `MetricChart` 刻度变量遮蔽同类）。
 - **`ConfirmDialog`**：关闭按钮 **`aria-label`** 由跨模块 **`experiment.close`** 改为 **`confirmDialog.dismiss`**，与对话框命名空间一致。
+- **`StatusBar`**：补齐 **`interrupted`** 为已知会话状态；恢复后的会话在底栏走 `statusBar.interrupted` 本地化，不再误报未知状态 dev warning。
 - **`backend/package-lock.json`**：与 **`package.json`** 的 **`0.16.2`** 版本字段对齐（`npm install` 同步）。
 
 #### Developer experience
@@ -25,8 +26,8 @@
 #### Changed
 
 - **`.gitignore`**：忽略 Playwright **`test-results/`**、**`playwright-report/`**、**`blob-report/`**、**`playwright/.cache/`**；Vite **`.vite/`**、Vitest **`.vitest/`**；**`.eslintcache`**、**`*.tsbuildinfo`**；构建备份 **`dist.bak/`**；常见 **`*.log`** / 包管理器 debug 日志；**`Thumbs.db`**、**`.idea/`**。
-- **文档**：`README` / `CONTRIBUTING` / `ONBOARDING` 中 Vitest 全仓计数与前后端分项更新为 **852**（633 + 219）；`README` / `CONTRIBUTING` 中 `npm run check` 与 Husky 说明补充 **i18n** 与 **Playwright**。
-- **`scripts/check-i18n.mjs`**：禁止**裸变量** **`t(foo)`**（**允许** **`t(row.labelKey)`** 等属性访问）与 **`t(...+...)`** 拼接 key（单行；行末 `// i18n-exempt` 可豁免）；间接 key 扩展为 **`labelKey` / `titleKey` / `descriptionKey` / `messageKey`**。
+- **文档**：`README` / `CONTRIBUTING` / `ONBOARDING` 中 Vitest 全仓计数与前后端分项更新为 **858**（637 + 221）；`README` / `CONTRIBUTING` 中 `npm run check` 与 Husky 说明补充 **i18n** 与 **Playwright**。
+- **`scripts/check-i18n.mjs`**：禁止**裸变量** **`t(foo)`** 与 **`t(...+...)`** 拼接 key；扫描范围由单行提升为**整个调用跨度**，跨多行同样命中。属性访问只允许 **`*.labelKey` / `*.titleKey` / `*.descriptionKey` / `*.messageKey`** 这类受支持的间接 key 引用；任一调用跨度内带 `// i18n-exempt` 可豁免。
 - **`frontend/DESIGN.md`**：记载 `document.title`、`dir`、i18n 禁止模式与 ICU 说明。
 - **前端图标（Lucide）**：依赖 **`lucide-react`**；以矢量图标替代 emoji / Unicode 假图标（如文案中的 `+`、`→` 前缀等）；共享 **`frontend/src/components/LucideStatusIcons.jsx`**（`TimelineDotIcon`、`BarStatusIcon`、`ContextSegmentIcon`、`normalizeBarStatus`）统一时间线 gutter、**StatusBar**、**SessionDrawer**、上下文图例等语义。
 - **面板与壳层**：**Header**（主题/历史/新会话/连接 **Wifi**/**WifiOff**、MCP **`Disc`**）、**Dropdown**（**ChevronDown**）、**ChatInput**、**WorkflowEditor** 工具条与配置删除、**ExperimentView**、**RightPanel** Tab、**ContextPanel** / **FileChangesPanel** 标题与空态、**AgentTimeline**、**ConfirmDialog** 关闭钮、**ErrorBoundary** 重试、**SessionDrawer** / **StatusBar** 元信息前缀图标等与 **DESIGN.md §5** 对齐。
@@ -35,6 +36,8 @@
 
 #### Tests
 
+- 新增 **`backend/check-i18n.test.js`**，覆盖多行 `t(variable)`、多行 key 拼接、受支持/不受支持的属性访问，以及跨多行 `// i18n-exempt` 豁免。
+- 新增 **`frontend/src/components/StatusBar.test.jsx`**，覆盖 `interrupted` 的本地化显示与未知状态 dev warning 回退。
 - 与 **GitHub Actions CI** 及 Husky **`pre-commit`** 对齐：`prettier --check`、`eslint --max-warnings 0`、`i18n:check`、**`npm test`**、**`npm run build`**、**`playwright test`**（`CI=true` 下不复用本地 preview 进程）均已验证通过。
 
 ---

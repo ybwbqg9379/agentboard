@@ -4,7 +4,7 @@
  *
  * 1) Locale integrity: en.json ↔ zh-CN.json (keys, {{vars}}, non-empty, balanced "{{")
  * 2) Source keys: static t('…') / i18n.t('…') and template t(`prefix.${…}`) must resolve in en.json
- * 3) Forbidden patterns: bare t(variable) / string concat keys — first arg must be '…', "…", `…`, or obj.prop (exempt: // i18n-exempt on line; run logs exempt counts)
+ * 3) Forbidden patterns: bare t(variable) / string concat keys — first arg must be '…', "…", `…`, or a supported indirect key prop access (*.labelKey, *.titleKey, *.descriptionKey, *.messageKey); multiline calls are scanned too (exempt: // i18n-exempt on call line(s); run logs exempt counts)
  * 4) Indirect keys: labelKey | titleKey | descriptionKey | messageKey string props must exist in en.json
  * 5) Unused keys in en.json vs source (set I18N_SKIP_UNUSED=1 to skip this step)
  *
@@ -12,7 +12,7 @@
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(__dirname, '..');
@@ -28,9 +28,14 @@ const STATIC_KEY_RE = /\b(?:t|i18n\.t)\(\s*['"]([a-zA-Z0-9_.]+)['"]/g;
 const STATIC_BT_RE = /\b(?:t|i18n\.t)\(\s*`([a-zA-Z0-9_.]+)`\s*[,)]/g;
 /** Dynamic: t(`prefix.${…}`) — capture literal prefix before ${ */
 const DYNAMIC_TMPL_RE = /\b(?:t|i18n\.t)\(\s*`([^`]*?)\$\{/g;
+const INDIRECT_KEY_PROPS = ['labelKey', 'titleKey', 'descriptionKey', 'messageKey'];
+const INDIRECT_KEY_PROP_SET = new Set(INDIRECT_KEY_PROPS);
+
 /** Indirect i18n key props (config objects, dialogs, etc.) */
 const INDIRECT_KEY_PROP_RE =
   /\b(?:labelKey|titleKey|descriptionKey|messageKey):\s*['"]([a-zA-Z0-9_.]+)['"]/g;
+
+const I18N_CALL_RE = /\b(?:t|i18n\.t)\s*\(/g;
 
 function flattenStrings(obj, prefix, out) {
   if (typeof obj === 'string') {
@@ -195,45 +200,206 @@ function extractKeysFromSource(content, fileRel, report) {
   return { staticKeys, dynamicPrefixes };
 }
 
-/** Ban t(nonLiteral) and t('a.' + …) on a line (use // i18n-exempt to override). */
+function buildLineStarts(content) {
+  const starts = [0];
+  for (let i = 0; i < content.length; i++) {
+    if (content[i] === '\n') starts.push(i + 1);
+  }
+  return starts;
+}
+
+function getLineNumberAt(offset, lineStarts) {
+  let lo = 0;
+  let hi = lineStarts.length - 1;
+  while (lo <= hi) {
+    const mid = Math.floor((lo + hi) / 2);
+    if (lineStarts[mid] <= offset) lo = mid + 1;
+    else hi = mid - 1;
+  }
+  return hi + 1;
+}
+
+function hasI18nExemptBetween(lines, startLine, endLine) {
+  for (let i = startLine - 1; i < endLine; i++) {
+    if (lines[i]?.includes('// i18n-exempt')) return true;
+  }
+  return false;
+}
+
+function skipQuotedRegion(source, start, quote) {
+  let i = start + 1;
+  while (i < source.length) {
+    if (source[i] === '\\') {
+      i += 2;
+      continue;
+    }
+    if (source[i] === quote) return i + 1;
+    i++;
+  }
+  return source.length;
+}
+
+function skipLineComment(source, start) {
+  let i = start + 2;
+  while (i < source.length && source[i] !== '\n') i++;
+  return i;
+}
+
+function skipBlockComment(source, start) {
+  let i = start + 2;
+  while (i < source.length - 1) {
+    if (source[i] === '*' && source[i + 1] === '/') return i + 2;
+    i++;
+  }
+  return source.length;
+}
+
+function findCallCloseIndex(source, openParenIndex) {
+  let parenDepth = 0;
+  let braceDepth = 0;
+  let bracketDepth = 0;
+
+  for (let i = openParenIndex + 1; i < source.length; i++) {
+    const ch = source[i];
+    const next = source[i + 1];
+
+    if (ch === "'" || ch === '"' || ch === '`') {
+      i = skipQuotedRegion(source, i, ch) - 1;
+      continue;
+    }
+    if (ch === '/' && next === '/') {
+      i = skipLineComment(source, i) - 1;
+      continue;
+    }
+    if (ch === '/' && next === '*') {
+      i = skipBlockComment(source, i) - 1;
+      continue;
+    }
+
+    if (ch === '(') parenDepth++;
+    else if (ch === '{') braceDepth++;
+    else if (ch === '[') bracketDepth++;
+    else if (ch === ')') {
+      if (parenDepth === 0 && braceDepth === 0 && bracketDepth === 0) return i;
+      if (parenDepth > 0) parenDepth--;
+    } else if (ch === '}') {
+      if (braceDepth > 0) braceDepth--;
+    } else if (ch === ']') {
+      if (bracketDepth > 0) bracketDepth--;
+    }
+  }
+
+  return source.length;
+}
+
+function getFirstArgSource(callContent) {
+  let parenDepth = 0;
+  let braceDepth = 0;
+  let bracketDepth = 0;
+
+  for (let i = 0; i < callContent.length; i++) {
+    const ch = callContent[i];
+    const next = callContent[i + 1];
+
+    if (ch === "'" || ch === '"' || ch === '`') {
+      i = skipQuotedRegion(callContent, i, ch) - 1;
+      continue;
+    }
+    if (ch === '/' && next === '/') {
+      i = skipLineComment(callContent, i) - 1;
+      continue;
+    }
+    if (ch === '/' && next === '*') {
+      i = skipBlockComment(callContent, i) - 1;
+      continue;
+    }
+
+    if (ch === '(') parenDepth++;
+    else if (ch === '{') braceDepth++;
+    else if (ch === '[') bracketDepth++;
+    else if (ch === ')') {
+      if (parenDepth > 0) parenDepth--;
+    } else if (ch === '}') {
+      if (braceDepth > 0) braceDepth--;
+    } else if (ch === ']') {
+      if (bracketDepth > 0) bracketDepth--;
+    } else if (ch === ',' && parenDepth === 0 && braceDepth === 0 && bracketDepth === 0) {
+      return callContent.slice(0, i);
+    }
+  }
+
+  return callContent;
+}
+
+function hasUnquotedPlus(source) {
+  for (let i = 0; i < source.length; i++) {
+    const ch = source[i];
+    const next = source[i + 1];
+
+    if (ch === "'" || ch === '"' || ch === '`') {
+      i = skipQuotedRegion(source, i, ch) - 1;
+      continue;
+    }
+    if (ch === '/' && next === '/') {
+      i = skipLineComment(source, i) - 1;
+      continue;
+    }
+    if (ch === '/' && next === '*') {
+      i = skipBlockComment(source, i) - 1;
+      continue;
+    }
+    if (ch === '+') return true;
+  }
+  return false;
+}
+
+function isAllowedIndirectKeyPropertyAccess(expr) {
+  const compact = expr.replace(/\s+/g, '');
+  if (!/^[A-Za-z_$][\w$]*(?:\??\.[A-Za-z_$][\w$]*)+$/.test(compact)) return false;
+  const tail = compact.split(/(?:\?\.|\.)/).pop();
+  return INDIRECT_KEY_PROP_SET.has(tail);
+}
+
+/** Ban t(nonLiteral) and t('a.' + …) across single- or multi-line calls (use // i18n-exempt to override). */
 function collectForbiddenI18nIssues(content, fileRel) {
   const issues = [];
   const lines = content.split('\n');
-  for (let i = 0; i < lines.length; i++) {
-    const raw = lines[i];
-    if (raw.includes('// i18n-exempt')) continue;
-    const lineNoTrailComment = raw.replace(/\/\/.*$/, '');
-    const trimmed = lineNoTrailComment.trim();
-    if (!trimmed || trimmed.startsWith('//') || trimmed.startsWith('*')) continue;
+  const lineStarts = buildLineStarts(content);
+  I18N_CALL_RE.lastIndex = 0;
 
-    if (/\b(?:t|i18n\.t)\s*\([^)]*\+/.test(lineNoTrailComment)) {
+  let match;
+  while ((match = I18N_CALL_RE.exec(content)) !== null) {
+    const openParenIndex = match.index + match[0].lastIndexOf('(');
+    const closeParenIndex = findCallCloseIndex(content, openParenIndex);
+    const startLine = getLineNumberAt(match.index, lineStarts);
+    const endLine = getLineNumberAt(
+      Math.max(match.index, Math.min(closeParenIndex, Math.max(content.length - 1, 0))),
+      lineStarts,
+    );
+
+    if (hasI18nExemptBetween(lines, startLine, endLine)) continue;
+
+    const callContent = content.slice(
+      openParenIndex + 1,
+      closeParenIndex === content.length ? content.length : closeParenIndex,
+    );
+    const firstArg = getFirstArgSource(callContent).trim();
+    if (!firstArg) continue;
+
+    if (hasUnquotedPlus(firstArg)) {
       issues.push(
-        `${fileRel}:${i + 1}: do not build i18n keys with + inside t() — use one literal/template or // i18n-exempt`,
+        `${fileRel}:${startLine}: do not build i18n keys with + inside t() — use one literal/template or // i18n-exempt on this call`,
       );
+      continue;
     }
 
-    const callRe = /\b(?:t|i18n\.t)\s*\(/g;
-    let m;
-    while ((m = callRe.exec(lineNoTrailComment)) !== null) {
-      let j = m.index + m[0].length;
-      while (j < lineNoTrailComment.length && /\s/.test(lineNoTrailComment[j])) j++;
-      if (j >= lineNoTrailComment.length) continue;
-      const ch = lineNoTrailComment[j];
-      if (ch === "'" || ch === '"' || ch === '`' || ch === ')') continue;
-      if (/[a-zA-Z_$]/.test(ch)) {
-        const rest = lineNoTrailComment.slice(j);
-        const id = rest.match(/^([a-zA-Z_$][\w$]*)/);
-        if (!id) continue;
-        let afterId = j + id[1].length;
-        while (afterId < lineNoTrailComment.length && /\s/.test(lineNoTrailComment[afterId]))
-          afterId++;
-        const next = lineNoTrailComment[afterId];
-        if (next === '.') continue; // e.g. t(row.labelKey) — key still from catalog via INDIRECT_KEY_PROP_RE
-        issues.push(
-          `${fileRel}:${i + 1}: t()/i18n.t() first argument must be a string/template literal or property access (e.g. row.labelKey), not bare "${id[1]}" — or // i18n-exempt on this line`,
-        );
-      }
-    }
+    const firstChar = firstArg[0];
+    if (firstChar === "'" || firstChar === '"' || firstChar === '`' || firstChar === ')') continue;
+    if (isAllowedIndirectKeyPropertyAccess(firstArg)) continue;
+
+    issues.push(
+      `${fileRel}:${startLine}: t()/i18n.t() first argument must be a string/template literal or supported indirect key property access (*.labelKey, *.titleKey, *.descriptionKey, *.messageKey), not "${firstArg.replace(/\s+/g, ' ').trim()}" — or // i18n-exempt on this call`,
+    );
   }
   return issues;
 }
@@ -380,4 +546,18 @@ function main() {
   }
 }
 
-main();
+function isDirectRun() {
+  const entry = process.argv[1];
+  return Boolean(entry) && import.meta.url === pathToFileURL(entry).href;
+}
+
+if (isDirectRun()) {
+  main();
+}
+
+export {
+  INDIRECT_KEY_PROPS,
+  checkSourceAgainstEn,
+  collectForbiddenI18nIssues,
+  extractKeysFromSource,
+};

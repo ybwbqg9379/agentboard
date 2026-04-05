@@ -4,7 +4,7 @@ import { Braces, Clock, DollarSign, Hash, ListOrdered } from 'lucide-react';
 import { BarStatusIcon, normalizeBarStatus } from './LucideStatusIcons.jsx';
 import styles from './StatusBar.module.css';
 
-const KNOWN_SESSION_STATUSES = ['idle', 'running', 'completed', 'failed', 'stopped'];
+const KNOWN_SESSION_STATUSES = ['idle', 'running', 'completed', 'failed', 'stopped', 'interrupted'];
 
 function formatTokens(n) {
   if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';

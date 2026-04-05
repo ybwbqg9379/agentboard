@@ -29,6 +29,7 @@
     "completed": "Completed",
     "failed": "Failed",
     "stopped": "Stopped",
+    "interrupted": "Interrupted",
     "turns": "{{count}} turns",
     "subtask_one": "{{count}} subtask",
     "subtask_other": "{{count}} subtasks",
