@@ -82,7 +82,8 @@
   left: 0;
   width: max-content;
   min-width: 100%;
-  max-width: min(100vw - 16px, 100dvw - 16px);
+  /* 100dvw omitted here: unsupported values break the whole declaration in older Safari */
+  max-width: calc(100vw - 16px);
   margin: 0;
   padding: var(--dropdown-menu-padding);
   list-style: none;
@@ -96,6 +97,12 @@
   gap: var(--dense-stack-gap);
   box-sizing: border-box;
   overflow-x: clip;
+}
+
+@supports (width: 100dvw) {
+  .menu {
+    max-width: min(100vw - 16px, calc(100dvw - 16px));
+  }
 }
 
 .menuDown {

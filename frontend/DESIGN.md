@@ -4,11 +4,11 @@
 
 ## 1. 双轴主题（必守）
 
-| 轴           | HTML                                       | 取值                                                                         | 作用                                                                                                                  |
-| ------------ | ------------------------------------------ | ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| **明暗**     | `document.documentElement` 上 `data-theme` | `light` \| `dark`                                                            | 同一套语义变量在亮/暗下的取值；与系统 `prefers-color-scheme` 的首次默认一致，可本地存储覆盖。                         |
-| **调色板包** | `data-theme-pack`（可选）                  | `default` \| `linear` \| `vercel` \| `cursor` \| `warp` \| `apple`（见下表） | 覆盖 **色 / 状态色** 与 **`--font-sans` / `--font-mono`**；**不**改间距、圆角等布局 Token。                           |
-| **布局密度** | `data-density`（可选）                     | 缺省 = **舒适**；`compact` = **紧凑**                                        | 试点：**顶栏 / 底栏 / 输入区** 高度与壳层内边距（见 `foundation.css` 中 `--header-height`、`--chat-composer-*` 等）。 |
+| 轴           | HTML                                       | 取值                                                                         | 作用                                                                                                                                                                                                                                              |
+| ------------ | ------------------------------------------ | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **明暗**     | `document.documentElement` 上 `data-theme` | `light` \| `dark`                                                            | 同一套语义变量在亮/暗下的取值；与系统 `prefers-color-scheme` 的首次默认一致，可本地存储覆盖。                                                                                                                                                     |
+| **调色板包** | `data-theme-pack`（可选）                  | `default` \| `linear` \| `vercel` \| `cursor` \| `warp` \| `apple`（见下表） | 覆盖 **色 / 状态色** 与 **`--font-sans` / `--font-mono`**；**不**改间距、圆角等布局 Token。                                                                                                                                                       |
+| **布局密度** | `data-density`（可选）                     | 缺省 = **舒适**；`compact` = **紧凑**                                        | 试点：**顶栏 / 底栏 / 输入区** 高度与壳层内边距（见 `foundation.css` 中 `--header-height`、`--chat-composer-*` 等）。持久化键 **`agentboard-density`**：仅 **`compact`** 写入；舒适模式 **不写**（`removeItem`），与「不写 `data-density`」一致。 |
 
 规则：
 
@@ -27,14 +27,16 @@
 
 **主题包字体**（首个 `html[data-theme-pack='…']` 规则内设置；中文统一回退 **`PingFang SC` / `Hiragino Sans GB` / `Microsoft YaHei`**）：
 
-| `data-theme-pack` | `--font-sans` / `--font-mono`（摘要） | 实现说明                                                           |
-| ----------------- | ------------------------------------- | ------------------------------------------------------------------ |
-| `default`         | 继承 `foundation.css`                 | `index.html` 加载 **Inter** + **JetBrains Mono**（Google Fonts）   |
-| `linear`          | **Inter** / **JetBrains Mono**        | 与 Linear 文档一致（Mono 以 JetBrains 代 Berkeley Mono）           |
-| `vercel`          | **Geist Sans** / **Geist Mono**       | **Fontsource**（`src/styles/fonts.css` → `main.jsx`）              |
-| `cursor`          | **DM Sans** / **IBM Plex Mono**       | 开源近似 CursorGothic / berkeleyMono                               |
-| `warp`            | **Sora** / **IBM Plex Mono**          | 几何无衬线近似 Matter；等宽近似 Matter Mono                        |
-| `apple`           | **system SF 栈** / **SF Mono**        | 不引入 webfont，非 Apple 平台回退 **Segoe UI** / 系统 ui-monospace |
+| `data-theme-pack` | `--font-sans` / `--font-mono`（摘要） | 实现说明                                                                    |
+| ----------------- | ------------------------------------- | --------------------------------------------------------------------------- |
+| `default`         | 继承 `foundation.css`                 | `index.html` 加载 **Inter** + **JetBrains Mono**（Google Fonts）            |
+| `linear`          | **Inter** / **JetBrains Mono**        | 与 Linear 文档一致（Mono 以 JetBrains 代 Berkeley Mono）                    |
+| `vercel`          | **Geist Sans** / **Geist Mono**       | **Fontsource**，**按需** `import('./styles/fonts-pack-vercel.css')`（见下） |
+| `cursor`          | **DM Sans** / **IBM Plex Mono**       | **Fontsource**，**按需** `fonts-pack-cursor.css`                            |
+| `warp`            | **Sora** / **IBM Plex Mono**          | **Fontsource**，**按需** `fonts-pack-warp.css`                              |
+| `apple`           | **system SF 栈** / **SF Mono**        | **不加载** Fontsource；非 Apple 平台回退 **Segoe UI** / 系统 ui-monospace   |
+
+**Webfont 加载策略**（性能）：**不要**在 `main.jsx` 静态引入「全部」主题包字体。实现：`src/themePackConstants.js` 登记 **`THEME_PACK_ALLOWLIST`** 与 **`THEME_PACK_WEBFONT_IMPORTERS`**（仅 `vercel` / `cursor` / `warp`）；`src/themeFontLoader.js` 的 **`preloadStoredThemePackFonts()`** 在 **`createRoot().render()` 之前**按 `localStorage` 预加载对应 chunk；`App` 在 **`themePack` 变更**时再次 **`ensureThemePackFontsLoaded`**，避免切换包后缺字重。`default` / `linear` 仅用 `index.html` 字体；**`apple` 不请求任何 Fontsource 文件**。
 
 ## 2. 语义 Token（组件应只依赖这些）
 
@@ -46,6 +48,7 @@
 - **交互强调**：`--bg-accent`（与链接/选中态等对齐）
 - **状态**：`--status-running`、`*-thinking`、`*-error`、`*-done`、`*-tool` 及对应 `*-rgb`（供 `rgba(...)`）
 - **结构**：`--font-sans`、`--font-mono`、`--space-*`、`--radius-*`、`--header-height` 等（见 `tokens/foundation.css`）
+- **密度相关布局**（实验页等）：与侧栏/堆叠高度相关的魔法数应优先落在 **`foundation.css`**（如 **`--experiment-sidebar-mobile-max-height`**），组件内 **避免裸 `px` 高度**（`letter-spacing` 等排版微调用 `px` 可保留）。
 
 禁止在业务组件中新增「一次性 hex」；若某屏需要品牌扩展色，先在本文档与 `agentboard.css` / 主题包中登记语义名。
 
@@ -53,6 +56,8 @@
 
 - **断点**：主断点为 `max-width: 768px`（与现有布局一致：竖向堆叠、`main-content`、顶栏压缩等）。顶栏控件区在 **`min-width: 520px` 且 `≤768px`** 时可将 **chromeCluster** 排成 **四列一行**（更吃满横屏手机宽度）。
 - **整页横向滚动**：壳层（`html` / `body` / `#root` / `.app-layout` / 主栏网格）使用 **`overflow-x: clip`**（或等价约束）与 **`minmax(0, 1fr)`**，避免出现「只允许纵向滚动」以外的整页水平滑动；面板内容区可对 **`overflow-x: clip`**，长文案用 **`overflow-wrap`** / 省略号。
+- **`overflow-x: clip` 与 `position: sticky`**：在 CSS 中，祖先若对横向使用 **`overflow: clip`**（或 `hidden`），可能使后代 **`position: sticky`** 失效。当前仓库 **未** 依赖 sticky 顶栏；若将来在可横向裁剪的容器内做粘性表头/侧栏，需改为 **`overflow-x: visible`** 在该轴、或把 sticky 节点移到不裁剪的祖先下。
+- **下拉菜单宽度**：`Dropdown` 菜单 **`max-width`** 基准为 **`calc(100vw - 16px)`**；仅在 **`@supports (width: 100dvw)`** 时使用 **`min(100vw, 100dvw)`** 变体，避免旧版 Safari 因不识 **`dvw`** 而丢弃整条声明。
 - **触控**：小屏上保留可点区域与现有 `Header` 按钮尺寸；主题包 **不得** 删除 `@media (max-width: 768px)` 下的关键规则。
 - **滚动条**：移动端隐藏 WebKit 滚动条的规则保留，避免与抽屉/面板重叠。
 

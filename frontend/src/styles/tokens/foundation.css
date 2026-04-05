@@ -169,6 +169,8 @@
   /* Density: micro layout, badges, surfaces */
   --card-radius-soft: 10px;
   --experiment-sidebar-width: 280px;
+  /* Narrow layout: stacked sidebar scroll area cap (vh + rem, no raw px in components) */
+  --experiment-sidebar-mobile-max-height: min(40vh, 20rem);
   --swarm-branch-grid-min: 200px;
   --dense-stack-gap: 2px;
   --stack-gap-hairline: 1px;
@@ -345,6 +347,7 @@ html[data-density='compact'] {
 
   --card-radius-soft: 8px;
   --experiment-sidebar-width: 248px;
+  --experiment-sidebar-mobile-max-height: min(40vh, 18rem);
   --swarm-branch-grid-min: 172px;
   --chrome-badge-padding-x: 5px;
   --chrome-inline-gap: 4px;

@@ -8,7 +8,7 @@
 
 - **布局密度试点**：**`data-density="compact"`**（默认不写属性 = 舒适）；**`tokens/foundation.css`** 中 **`--header-height` / `--statusbar-height` / `--chat-composer-*` / `--chrome-padding-x`** 等；**Header**、**StatusBar**、**ChatInput** 只吃变量；顶栏 **Layout density** 下拉 + **`localStorage`** 键 **`agentboard-density`**。
 - **UI 调色板包**：在 **`data-theme-pack`** 上新增 **`vercel` / `cursor` / `warp` / `apple`**（`frontend/src/styles/themes/packs/*.css`），色板参考本地 **awesome-design-md** 对应 **`DESIGN.md`**；顶栏 **UI palette** 下拉可选；`DESIGN.md` 登记映射表。
-- **主题包字体**：各 **`packs/*.css`** 覆盖 **`--font-sans` / `--font-mono`**；**Fontsource**（**Geist**、**DM Sans**、**Sora**、**IBM Plex Mono**）经 **`frontend/src/styles/fonts.css`** 在 **`main.jsx`** 引入；**`linear`** 显式 **Inter / JetBrains**；**`apple`** 为 **SF 系统栈**；**`foundation.css`** 默认无衬线栈增加中文回退。
+- **主题包字体**：各 **`packs/*.css`** 覆盖 **`--font-sans` / `--font-mono`**；**Fontsource** 仅 **`vercel` / `cursor` / `warp`** 经 **`fonts-pack-*.css`** **动态** `import()`（**`themeFontLoader.js`** + **`main.jsx` 启动前预加载**）；**`default` / `linear`** 仍用 **`index.html`**；**`apple`** **不下载** Fontsource；**`foundation.css`** 默认无衬线栈增加中文回退。
 - **Playwright 冒烟**：根目录 `e2e/smoke.spec.js` + `playwright.config.js`；`npm run test:e2e`（先 `build` 再测）；`npm run check`、Husky **`pre-commit`** 与 **GitHub Actions** 在构建后执行 `playwright test`（CI 中 `npx playwright install chromium --only-shell`）。
 - **Playwright `globalSetup`**：`e2e/global-setup.mjs` 在缺少 **`frontend/dist/index.html`** 时**先于** `vite preview` **报错退出**，提示先执行 **`npm run build`** 或 **`npm run test:e2e`**，避免裸跑 **`npx playwright test`** 时错误信息不明确。
 - **CI**：在 Lint 之后增加 **`npm run i18n:check`**，与本地 `check` 对齐。
@@ -32,7 +32,8 @@
 - **顶栏 Header**：窄屏 **纵向分区**——模式 Tab **全宽三等分**；**chromeCluster** 为 **2×2**（**语言 + 明暗** | **调色板 + 密度**），**520px–768px** 为 **四列**；明暗由 **`Dropdown`** 选择（**`onThemeChange`**，文案 **`header.themeModeTitle`**）；**trailingCluster** 为 **两列网格**（**MCP / History / New Session** | **连接状态**）；**分割线与 2×2 区间距**、**trailing 区内边距**、**`.connStatus` 全断点 padding** 与读屏属性（**`role="status"`** 等）已对齐 **`frontend/DESIGN.md` §3.1**。
 - **Dropdown / ChatInput**：**`.triggerFluid`**（窄屏触发条 **`width: 100%`**）；菜单 **`max-width`** 相对视口；**ChatInput** 权限下拉复用 **`triggerFluid`**，窄屏 **纵向堆叠**。
 - **RightPanel / StatusBar / ExperimentView**：Tab 文案省略、底栏 **换行** 与 token 条 **可收缩**、实验页窄屏 **侧栏上置** 与 KPI **单列** 等。
-- **i18n**：移除未再引用的 **`header.themeTitle` / `themeToLight` / `themeToDark`**（顶栏明暗改为 **`Dropdown`** + **`header.themeModeTitle`**）。
+- **i18n**：移除未再引用的 **`header.themeTitle` / `themeToLight` / `themeToDark`**（顶栏明暗改为 **`Dropdown`** + **`header.themeModeTitle`**）；源码侧已确认 **无** 对上述 key 的引用。
+- **性能 / 兼容**：**Dropdown** 菜单 **`max-width`** 对 **`100dvw`** 使用 **`@supports`** 渐进增强；**`agentboard-density`** 仅在 **`compact`** 时写入 **`localStorage`**（舒适模式 **`removeItem`**）；**`THEME_PACK_ALLOWLIST`** 提升为 **`themePackConstants.js`** 模块常量；实验侧栏窄屏高度改用 **`--experiment-sidebar-mobile-max-height`**。
 - **`.gitignore`**：忽略 Playwright **`test-results/`**、**`playwright-report/`**、**`blob-report/`**、**`playwright/.cache/`**；Vite **`.vite/`**、Vitest **`.vitest/`**；**`.eslintcache`**、**`*.tsbuildinfo`**；构建备份 **`dist.bak/`**；常见 **`*.log`** / 包管理器 debug 日志；**`Thumbs.db`**、**`.idea/`**。
 - **文档**：`README` / `CONTRIBUTING` / `ONBOARDING` 中 Vitest 全仓计数与前后端分项更新为 **858**（637 + 221）；`README` / `CONTRIBUTING` 中 `npm run check` 与 Husky 说明补充 **i18n** 与 **Playwright**。
 - **`scripts/check-i18n.mjs`**：禁止**裸变量** **`t(foo)`** 与 **`t(...+...)`** 拼接 key；扫描范围由单行提升为**整个调用跨度**，跨多行同样命中。属性访问只允许 **`*.labelKey` / `*.titleKey` / `*.descriptionKey` / `*.messageKey`** 这类受支持的间接 key 引用；任一调用跨度内带 `// i18n-exempt` 可豁免。

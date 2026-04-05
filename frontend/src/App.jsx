@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useWebSocket } from './hooks/useWebSocket.js';
+import { THEME_PACK_ALLOWLIST } from './themePackConstants.js';
+import { ensureThemePackFontsLoaded } from './themeFontLoader.js';
 import Header from './components/Header.jsx';
 import ChatInput from './components/ChatInput.jsx';
 import AgentTimeline from './components/AgentTimeline.jsx';
@@ -51,8 +53,7 @@ export default function App() {
 
   const [themePack, setThemePack] = useState(() => {
     const stored = window.localStorage.getItem('agentboard-theme-pack');
-    const allowed = new Set(['linear', 'vercel', 'cursor', 'warp', 'apple']);
-    return allowed.has(stored) ? stored : 'default';
+    return THEME_PACK_ALLOWLIST.has(stored) ? stored : 'default';
   });
 
   const [density, setDensity] = useState(() => {
@@ -75,12 +76,17 @@ export default function App() {
   }, [themePack]);
 
   useEffect(() => {
+    void ensureThemePackFontsLoaded(themePack);
+  }, [themePack]);
+
+  useEffect(() => {
     if (density === 'compact') {
       document.documentElement.setAttribute('data-density', 'compact');
+      window.localStorage.setItem('agentboard-density', 'compact');
     } else {
       document.documentElement.removeAttribute('data-density');
+      window.localStorage.removeItem('agentboard-density');
     }
-    window.localStorage.setItem('agentboard-density', density);
   }, [density]);
 
   return (

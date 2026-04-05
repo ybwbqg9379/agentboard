@@ -761,7 +761,7 @@
   .sidebar {
     width: 100%;
     min-width: 0;
-    max-height: min(40vh, 320px);
+    max-height: var(--experiment-sidebar-mobile-max-height);
     border-right: none;
     border-bottom: var(--border-width-hairline) solid var(--border-color);
   }
