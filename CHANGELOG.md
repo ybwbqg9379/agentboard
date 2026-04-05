@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.16.7] - 2026-04-04
+
+### fix: 实验白名单 git 输出不受 macOS 权限警告污染
+
+#### Fixed
+
+- **`runExperimentLoop` 文件白名单**：对 **`git diff --name-only`** / **`git ls-files --others`** 使用 **`sh -c`** 并 **`2>/dev/null`**，避免 macOS 等对 **`~/.config/git/ignore`** 的 **`Operation not permitted`** 警告混入 stdout，被误当作已变更路径。
+
+---
+
 ## [0.16.6] - 2026-04-04
 
 ### fix: jest-dom 与 Vitest 双实例、下载白名单 SSOT、workspace 列表错误语义

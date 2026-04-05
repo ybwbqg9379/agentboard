@@ -755,12 +755,22 @@ export async function runExperimentLoop(experimentId, plan, userId, workspaceDir
 
         // 2b. Check file whitelist compliance (Q3: safety boundary)
         //     Check both modified tracked files AND new untracked files
+        //     Use shell + stderr redirect so OS-level git warnings (e.g. macOS
+        //     ".config/git/ignore: Operation not permitted") don't appear as filenames.
         if (plan.target?.files?.length) {
-          const diffOutput = await runCommand('git diff --name-only', workspaceDir, 5000);
-          const untrackedOutput = await runCommand(
-            'git ls-files --others --exclude-standard',
+          const diffOutput = await runCommand(
+            'git diff --name-only 2>/dev/null',
             workspaceDir,
             5000,
+            null,
+            { shell: true },
+          );
+          const untrackedOutput = await runCommand(
+            'git ls-files --others --exclude-standard 2>/dev/null',
+            workspaceDir,
+            5000,
+            null,
+            { shell: true },
           );
           const changedFiles = [
             ...diffOutput.output.trim().split('\n').filter(Boolean),
