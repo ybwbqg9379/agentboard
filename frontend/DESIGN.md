@@ -33,7 +33,7 @@
 - **映射方式**：`themes/packs/claude.css` 将上述角色写入既有语义 Token（`--bg-*`、`--text-*`、`--border-*`、`--status-*`、`--bg-accent`、`--on-accent`、`--font-display`）；组件仍只依赖语义名，不直接写陶土 hex。
 - **有意自定义**：布局与圆角沿用全仓 `foundation.css`（非 Claude 文档中的 12px 输入大圆角全盘替换）；正文字体用 **Inter** 代替专有 Anthropic Sans、等宽用 **JetBrains Mono**；状态色在暖底上微调对比度；**Lucide** 图标体系不变（与 Claude 营销页的插画策略不同）。
 - **用户壳动效**：`--motion-duration-*` 与 `cubic-bezier` 见 `foundation.css`；`UserAgentTimeline` / 详情抽屉遵守 **`prefers-reduced-motion: reduce`**。
-- **用户壳 Composer 页脚**：`App.jsx` 将 **`SessionDownloadablesStrip`** 与 **`ChatInput variant="user"`** 包在 **`user-shell-composer-footer`** 内；`index.css` 在 **`:has(.session-downloadables-dock)`** 时为页脚施加与输入区一致的 **`bg-tertiary`** 与上阴影，并去掉紧随其后的 **`form`** 顶边，使「可下载文件」与输入框视觉连成一块。进展区仅展示助手向时间线（工具细节进抽屉）。
+- **用户壳 Composer 页脚**：根层 **`WorkspaceFilesProvider`**（`sessionId` + **`events.length`** debounce）统一拉取 **`workspace-files`**，供底部 **`SessionDownloadablesStrip`** 与技术详情内 **`FileChangesPanel`** 共用；`App.jsx` 将 Strip 与 **`ChatInput variant="user"`** 包在 **`user-shell-composer-footer`** 内；`index.css` 在 **`:has(.session-downloadables-dock)`** 时为页脚施加与输入区一致的 **`bg-tertiary`** 与上阴影，并去掉紧随其后的 **`form`** 顶边，使「可下载文件」与输入框视觉连成一块。进展区仅展示助手向时间线（工具细节进抽屉）。
 
 **主题包字体**（首个 `html[data-theme-pack='…']` 规则内设置；中文统一回退 **`PingFang SC` / `Hiragino Sans GB` / `Microsoft YaHei`**）：
 

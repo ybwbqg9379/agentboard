@@ -296,4 +296,10 @@ describe('extractFileChanges', () => {
     const ws = [{ name: 'script.py' }, { name: 'out.pdf' }];
     expect(workspaceFilesNotInToolList(toolFiles, ws)).toEqual([{ name: 'out.pdf' }]);
   });
+
+  it('workspaceFilesNotInToolList dedupes Windows-style tool paths', () => {
+    const toolFiles = [{ path: 'C:\\ws\\script.py' }];
+    const ws = [{ name: 'script.py' }, { name: 'out.pdf' }];
+    expect(workspaceFilesNotInToolList(toolFiles, ws)).toEqual([{ name: 'out.pdf' }]);
+  });
 });

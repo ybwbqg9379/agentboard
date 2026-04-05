@@ -1,5 +1,8 @@
 import { withClientAuth } from './clientAuth.js';
 
+/** Same-origin REST prefix; empty string yields relative `/api/...` URLs. */
+export const API_BASE = '';
+
 const DEFAULT_TIMEOUT_MS = 30_000;
 
 export class ApiFetchError extends Error {

@@ -170,13 +170,12 @@ router.get('/sessions/:id/workspace-files', async (req, res) => {
 
   try {
     const dirents = await fs.readdir(sessionDir, { withFileTypes: true });
-    const files = [];
+    const candidates = [];
 
     for (const d of dirents) {
       if (!d.isFile()) continue;
       if (d.name.startsWith('.')) continue;
       if (isSessionInfrastructureFile(d.name)) continue;
-      if (files.length >= maxEntries) break;
 
       const filePath = path.join(sessionDir, d.name);
       if (!isPathInside(sessionDir, path.resolve(filePath))) continue;
@@ -184,7 +183,7 @@ router.get('/sessions/:id/workspace-files', async (req, res) => {
       try {
         const st = await fs.stat(filePath);
         if (!st.isFile()) continue;
-        files.push({
+        candidates.push({
           name: d.name,
           bytes: st.size,
           mtimeMs: st.mtimeMs,
@@ -194,7 +193,8 @@ router.get('/sessions/:id/workspace-files', async (req, res) => {
       }
     }
 
-    files.sort((a, b) => b.mtimeMs - a.mtimeMs);
+    candidates.sort((a, b) => b.mtimeMs - a.mtimeMs);
+    const files = candidates.slice(0, maxEntries);
     res.json({ files });
   } catch {
     res.json({ files: [] });

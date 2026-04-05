@@ -161,6 +161,7 @@
     "readOnly": "Read Only ({{count}})",
     "workspaceExtra": "Workspace files ({{count}})",
     "workspaceHint": "Files created via Bash or other tools (not Write/Edit)",
+    "workspaceListError": "Could not load workspace file list.",
     "opWrite": "Write operations",
     "opEdit": "Edit operations",
     "opRead": "Read operations"
@@ -345,7 +346,8 @@
     "continueTask": "Continue",
     "detailsTitle": "Technical details",
     "closeDetails": "Close details panel",
-    "dismissDetailsOverlay": "Dismiss details (backdrop)"
+    "dismissDetailsOverlay": "Dismiss details (backdrop)",
+    "workspaceListError": "Could not load downloadable files for this session."
   },
   "confirmDialog": {
     "defaultTitle": "Confirm",

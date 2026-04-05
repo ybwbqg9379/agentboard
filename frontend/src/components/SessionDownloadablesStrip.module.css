@@ -55,3 +55,13 @@
   white-space: nowrap;
   max-width: 16rem;
 }
+
+.errorDock {
+  border-top: var(--border-width-hairline) solid var(--border-secondary);
+}
+
+.errorText {
+  margin: 0;
+  font-size: var(--ui-body-sm);
+  color: var(--status-error, var(--text-secondary));
+}

@@ -161,6 +161,7 @@
     "readOnly": "只读（{{count}}）",
     "workspaceExtra": "工作区文件（{{count}}）",
     "workspaceHint": "由 Bash 等命令写入、未走 Write/Edit 工具的文件",
+    "workspaceListError": "无法加载工作区文件列表。",
     "opWrite": "写入次数",
     "opEdit": "编辑次数",
     "opRead": "读取次数"
@@ -345,7 +346,8 @@
     "continueTask": "继续",
     "detailsTitle": "技术详情",
     "closeDetails": "关闭详情面板",
-    "dismissDetailsOverlay": "点击背景关闭详情"
+    "dismissDetailsOverlay": "点击背景关闭详情",
+    "workspaceListError": "无法加载本会话的可下载文件列表。"
   },
   "confirmDialog": {
     "defaultTitle": "确认",

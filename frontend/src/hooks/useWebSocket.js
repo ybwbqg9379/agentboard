@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { buildWsUrl } from '../lib/clientAuth.js';
-import { apiFetch } from '../lib/apiFetch.js';
+import { apiFetch, API_BASE } from '../lib/apiFetch.js';
 import {
   WS_RECONNECT_MS,
   startWsHeartbeat,
@@ -8,7 +8,6 @@ import {
   scheduleWsReconnect,
 } from '../lib/wsConnection.js';
 
-const API_BASE = '';
 const MAX_EVENTS = 5000;
 
 export function useWebSocket() {

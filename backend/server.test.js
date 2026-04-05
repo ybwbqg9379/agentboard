@@ -7,10 +7,19 @@
  */
 
 import { describe, it, expect, vi, afterAll } from 'vitest';
+import { randomUUID } from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import { Buffer } from 'node:buffer';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+
+const { apiTestSessionOwners } = vi.hoisted(() => {
+  const apiTestSessionOwners = new Map([
+    ['default', new Set(['valid-id', 'active-id'])],
+    ['tenant-a', new Set(['tenant-a-session'])],
+  ]);
+  return { apiTestSessionOwners };
+});
 
 // ---------------------------------------------------------------------------
 // Mocks -- must be declared before any import of server.js
@@ -57,11 +66,6 @@ const mockSession = {
   created_at: '2024-01-01 00:00:00',
 };
 
-const sessionOwners = new Map([
-  ['default', new Set(['valid-id', 'active-id'])],
-  ['tenant-a', new Set(['tenant-a-session'])],
-]);
-
 const mockEvent = {
   id: 1,
   session_id: 'valid-id',
@@ -77,7 +81,7 @@ vi.mock('./sessionStore.js', () => ({
   }),
   countSessions: vi.fn().mockResolvedValue(1),
   getSession: vi.fn((userId, id) => {
-    const ownedSessions = sessionOwners.get(userId || 'default');
+    const ownedSessions = apiTestSessionOwners.get(userId || 'default');
     if (!ownedSessions?.has(id)) return Promise.resolve(undefined);
     return Promise.resolve({ ...mockSession, id, user_id: userId || 'default' });
   }),
@@ -87,15 +91,15 @@ vi.mock('./sessionStore.js', () => ({
   countEvents: vi.fn((sessionId) => Promise.resolve(sessionId === 'valid-id' ? 1 : 0)),
   recoverStaleSessions: vi.fn().mockResolvedValue(0),
   deleteSession: vi.fn(async (userId, id) => {
-    const ownedSessions = sessionOwners.get(userId || 'default');
+    const ownedSessions = apiTestSessionOwners.get(userId || 'default');
     return Boolean(ownedSessions?.has(id));
   }),
   filterSessionIdsOwned: vi.fn(async (userId, ids) => {
-    const owned = sessionOwners.get(userId || 'default');
+    const owned = apiTestSessionOwners.get(userId || 'default');
     return ids.filter((id) => owned?.has(id));
   }),
   deleteSessionsBatch: vi.fn(async (userId, ids) => {
-    const owned = sessionOwners.get(userId || 'default');
+    const owned = apiTestSessionOwners.get(userId || 'default');
     return ids.filter((id) => owned?.has(id)).length;
   }),
   updateSessionStatus: vi.fn().mockResolvedValue(undefined),
@@ -178,6 +182,24 @@ vi.mock('./swarmStore.js', () => ({
 // ---------------------------------------------------------------------------
 
 const { app, server } = await import('./server.js');
+
+/** Unique user/session + disk dir under the mocked workspace root (safe under parallel workers). */
+function isolatedWorkspaceSession() {
+  const userId = `u-${randomUUID()}`;
+  const sessionId = `s-${randomUUID()}`;
+  apiTestSessionOwners.set(userId, new Set([sessionId]));
+  const userRoot = path.join('/tmp/agentboard-test', userId);
+  const sessionDir = path.join(userRoot, 'sessions', sessionId);
+  return {
+    userId,
+    sessionId,
+    sessionDir,
+    async cleanup() {
+      apiTestSessionOwners.delete(userId);
+      await fs.rm(userRoot, { recursive: true, force: true });
+    },
+  };
+}
 
 // supertest does NOT need the server to be listening; it connects to the app
 // directly. But server.listen() was called at module load. We close it in
@@ -539,7 +561,7 @@ describe('GET /api/sessions/:id/workspace-files', () => {
   });
 
   it('lists files in the tenant session workspace sorted by mtime', async () => {
-    const sessionDir = '/tmp/agentboard-test/tenant-a/sessions/tenant-a-session';
+    const { userId, sessionId, sessionDir, cleanup } = isolatedWorkspaceSession();
     await fs.mkdir(sessionDir, { recursive: true });
     const older = new Date('2020-01-01T00:00:00Z');
     const newer = new Date('2025-06-01T00:00:00Z');
@@ -552,8 +574,8 @@ describe('GET /api/sessions/:id/workspace-files', () => {
 
     try {
       const res = await request(app)
-        .get('/api/sessions/tenant-a-session/workspace-files')
-        .set('x-user-id', 'tenant-a');
+        .get(`/api/sessions/${sessionId}/workspace-files`)
+        .set('x-user-id', userId);
 
       expect(res.status).toBe(200);
       expect(Array.isArray(res.body.files)).toBe(true);
@@ -565,27 +587,27 @@ describe('GET /api/sessions/:id/workspace-files', () => {
       expect(typeof res.body.files[0].bytes).toBe('number');
       expect(typeof res.body.files[0].mtimeMs).toBe('number');
     } finally {
-      await fs.rm('/tmp/agentboard-test/tenant-a', { recursive: true, force: true });
+      await cleanup();
     }
   });
 
   it('omits CLAUDE.md (session bootstrap copy, not an agent artifact)', async () => {
-    const sessionDir = '/tmp/agentboard-test/tenant-a/sessions/tenant-a-session';
+    const { userId, sessionId, sessionDir, cleanup } = isolatedWorkspaceSession();
     await fs.mkdir(sessionDir, { recursive: true });
     await fs.writeFile(path.join(sessionDir, 'CLAUDE.md'), '# rules');
     await fs.writeFile(path.join(sessionDir, 'out.pdf'), '%PDF');
 
     try {
       const res = await request(app)
-        .get('/api/sessions/tenant-a-session/workspace-files')
-        .set('x-user-id', 'tenant-a');
+        .get(`/api/sessions/${sessionId}/workspace-files`)
+        .set('x-user-id', userId);
 
       expect(res.status).toBe(200);
       const names = res.body.files.map((f) => f.name);
       expect(names).toContain('out.pdf');
       expect(names).not.toContain('CLAUDE.md');
     } finally {
-      await fs.rm('/tmp/agentboard-test/tenant-a', { recursive: true, force: true });
+      await cleanup();
     }
   });
 });
@@ -619,7 +641,7 @@ describe('GET /api/sessions/:id/files/:fileName', () => {
   });
 
   it('downloads an owned tenant file from the correct session workspace', async () => {
-    const sessionDir = '/tmp/agentboard-test/tenant-a/sessions/tenant-a-session';
+    const { userId, sessionId, sessionDir, cleanup } = isolatedWorkspaceSession();
     const filePath = path.join(sessionDir, 'report.pdf');
 
     await fs.mkdir(sessionDir, { recursive: true });
@@ -630,15 +652,15 @@ describe('GET /api/sessions/:id/files/:fileName', () => {
 
     try {
       const res = await request(app)
-        .get('/api/sessions/tenant-a-session/files/report.pdf')
-        .set('x-user-id', 'tenant-a');
+        .get(`/api/sessions/${sessionId}/files/report.pdf`)
+        .set('x-user-id', userId);
 
       expect(res.status).toBe(200);
       expect(res.headers['content-type']).toMatch(/application\/pdf/);
       expect(res.headers['content-disposition']).toContain('attachment');
       expect(res.headers['content-disposition']).toContain('report.pdf');
     } finally {
-      await fs.rm('/tmp/agentboard-test/tenant-a', { recursive: true, force: true });
+      await cleanup();
     }
   });
 });

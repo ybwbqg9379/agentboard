@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.16.5] - 2026-04-04
+
+### fix: 工作区列表语义、共享拉取与用户壳提示
+
+#### Changed
+
+- **`GET .../workspace-files`**：先收集全部候选文件并 **`stat`**，再按 **`mtimeMs` 降序**排序后取前 **500** 条，避免在 **`readdir`** 顺序下截断导致漏掉最新文件。
+- **前端**：**`WorkspaceFilesProvider`**（**`context/WorkspaceFilesProvider.jsx`**）— **`App`** 根层单次拉取 **`/workspace-files`**，**`SessionDownloadablesStrip`** 与 **`FileChangesPanel`** 共用；**`refreshKey`**（**`events.length`**）带 **350ms debounce**，减轻高频工具调用下的后端压力。
+- **前端**：**`lib/pathBasename.js`**、**`lib/formatBytes.js`** — 工具路径 **`fileBasename`**（支持 **`\`**）、文件体积展示支持 **GB**。
+- **前端**：**`lib/apiFetch.js`** 导出 **`API_BASE`**（同域 REST 前缀）；**`WorkspaceFilesProvider`**、**`WorkflowEditor`**、**`SessionDrawer`**、**`useWebSocket`** 统一引用，移除重复的本地空字符串常量。**`formatBytes`** 使用模块级 **`KB` / `MB` / `GB`**。**`SessionDownloadablesStrip`** 不再对已由后端排序的列表二次 **`sort`**。
+
+#### Fixed
+
+- **工作区列表 API 失败**：不再静默忽略；**`FileChangesPanel`** / **`SessionDownloadablesStrip`** 展示 **`filesPanel.workspaceListError`** / **`userShell.workspaceListError`**，并清空列表数据。
+- **`UserAgentTimeline`**：仅工具且 **`displayItems` 为空**时，在 **`running`** 与 **`idle`** 下均显示 **「仅工具步骤已隐藏」** 提示（与运行中指示共存）。
+- **`server.test.js`**：**`vi.hoisted`** 暴露可变 **`apiTestSessionOwners`**；**`workspace-files`** / 下载用例使用 **`randomUUID`** 隔离目录，降低并行干扰。
+
+#### Tests
+
+- **`pathBasename.test.js`**、**`formatBytes.test.js`**、**`UserAgentTimeline.test.jsx`**（运行中 + 仅工具）、**`FileChangesPanel.test.jsx`**（Windows 路径去重）。
+
+#### Documentation
+
+- **`README.md`**、**`CONTRIBUTING.md`**、**`ONBOARDING.md`**：Vitest 全仓计数更新为 **893**（641 + 252）。
+
+---
+
 ## [0.16.4] - 2026-04-04
 
 ### feat: 智能同事产物下载、时间线降噪、PDF 字体与 Report 策略

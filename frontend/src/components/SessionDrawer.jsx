@@ -3,10 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { Trash2, X } from 'lucide-react';
 import { BarStatusIcon, normalizeBarStatus } from './LucideStatusIcons.jsx';
 import styles from './SessionDrawer.module.css';
-import { apiFetch } from '../lib/apiFetch.js';
+import { apiFetch, API_BASE } from '../lib/apiFetch.js';
 import ConfirmDialog from './ConfirmDialog.jsx';
-
-const API_BASE = '';
 
 export default function SessionDrawer({ open, onClose, onLoadSession, currentSessionId }) {
   const { t } = useTranslation();

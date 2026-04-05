@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   BookOpen,
@@ -10,11 +10,11 @@ import {
   HardDrive,
   Pencil,
 } from 'lucide-react';
-import { apiFetch } from '../lib/apiFetch.js';
+import { useWorkspaceFiles } from '../context/WorkspaceFilesProvider.jsx';
+import { formatBytes } from '../lib/formatBytes.js';
+import { fileBasename } from '../lib/pathBasename.js';
 import { isSessionDownloadableFileName, sessionFileDownloadHref } from '../lib/sessionDownloads.js';
 import styles from './FileChangesPanel.module.css';
-
-const API_BASE = '';
 
 /**
  * Extract file operations from events (Read, Write, Edit tool calls, native ReportTool).
@@ -63,43 +63,14 @@ export function extractFileChanges(events) {
  * @param {{ name: string }[]} workspaceList
  */
 export function workspaceFilesNotInToolList(toolFiles, workspaceList) {
-  const basenames = new Set(toolFiles.map((f) => basename(f.path)));
+  const basenames = new Set(toolFiles.map((f) => fileBasename(f.path)));
   return workspaceList.filter((w) => w?.name && !basenames.has(w.name));
-}
-
-function basename(path) {
-  return path.split('/').pop() || path;
 }
 
 export default function FileChangesPanel({ events, sessionId }) {
   const { t } = useTranslation();
   const files = useMemo(() => extractFileChanges(events), [events]);
-  const [workspaceList, setWorkspaceList] = useState([]);
-
-  useEffect(() => {
-    if (!sessionId) {
-      setWorkspaceList([]);
-      return;
-    }
-
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await apiFetch(`${API_BASE}/api/sessions/${sessionId}/workspace-files`);
-        if (!res.ok) return;
-        const data = await res.json();
-        if (!cancelled && Array.isArray(data.files)) {
-          setWorkspaceList(data.files);
-        }
-      } catch {
-        if (!cancelled) setWorkspaceList([]);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [sessionId, events.length]);
+  const { workspaceList, workspaceError } = useWorkspaceFiles();
 
   const workspaceExtra = useMemo(
     () => workspaceFilesNotInToolList(files, workspaceList),
@@ -115,6 +86,11 @@ export default function FileChangesPanel({ events, sessionId }) {
           <FolderOpen size={14} strokeWidth={2} className={styles.headerIcon} aria-hidden />
           {t('filesPanel.header')}
         </div>
+        {sessionId && workspaceError && (
+          <div className={styles.workspaceError} role="alert">
+            {t('filesPanel.workspaceListError')}
+          </div>
+        )}
         <div className={styles.empty}>
           <FolderOpen size={36} strokeWidth={1.5} className={styles.emptyIcon} aria-hidden />
           {t('filesPanel.empty')}
@@ -135,6 +111,11 @@ export default function FileChangesPanel({ events, sessionId }) {
         </span>
         <span className={styles.count}>{totalListed}</span>
       </div>
+      {sessionId && workspaceError && (
+        <div className={styles.workspaceError} role="alert">
+          {t('filesPanel.workspaceListError')}
+        </div>
+      )}
       <div className={styles.list}>
         {modified.length > 0 && (
           <div className={styles.group}>
@@ -150,7 +131,7 @@ export default function FileChangesPanel({ events, sessionId }) {
                   aria-hidden
                 />
                 <span className={styles.name} title={f.path}>
-                  {basename(f.path)}
+                  {fileBasename(f.path)}
                 </span>
                 <span className={styles.ops}>
                   {f.writes > 0 && (
@@ -171,7 +152,7 @@ export default function FileChangesPanel({ events, sessionId }) {
                       {f.reads}
                     </span>
                   )}
-                  <FileRowDownload sessionId={sessionId} baseName={basename(f.path)} t={t} />
+                  <FileRowDownload sessionId={sessionId} baseName={fileBasename(f.path)} t={t} />
                 </span>
               </div>
             ))}
@@ -186,14 +167,14 @@ export default function FileChangesPanel({ events, sessionId }) {
               <div key={f.path} className={styles.file}>
                 <File size={12} strokeWidth={2} className={styles.fileKindIconMuted} aria-hidden />
                 <span className={styles.name} title={f.path}>
-                  {basename(f.path)}
+                  {fileBasename(f.path)}
                 </span>
                 <span className={styles.ops}>
                   <span className={styles.read} title={t('filesPanel.opRead')}>
                     <BookOpen size={11} strokeWidth={2} className={styles.opsIcon} aria-hidden />
                     {f.reads}
                   </span>
-                  <FileRowDownload sessionId={sessionId} baseName={basename(f.path)} t={t} />
+                  <FileRowDownload sessionId={sessionId} baseName={fileBasename(f.path)} t={t} />
                 </span>
               </div>
             ))}
@@ -228,13 +209,6 @@ export default function FileChangesPanel({ events, sessionId }) {
       </div>
     </div>
   );
-}
-
-function formatBytes(n) {
-  if (typeof n !== 'number' || !Number.isFinite(n)) return '';
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function FileRowDownload({ sessionId, baseName, t }) {

@@ -124,7 +124,7 @@ export default function UserAgentTimeline({ events, status }) {
         {displayItems.map((item, i) => (
           <UserMilestoneRow key={item.key} item={item} index={i} />
         ))}
-        {displayItems.length === 0 && status === 'idle' && events.length > 0 && (
+        {displayItems.length === 0 && events.length > 0 && (
           <p className={styles.toolsOnlyNote}>{t('userShell.toolsOnlyHidden')}</p>
         )}
         {status === 'running' && (

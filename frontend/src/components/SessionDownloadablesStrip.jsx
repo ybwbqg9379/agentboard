@@ -1,46 +1,40 @@
-import { useEffect, useState } from 'react';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FileDown } from 'lucide-react';
-import { apiFetch } from '../lib/apiFetch.js';
+import { useWorkspaceFiles } from '../context/WorkspaceFilesProvider.jsx';
 import { isSessionDownloadableFileName, sessionFileDownloadHref } from '../lib/sessionDownloads.js';
 import styles from './SessionDownloadablesStrip.module.css';
-
-const API_BASE = '';
 
 /**
  * Lists session workspace files that match the download API allowlist.
  * Rendered above the user-shell composer (see App.jsx + index.css `.user-shell-composer-footer`).
+ * Data comes from WorkspaceFilesProvider (shared with FileChangesPanel).
  */
-export default function SessionDownloadablesStrip({ sessionId, refreshKey }) {
+export default function SessionDownloadablesStrip({ sessionId }) {
   const { t } = useTranslation();
-  const [files, setFiles] = useState([]);
+  const { workspaceList, workspaceError } = useWorkspaceFiles();
 
-  useEffect(() => {
-    if (!sessionId) {
-      setFiles([]);
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await apiFetch(`${API_BASE}/api/sessions/${sessionId}/workspace-files`);
-        if (!res.ok) return;
-        const data = await res.json();
-        if (cancelled || !Array.isArray(data.files)) return;
-        const downloadable = data.files
-          .filter((f) => f?.name && isSessionDownloadableFileName(f.name))
-          .sort((a, b) => (b.mtimeMs || 0) - (a.mtimeMs || 0));
-        setFiles(downloadable);
-      } catch {
-        if (!cancelled) setFiles([]);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [sessionId, refreshKey]);
+  const files = useMemo(() => {
+    if (!Array.isArray(workspaceList)) return [];
+    return workspaceList.filter((f) => f?.name && isSessionDownloadableFileName(f.name));
+  }, [workspaceList]);
 
-  if (!sessionId || files.length === 0) return null;
+  if (!sessionId) return null;
+
+  if (workspaceError) {
+    return (
+      <div
+        className={`${styles.dock} ${styles.errorDock} session-downloadables-dock`}
+        role="alert"
+        aria-label={t('userShell.downloadsRegion')}
+      >
+        <div className={styles.label}>{t('userShell.downloadsTitle')}</div>
+        <p className={styles.errorText}>{t('userShell.workspaceListError')}</p>
+      </div>
+    );
+  }
+
+  if (files.length === 0) return null;
 
   return (
     <div

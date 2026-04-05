@@ -5,7 +5,7 @@ import styles from './WorkflowEditor.module.css';
 import Dropdown from './Dropdown';
 import ConfirmDialog from './ConfirmDialog.jsx';
 import { buildWsUrl } from '../lib/clientAuth.js';
-import { apiFetch } from '../lib/apiFetch.js';
+import { apiFetch, API_BASE } from '../lib/apiFetch.js';
 import {
   WS_RECONNECT_MS,
   startWsHeartbeat,
@@ -24,8 +24,6 @@ import {
   resetEdgeIdCounter,
   getDefaultEdgeCondition,
 } from './workflowEdgeUtils.js';
-
-const API_BASE = '';
 
 const NODE_W = 160;
 const NODE_H = 56;

@@ -137,6 +137,6 @@ npm run dev
 大功告成，您现在已经完全掌握了项目结构！如果您打算在底层做修改或提交 PR，我们为您准备了以下路标文档：
 
 - **内部架构透视**: 好奇 `workflowEngine.js` 如何调度工作流？WebSocket 的 5 种状态机是如何流转的？搜索/爬取 MCP 是如何分层激活的？请参阅位于根目录的 [`ARCHITECTURE.md`](ARCHITECTURE.md)。
-- **代码规范与自动化测试**: 我们对于入库的代码执行极严标准；当前全仓约 **885** 个 Vitest 用例（后端 641 + 前端 244）。提交代码或发起 PR 之前可在根目录运行 `npm run test`；需要覆盖率时可运行 `npm run test:coverage`。`npm run check`、Husky `pre-commit` 与更细说明见 [`CONTRIBUTING.md`](CONTRIBUTING.md)。
+- **代码规范与自动化测试**: 我们对于入库的代码执行极严标准；当前全仓约 **893** 个 Vitest 用例（后端 641 + 前端 252）。提交代码或发起 PR 之前可在根目录运行 `npm run test`；需要覆盖率时可运行 `npm run test:coverage`。`npm run check`、Husky `pre-commit` 与更细说明见 [`CONTRIBUTING.md`](CONTRIBUTING.md)。
 
 开心编程，尽情打造您的超级 Agent 平台！

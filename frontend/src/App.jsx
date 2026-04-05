@@ -20,6 +20,7 @@ import ExperimentView from './components/ExperimentView.jsx';
 import UserAgentTimeline from './components/UserAgentTimeline.jsx';
 import SessionDownloadablesStrip from './components/SessionDownloadablesStrip.jsx';
 import UserAgentDetailsDrawer from './components/UserAgentDetailsDrawer.jsx';
+import { WorkspaceFilesProvider } from './context/WorkspaceFilesProvider.jsx';
 
 export default function App() {
   const {
@@ -83,35 +84,63 @@ export default function App() {
   const agentUserMode = mode === 'agent' && uiShell === 'agent';
 
   return (
-    <div className="app-layout">
-      <Header
-        connected={connected}
-        sessionId={sessionId}
-        onClear={clearSession}
-        onOpenHistory={() => setDrawerOpen(true)}
-        mcpHealth={mcpHealth}
-        mode={mode}
-        onModeChange={setMode}
-        theme={theme}
-        onThemeChange={setTheme}
-        themePack={themePack}
-        onThemePackChange={setThemePack}
-        density={density}
-        onDensityChange={setDensity}
-        uiShell={uiShell}
-        onUiShellChange={handleUiShellChange}
-        onOpenUserDetails={() => setUserDetailsOpen(true)}
-      />
+    <WorkspaceFilesProvider sessionId={sessionId} refreshKey={events.length}>
+      <div className="app-layout">
+        <Header
+          connected={connected}
+          sessionId={sessionId}
+          onClear={clearSession}
+          onOpenHistory={() => setDrawerOpen(true)}
+          mcpHealth={mcpHealth}
+          mode={mode}
+          onModeChange={setMode}
+          theme={theme}
+          onThemeChange={setTheme}
+          themePack={themePack}
+          onThemePackChange={setThemePack}
+          density={density}
+          onDensityChange={setDensity}
+          uiShell={uiShell}
+          onUiShellChange={handleUiShellChange}
+          onOpenUserDetails={() => setUserDetailsOpen(true)}
+        />
 
-      {mode === 'agent' && agentUserMode ? (
-        <>
-          <div className="main-content agent-user-shell">
-            <div className="left-panel agent-user-column">
-              <UserAgentTimeline events={events} status={status} />
-              <div className="user-shell-composer-footer">
-                <SessionDownloadablesStrip sessionId={sessionId} refreshKey={events.length} />
+        {mode === 'agent' && agentUserMode ? (
+          <>
+            <div className="main-content agent-user-shell">
+              <div className="left-panel agent-user-column">
+                <UserAgentTimeline events={events} status={status} />
+                <div className="user-shell-composer-footer">
+                  <SessionDownloadablesStrip sessionId={sessionId} />
+                  <ChatInput
+                    variant="user"
+                    onSend={startAgent}
+                    onFollowUp={followUp}
+                    onStop={stopAgent}
+                    status={status}
+                    sessionId={sessionId}
+                    connected={connected}
+                  />
+                </div>
+              </div>
+            </div>
+            <UserAgentDetailsDrawer open={userDetailsOpen} onClose={closeUserDetails}>
+              <RightPanel events={events} sessionStats={sessionStats} sessionId={sessionId} />
+            </UserAgentDetailsDrawer>
+            <StatusBar
+              status={status}
+              sessionId={sessionId}
+              eventCount={events.length}
+              sessionStats={sessionStats}
+              subtasks={subtasks}
+            />
+          </>
+        ) : mode === 'agent' ? (
+          <>
+            <div className="main-content">
+              <div className="left-panel">
+                <AgentTimeline events={events} status={status} sessionId={sessionId} />
                 <ChatInput
-                  variant="user"
                   onSend={startAgent}
                   onFollowUp={followUp}
                   onStop={stopAgent}
@@ -120,74 +149,48 @@ export default function App() {
                   connected={connected}
                 />
               </div>
+              <RightPanel events={events} sessionStats={sessionStats} sessionId={sessionId} />
             </div>
-          </div>
-          <UserAgentDetailsDrawer open={userDetailsOpen} onClose={closeUserDetails}>
-            <RightPanel events={events} sessionStats={sessionStats} sessionId={sessionId} />
-          </UserAgentDetailsDrawer>
-          <StatusBar
-            status={status}
-            sessionId={sessionId}
-            eventCount={events.length}
-            sessionStats={sessionStats}
-            subtasks={subtasks}
-          />
-        </>
-      ) : mode === 'agent' ? (
-        <>
-          <div className="main-content">
-            <div className="left-panel">
-              <AgentTimeline events={events} status={status} sessionId={sessionId} />
-              <ChatInput
-                onSend={startAgent}
-                onFollowUp={followUp}
-                onStop={stopAgent}
-                status={status}
-                sessionId={sessionId}
-                connected={connected}
-              />
-            </div>
-            <RightPanel events={events} sessionStats={sessionStats} sessionId={sessionId} />
-          </div>
 
-          <StatusBar
-            status={status}
-            sessionId={sessionId}
-            eventCount={events.length}
-            sessionStats={sessionStats}
-            subtasks={subtasks}
-          />
-        </>
-      ) : mode === 'workflow' ? (
-        <div className="main-content workflow-mode">
-          <WorkflowEditor />
-        </div>
-      ) : (
-        <div className="main-content experiment-mode">
-          <ExperimentView
-            experimentRunId={experimentRunId}
-            experimentStatus={experimentStatus}
-            experimentEvents={experimentEvents}
-            subscribeExperiment={subscribeExperiment}
-            unsubscribeExperiment={unsubscribeExperiment}
-            loadExperimentRunsEvents={loadExperimentRunsEvents}
-            swarmBranches={swarmBranches}
-            swarmHypotheses={swarmHypotheses}
-            swarmStatus={swarmStatus}
-            swarmReasoning={swarmReasoning}
-            runSwarm={runSwarm}
-            abortSwarmRun={abortSwarmRun}
-            loadSwarmBranches={loadSwarmBranches}
-          />
-        </div>
-      )}
+            <StatusBar
+              status={status}
+              sessionId={sessionId}
+              eventCount={events.length}
+              sessionStats={sessionStats}
+              subtasks={subtasks}
+            />
+          </>
+        ) : mode === 'workflow' ? (
+          <div className="main-content workflow-mode">
+            <WorkflowEditor />
+          </div>
+        ) : (
+          <div className="main-content experiment-mode">
+            <ExperimentView
+              experimentRunId={experimentRunId}
+              experimentStatus={experimentStatus}
+              experimentEvents={experimentEvents}
+              subscribeExperiment={subscribeExperiment}
+              unsubscribeExperiment={unsubscribeExperiment}
+              loadExperimentRunsEvents={loadExperimentRunsEvents}
+              swarmBranches={swarmBranches}
+              swarmHypotheses={swarmHypotheses}
+              swarmStatus={swarmStatus}
+              swarmReasoning={swarmReasoning}
+              runSwarm={runSwarm}
+              abortSwarmRun={abortSwarmRun}
+              loadSwarmBranches={loadSwarmBranches}
+            />
+          </div>
+        )}
 
-      <SessionDrawer
-        open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-        onLoadSession={loadSession}
-        currentSessionId={sessionId}
-      />
-    </div>
+        <SessionDrawer
+          open={drawerOpen}
+          onClose={() => setDrawerOpen(false)}
+          onLoadSession={loadSession}
+          currentSessionId={sessionId}
+        />
+      </div>
+    </WorkspaceFilesProvider>
   );
 }
