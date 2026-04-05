@@ -24,6 +24,7 @@ import { hasOwnedSession } from '../helpers/access.js';
 import { isPathInside } from '../../hooks.js';
 import config from '../../config.js';
 import { SESSION_FILE_DOWNLOAD_EXTENSIONS } from '../../../shared/sessionDownloadExtensions.js';
+import { logHttpError } from '../../serverLog.js';
 
 const router = Router();
 
@@ -58,8 +59,10 @@ router.delete('/sessions/:id', async (req, res) => {
   const deleted = await deleteSession(req.user.id, req.params.id);
   if (!deleted) {
     await updateSessionStatus(req.params.id, 'interrupted', req.user.id);
-    console.error(
-      `[sessions] deleteSession failed after stopAgent for ${req.params.id} (user ${req.user.id}); marked interrupted`,
+    logHttpError(
+      'sessions',
+      req,
+      `deleteSession failed after stopAgent for ${req.params.id} (user ${req.user.id}); marked interrupted`,
     );
     return res.status(500).json({
       error: 'delete failed',
@@ -85,8 +88,10 @@ router.post('/sessions/batch-delete', async (req, res) => {
   if (deleted < ownedIds.length) {
     const stillOwned = await filterSessionIdsOwned(req.user.id, ownedIds);
     if (stillOwned.length > 0) {
-      console.error(
-        `[sessions] batch-delete incomplete: stopped ${ownedIds.length} agent(s), deleted ${deleted}, marking ${stillOwned.length} session(s) interrupted`,
+      logHttpError(
+        'sessions',
+        req,
+        `batch-delete incomplete: stopped ${ownedIds.length} agent(s), deleted ${deleted}, marking ${stillOwned.length} session(s) interrupted`,
       );
       await Promise.all(
         stillOwned.map((id) => updateSessionStatus(id, 'interrupted', req.user.id)),
@@ -203,7 +208,7 @@ router.get('/sessions/:id/workspace-files', async (req, res) => {
       res.json({ files: [] });
       return;
     }
-    console.error('[sessions] workspace-files listing failed', err);
+    logHttpError('sessions', req, 'workspace-files listing failed', err);
     res.status(500).json({ error: 'workspace listing failed' });
   }
 });

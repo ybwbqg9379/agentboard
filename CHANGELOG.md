@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.16.8] - 2026-04-04
+
+### Changed
+
+- **前端**：**`@shared`** 别名（**`vite.config.js`** / **`vitest.config.js`**）与 **`jsconfig.json`** 路径映射指向仓库 **`shared/`**，**`sessionDownloads.js`** 改为 **`@shared/sessionDownloadExtensions.js`**，避免深层 **`../../../shared`** 与目录漂移耦合。
+- **后端**：新增 **`serverLog.logHttpError`**；**`sessions`** 路由中的 **`console.error`** 改为带 **`X-Request-Id`** 的统一格式，与 **`createApp`** 全局错误处理一致。
+
+---
+
 ## [0.16.7] - 2026-04-04
 
 ### fix: 实验白名单 git 输出不受 macOS 权限警告污染

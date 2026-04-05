@@ -13,6 +13,11 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react()],
+    resolve: {
+      alias: {
+        '@shared': resolve(__dirname, '../shared'),
+      },
+    },
     define: {
       ...getAppVersionDefine(),
     },

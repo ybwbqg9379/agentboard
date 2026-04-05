@@ -1,6 +1,6 @@
-import { SESSION_FILE_DOWNLOAD_EXTENSIONS } from '../../../shared/sessionDownloadExtensions.js';
+import { SESSION_FILE_DOWNLOAD_EXTENSIONS } from '@shared/sessionDownloadExtensions.js';
 
-/** Same allowlist as backend `sessions` download route (see `shared/sessionDownloadExtensions.js`). */
+/** Same allowlist as backend `sessions` download route (see `shared/sessionDownloadExtensions.js`; Vite alias `@shared`). */
 export const SESSION_DOWNLOADABLE_EXT = new Set(SESSION_FILE_DOWNLOAD_EXTENSIONS);
 
 /**
