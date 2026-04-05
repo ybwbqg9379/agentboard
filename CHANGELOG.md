@@ -17,10 +17,16 @@
 - **顶栏（Header）**：**Console | 智能同事** 分段；**窄屏** **`.left`** 纵向：**第一行**壳、**第二行**模式 Tab（有 Tab 时）；**用户壳 + `mode=agent`** 时**不展示** **Agent / Workflow / Experiment** Tab（改工作流/实验须先切回 **控制台**）。
 - **ChatInput（Agent 主界面）**：移除权限模式下拉；固定 **`permissionMode: bypassPermissions`** 调用 **`onSend` / `onFollowUp`**（工作流节点配置仍可选权限）。
 - **i18n**：**`header.*`**（壳、Claude 包名、详情按钮等）、**`userShell.*`**；移除未再使用的 **`chatInput.permissionTitle`**、**`userShell.permissionTitle`** 等。
+- **`index.css`**：在 **`html[data-ui-shell='agent'] .user-agent-feed`** 上设置 **`scroll-padding-top`**，使 **`data-ui-shell`** 具备实际样式挂钩（与 **`themePreferences`** 注释一致）。
+- **`UserAgentDetailsDrawer.module.css`**：注释 **z-index: 1200** 与 **`ConfirmDialog`（2000）**、下拉/会话抽屉的叠放关系。
+- **`App.jsx`**：用户详情抽屉 **`onClose`** 使用 **`useCallback`**；进入用户壳且 **`themePack === 'default'`** 时选 **Claude** 的意图以行内注释说明。
 
 #### Fixed
 
 - **`__APP_VERSION__`**：根目录 **`vitest` projects** 仅加载 **`frontend/vitest.config.js`** 时未注入 Vite **`define`**，单测或工具链下 Header 可出现 **`vundefined`**。新增 **`frontend/vite.version-define.js`** 的 **`getAppVersionDefine()`**，由 **`vite.config.js`** 与 **`vitest.config.js`** 共用，版本始终来自**仓库根** **`package.json`**，与 **`npm run build` / `dev`** 一致。
+- **`UserAgentDetailsDrawer` 可访问性**：与 **`aria-modal="true"`** 对齐的 **焦点陷阱**（`document` capture 上拦截 **Tab**、焦点留在 portal 根内、关闭后恢复先前焦点）；遮罩按钮 **`tabIndex={-1}`** 不参与 Tab 序；**`onCloseRef`** 稳定 Escape 监听。遮罩与工具栏关闭钮拆分 **`aria-label`**（新增 **`userShell.dismissDetailsOverlay`**），避免屏幕阅读器重复同名控件。
+- **`vite.version-define.js` 健壮性**：读取或解析根 **`package.json`** 失败时 **try/catch**、**`console.warn`**，回退版本 **`0.0.0`**，避免构建/测试阶段晦涩异常。
+- **Claude 主题焦点样式**：**`--focus-blue-rgb`** 令牌；**`:focus-visible`** 仅 **`box-shadow`** 高亮，去掉硬编码 **`border-color: #3898ec`**，减轻对输入框/按钮边框的覆盖。
 
 #### Documentation
 
@@ -31,6 +37,8 @@
 
 - **`themePreferences.test.js`**：`uiShell` 读写与 **`data-ui-shell`**。
 - **`ChatInput.test.jsx`**：断言 **`bypassPermissions`**；移除对已删除下拉的 mock。
+- **`UserAgentDetailsDrawer.test.jsx`**：对话框语义、Escape、打开时焦点落在关闭控件。
+- **`UserAgentTimeline.test.jsx`**：空态与含 **`assistant`** 事件时的 feed 展示。
 
 ---
 

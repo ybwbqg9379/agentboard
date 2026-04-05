@@ -335,7 +335,8 @@
     "runAgent": "Run agent",
     "continueTask": "Continue",
     "detailsTitle": "Technical details",
-    "closeDetails": "Close details panel"
+    "closeDetails": "Close details panel",
+    "dismissDetailsOverlay": "Dismiss details (backdrop)"
   },
   "confirmDialog": {
     "defaultTitle": "Confirm",

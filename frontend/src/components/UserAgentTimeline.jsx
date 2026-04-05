@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { FileDown, Sparkles } from 'lucide-react';
 import MarkdownBody from './MarkdownBody.jsx';
 import { TimelineDotIcon } from './LucideStatusIcons.jsx';
+/* Timeline rows share the same event→display projection as AgentTimeline. */
 import { buildDisplayItems } from './AgentTimeline.jsx';
 import styles from './UserAgentTimeline.module.css';
 

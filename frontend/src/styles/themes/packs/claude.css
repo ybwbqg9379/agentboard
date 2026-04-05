@@ -47,6 +47,9 @@ html[data-theme-pack='claude'] {
   --status-done-rgb: 201, 100, 66;
   --status-tool: #5c7cfa;
   --status-tool-rgb: 92, 124, 250;
+
+  /* Blueprint: Focus Blue (DESIGN.md §4 Inputs) — token for focus rings */
+  --focus-blue-rgb: 56, 152, 236;
 }
 
 html[data-theme-pack='claude'][data-theme='dark'] {
@@ -80,12 +83,14 @@ html[data-theme-pack='claude'][data-theme='dark'] {
   --status-done-rgb: 217, 119, 87;
   --status-tool: #7dd3fc;
   --status-tool-rgb: 125, 211, 252;
+
+  --focus-blue-rgb: 56, 152, 236;
 }
 
 /*
- * Blueprint: focus ring uses Focus Blue #3898ec — «the only cool color» for a11y (DESIGN.md §4 Inputs).
+ * Blueprint: focus ring uses Focus Blue — «the only cool color» for a11y (DESIGN.md §4 Inputs).
+ * Ring is box-shadow only so we do not override component border-color (inputs, buttons).
  */
 html[data-theme-pack='claude'] *:focus-visible {
-  box-shadow: 0 0 0 var(--focus-ring-spread) rgba(56, 152, 236, 0.35);
-  border-color: #3898ec;
+  box-shadow: 0 0 0 var(--focus-ring-spread) rgba(var(--focus-blue-rgb), 0.35);
 }

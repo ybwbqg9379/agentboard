@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import { useWebSocket } from './hooks/useWebSocket.js';
 import { ensureThemePackFontsLoaded } from './themeFontLoader.js';
 import {
@@ -70,11 +70,14 @@ export default function App() {
 
   function handleUiShellChange(next) {
     setUiShell(next);
+    /* Agent shell defaults the palette to Claude only when still on the built-in default pack. */
     if (next === 'agent') {
       setThemePack((p) => (p === 'default' ? 'claude' : p));
     }
     setUserDetailsOpen(false);
   }
+
+  const closeUserDetails = useCallback(() => setUserDetailsOpen(false), []);
 
   const agentUserMode = mode === 'agent' && uiShell === 'agent';
 
@@ -115,7 +118,7 @@ export default function App() {
               />
             </div>
           </div>
-          <UserAgentDetailsDrawer open={userDetailsOpen} onClose={() => setUserDetailsOpen(false)}>
+          <UserAgentDetailsDrawer open={userDetailsOpen} onClose={closeUserDetails}>
             <RightPanel events={events} sessionStats={sessionStats} />
           </UserAgentDetailsDrawer>
           <StatusBar

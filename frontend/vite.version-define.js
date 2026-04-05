@@ -9,8 +9,20 @@ import { fileURLToPath } from 'node:url';
 const frontendDir = dirname(fileURLToPath(import.meta.url));
 
 export function getAppVersionDefine() {
-  const rootPkg = JSON.parse(readFileSync(resolve(frontendDir, '..', 'package.json'), 'utf-8'));
+  let version = '0.0.0';
+  try {
+    const raw = readFileSync(resolve(frontendDir, '..', 'package.json'), 'utf-8');
+    const rootPkg = JSON.parse(raw);
+    if (rootPkg && typeof rootPkg.version === 'string' && rootPkg.version.trim()) {
+      version = rootPkg.version.trim();
+    }
+  } catch (err) {
+    console.warn(
+      '[vite.version-define] Could not read root package.json version; using fallback.',
+      err instanceof Error ? err.message : err,
+    );
+  }
   return {
-    __APP_VERSION__: JSON.stringify(rootPkg.version ?? '0.0.0'),
+    __APP_VERSION__: JSON.stringify(version),
   };
 }

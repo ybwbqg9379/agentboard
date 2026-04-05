@@ -335,7 +335,8 @@
     "runAgent": "运行智能体",
     "continueTask": "继续",
     "detailsTitle": "技术详情",
-    "closeDetails": "关闭详情面板"
+    "closeDetails": "关闭详情面板",
+    "dismissDetailsOverlay": "点击背景关闭详情"
   },
   "confirmDialog": {
     "defaultTitle": "确认",

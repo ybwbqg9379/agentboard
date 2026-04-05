@@ -95,6 +95,7 @@ export function applyDocumentAppearance(
     root.removeAttribute('data-density');
   }
 
+  /* Persisted shell preference; CSS may scope tweaks under html[data-ui-shell='agent']. */
   if ((uiShell ?? 'pro') === 'agent') {
     root.setAttribute('data-ui-shell', 'agent');
   } else {

@@ -110,6 +110,11 @@ body,
   min-height: 0;
 }
 
+/* Shell preference (see themePreferences): subtle scroll affordance in user agent feed */
+html[data-ui-shell='agent'] .user-agent-feed {
+  scroll-padding-top: var(--space-sm);
+}
+
 .left-panel {
   display: flex;
   flex-direction: column;
