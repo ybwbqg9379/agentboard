@@ -51,7 +51,9 @@ export default function UserAgentDetailsDrawer({ open, onClose, children }) {
     const container = containerRef.current;
     if (!container) return;
 
-    previousFocusRef.current = document.activeElement;
+    /* Only when `open` becomes true; deps are [open] so children updates do not overwrite. */
+    const prior = document.activeElement;
+    previousFocusRef.current = container.contains(prior) ? null : prior;
     const closeBtn = container.querySelector('[data-drawer-close]');
     (closeBtn ?? listFocusables(container)[0])?.focus({ preventScroll: true });
 

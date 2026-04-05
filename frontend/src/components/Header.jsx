@@ -86,6 +86,7 @@ export default function Header({
             <button
               type="button"
               className={`${styles.shellTab} ${uiShell === 'pro' ? styles.shellTabActive : ''}`}
+              title={t('header.shellTabProHint')}
               onClick={() => onUiShellChange('pro')}
             >
               {t('header.shellPro')}
@@ -93,11 +94,15 @@ export default function Header({
             <button
               type="button"
               className={`${styles.shellTab} ${uiShell === 'agent' ? styles.shellTabActive : ''}`}
+              title={t('header.shellTabAgentHint')}
               onClick={() => onUiShellChange('agent')}
             >
               {t('header.shellAgent')}
             </button>
           </div>
+        )}
+        {mode === 'agent' && uiShell === 'agent' && (
+          <span className={styles.agentShellNavHint}>{t('header.agentShellWorkflowHint')}</span>
         )}
         {!(mode === 'agent' && uiShell === 'agent') && (
           <div className={styles.modeTabs}>

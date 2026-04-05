@@ -289,10 +289,10 @@ export default function WorkflowEditor() {
   const { t } = useTranslation();
   const permissionOptions = useMemo(
     () => [
-      { value: 'bypassPermissions', label: t('chatInput.permissionBypass') },
-      { value: 'acceptEdits', label: t('chatInput.permissionAcceptEdits') },
-      { value: 'default', label: t('chatInput.permissionDefault') },
-      { value: 'plan', label: t('chatInput.permissionPlan') },
+      { value: 'bypassPermissions', label: t('workflow.permissionBypass') },
+      { value: 'acceptEdits', label: t('workflow.permissionAcceptEdits') },
+      { value: 'default', label: t('workflow.permissionDefault') },
+      { value: 'plan', label: t('workflow.permissionPlan') },
     ],
     [t],
   );

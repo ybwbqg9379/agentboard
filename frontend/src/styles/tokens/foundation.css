@@ -183,6 +183,8 @@
   --chrome-inline-gap: 5px;
   --layout-grid-hairline: 1px;
   --focus-ring-spread: 2px;
+  /* Labels on saturated status fills (Continue / Stop); theme packs may override for light fills */
+  --text-on-saturated: #ffffff;
   --motion-enter-translate-y: var(--space-sm);
   --motion-duration-sm: 0.2s;
   --motion-duration-md: 0.28s;

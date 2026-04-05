@@ -22,6 +22,9 @@
     "shellPro": "控制台",
     "shellAgent": "智能同事",
     "shellGroupLabel": "界面模式",
+    "shellTabProHint": "控制台 — 完整布局，可使用工作流与实验标签。",
+    "shellTabAgentHint": "智能同事 — 专注对话。使用工作流或实验请先切换到控制台。",
+    "agentShellWorkflowHint": "工作流与实验：请先切换到「控制台」。",
     "userDetails": "详情",
     "themeLight": "浅色",
     "themeDark": "深色",
@@ -54,11 +57,7 @@
     "placeholderWait": "等待连接…",
     "run": "运行",
     "continue": "继续",
-    "stop": "停止",
-    "permissionBypass": "绕过",
-    "permissionAcceptEdits": "接受编辑",
-    "permissionDefault": "默认",
-    "permissionPlan": "计划"
+    "stop": "停止"
   },
   "sessionDrawer": {
     "title": "会话历史",
@@ -83,7 +82,8 @@
     "title": "时间线",
     "emptyTitle": "无活动会话",
     "emptyHint": "发送任务以启动智能体",
-    "eventsCount": "{{count}} 条事件",
+    "eventsCount_one": "{{count}} 条事件",
+    "eventsCount_other": "{{count}} 条事件",
     "working": "智能体工作中…",
     "download": "下载 {{fileName}}",
     "event": {
@@ -215,6 +215,10 @@
     "promptPlaceholderPrefix": "智能体提示词，用 ",
     "promptPlaceholderSuffix": " 引用上下文变量。",
     "maxTurns": "最大轮数",
+    "permissionBypass": "绕过",
+    "permissionAcceptEdits": "接受编辑",
+    "permissionDefault": "默认",
+    "permissionPlan": "计划",
     "permissionMode": "权限模式",
     "expression": "表达式",
     "expressionPlaceholder": "例如 status == \"success\"",

@@ -50,7 +50,7 @@ describe('UserAgentTimeline', () => {
     ];
     render(<UserAgentTimeline events={events} status="idle" sessionId="s1" />);
     expect(screen.getByRole('heading', { name: /activity/i })).toBeTruthy();
-    expect(screen.getByText('1 events')).toBeTruthy();
+    expect(screen.getByText('1 event')).toBeTruthy();
     expect(screen.getByRole('heading', { name: /assistant/i })).toBeTruthy();
   });
 });

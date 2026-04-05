@@ -14,6 +14,11 @@
 
 #### Changed
 
+- **顶栏可发现性**：用户壳下显示 **`header.agentShellWorkflowHint`**；**Console / Agent** 壳 Tab 增加 **`title`**（**`shellTabProHint`** / **`shellTabAgentHint`**）。
+- **时间线文案**：**`timeline.eventsCount_one`** / **`eventsCount_other`**（英文单复数；中文同形）。
+- **时间线模型**：**`agentTimelineModel.js`** 承载 **handlers**、**`flattenEvent`**、**`buildDisplayItems`**；**`UserAgentTimeline`** 直引该模块，**`AgentTimeline`** 再导出以兼容单测。
+- **ChatInput 主题**：**Continue / Stop** 使用 **`var(--text-on-saturated)`**（**`foundation.css`**），替代硬编码 **`white`**。
+- **工作流 i18n**：节点权限选项改用 **`workflow.permission*`**，从 **`chatInput`** 移除同名键。
 - **顶栏（Header）**：**Console | 智能同事** 分段；**窄屏** **`.left`** 纵向：**第一行**壳、**第二行**模式 Tab（有 Tab 时）；**用户壳 + `mode=agent`** 时**不展示** **Agent / Workflow / Experiment** Tab（改工作流/实验须先切回 **控制台**）。
 - **ChatInput（Agent 主界面）**：移除权限模式下拉；固定 **`permissionMode: bypassPermissions`** 调用 **`onSend` / `onFollowUp`**（工作流节点配置仍可选权限）。
 - **i18n**：**`header.*`**（壳、Claude 包名、详情按钮等）、**`userShell.*`**；移除未再使用的 **`chatInput.permissionTitle`**、**`userShell.permissionTitle`** 等。
@@ -24,14 +29,15 @@
 #### Fixed
 
 - **`__APP_VERSION__`**：根目录 **`vitest` projects** 仅加载 **`frontend/vitest.config.js`** 时未注入 Vite **`define`**，单测或工具链下 Header 可出现 **`vundefined`**。新增 **`frontend/vite.version-define.js`** 的 **`getAppVersionDefine()`**，由 **`vite.config.js`** 与 **`vitest.config.js`** 共用，版本始终来自**仓库根** **`package.json`**，与 **`npm run build` / `dev`** 一致。
-- **`UserAgentDetailsDrawer` 可访问性**：与 **`aria-modal="true"`** 对齐的 **焦点陷阱**（`document` capture 上拦截 **Tab**、焦点留在 portal 根内、关闭后恢复先前焦点）；遮罩按钮 **`tabIndex={-1}`** 不参与 Tab 序；**`onCloseRef`** 稳定 Escape 监听。遮罩与工具栏关闭钮拆分 **`aria-label`**（新增 **`userShell.dismissDetailsOverlay`**），避免屏幕阅读器重复同名控件。
+- **`UserAgentDetailsDrawer` 可访问性**：与 **`aria-modal="true"`** 对齐的 **焦点陷阱**（`document` capture 上拦截 **Tab**、焦点留在 portal 根内、关闭后恢复先前焦点）；遮罩按钮 **`tabIndex={-1}`** 不参与 Tab 序；**`onCloseRef`** 稳定 Escape 监听。遮罩与工具栏关闭钮拆分 **`aria-label`**（新增 **`userShell.dismissDetailsOverlay`**），避免屏幕阅读器重复同名控件。打开时仅在 **`activeElement`** 位于抽屉外时记录回焦目标，避免边界情况误存抽屉内节点。
 - **`vite.version-define.js` 健壮性**：读取或解析根 **`package.json`** 失败时 **try/catch**、**`console.warn`**，回退版本 **`0.0.0`**，避免构建/测试阶段晦涩异常。
 - **Claude 主题焦点样式**：**`--focus-blue-rgb`** 令牌；**`:focus-visible`** 仅 **`box-shadow`** 高亮，去掉硬编码 **`border-color: #3898ec`**，减轻对输入框/按钮边框的覆盖。
 
 #### Documentation
 
 - **`frontend/DESIGN.md`**：补充 **`data-ui-shell`**、**Claude 蓝图与自定义**、顶栏窄屏两行、用户壳无模式 Tab 等。
-- **`ARCHITECTURE.md`**：Agent 双壳数据流、模块表（**`UserAgentTimeline`**、抽屉、Header、固定 bypass）。
+- **`ARCHITECTURE.md`**：Agent 双壳数据流、模块表（**`UserAgentTimeline`**、**`agentTimelineModel.js`**、抽屉、Header、固定 bypass）。
+- **`README.md`**、**`CONTRIBUTING.md`**、**`ONBOARDING.md`**：Vitest 全仓计数更新为 **872**（637 + 235）。
 
 #### Tests
 

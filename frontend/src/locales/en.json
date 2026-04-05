@@ -22,6 +22,9 @@
     "shellPro": "Console",
     "shellAgent": "Agent",
     "shellGroupLabel": "Interface mode",
+    "shellTabProHint": "Console — full layout with Workflow and Experiment tabs.",
+    "shellTabAgentHint": "Colleague view — focused agent chat. Switch to Console for Workflow or Experiment.",
+    "agentShellWorkflowHint": "Workflow & Experiment: switch to Console first.",
     "userDetails": "Details",
     "themeLight": "Light",
     "themeDark": "Dark",
@@ -54,11 +57,7 @@
     "placeholderWait": "Waiting for connection...",
     "run": "Run",
     "continue": "Continue",
-    "stop": "Stop",
-    "permissionBypass": "Bypass",
-    "permissionAcceptEdits": "Accept Edits",
-    "permissionDefault": "Default",
-    "permissionPlan": "Plan"
+    "stop": "Stop"
   },
   "sessionDrawer": {
     "title": "Session History",
@@ -83,7 +82,8 @@
     "title": "Timeline",
     "emptyTitle": "No active session",
     "emptyHint": "Send a task to start the agent",
-    "eventsCount": "{{count}} events",
+    "eventsCount_one": "{{count}} event",
+    "eventsCount_other": "{{count}} events",
     "working": "Agent is working...",
     "download": "Download {{fileName}}",
     "event": {
@@ -215,6 +215,10 @@
     "promptPlaceholderPrefix": "Agent prompt. Use ",
     "promptPlaceholderSuffix": " for context variables.",
     "maxTurns": "Max Turns",
+    "permissionBypass": "Bypass",
+    "permissionAcceptEdits": "Accept Edits",
+    "permissionDefault": "Default",
+    "permissionPlan": "Plan",
     "permissionMode": "Permission Mode",
     "expression": "Expression",
     "expressionPlaceholder": "e.g. status == \"success\"",

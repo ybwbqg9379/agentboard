@@ -82,6 +82,15 @@
   box-shadow: 0 0 0 var(--border-width-hairline) var(--border-primary);
 }
 
+.agentShellNavHint {
+  margin-left: var(--space-sm);
+  max-width: min(100%, 14rem);
+  font-size: var(--ui-caption);
+  line-height: 1.35;
+  color: var(--text-tertiary);
+  white-space: normal;
+}
+
 .modeTabs {
   display: flex;
   flex-wrap: nowrap;

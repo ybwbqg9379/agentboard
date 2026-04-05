@@ -105,7 +105,7 @@
 
 .continueBtn {
   background: var(--status-running);
-  color: white;
+  color: var(--text-on-saturated);
 }
 
 .continueBtn:hover:not(:disabled) {
@@ -119,7 +119,7 @@
 
 .stopBtn {
   background: var(--status-error);
-  color: white;
+  color: var(--text-on-saturated);
 }
 
 .stopBtn:hover {
