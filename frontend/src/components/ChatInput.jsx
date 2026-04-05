@@ -2,6 +2,7 @@ import { useMemo, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ArrowRight, Send, Square } from 'lucide-react';
 import styles from './ChatInput.module.css';
+import dropdownStyles from './Dropdown.module.css';
 import Dropdown from './Dropdown';
 
 // Statuses that allow sending a follow-up message
@@ -58,7 +59,7 @@ export default function ChatInput({ onSend, onFollowUp, onStop, status, sessionI
     <form className={styles.wrapper} onSubmit={handleSubmit}>
       <div className={styles.inputRow}>
         <Dropdown
-          className={styles.modeSelect}
+          className={`${styles.modeSelect} ${dropdownStyles.triggerFluid}`}
           options={permissionModes}
           value={permissionMode}
           onChange={setPermissionMode}

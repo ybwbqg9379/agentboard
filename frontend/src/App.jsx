@@ -83,8 +83,6 @@ export default function App() {
     window.localStorage.setItem('agentboard-density', density);
   }, [density]);
 
-  const toggleTheme = () => setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
-
   return (
     <div className="app-layout">
       <Header
@@ -96,7 +94,7 @@ export default function App() {
         mode={mode}
         onModeChange={setMode}
         theme={theme}
-        onToggleTheme={toggleTheme}
+        onThemeChange={setTheme}
         themePack={themePack}
         onThemePackChange={setThemePack}
         density={density}

@@ -20,12 +20,12 @@
 
 .dialog {
   background: var(--bg-elevated);
-  border: 1px solid var(--border-secondary);
-  border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-  padding: var(--space-lg) var(--space-xl);
-  min-width: 320px;
-  max-width: 420px;
+  border: var(--border-width-hairline) solid var(--border-secondary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-dialog);
+  padding: var(--confirm-dialog-padding-y) var(--confirm-dialog-padding-x);
+  min-width: var(--confirm-dialog-min-width);
+  max-width: var(--confirm-dialog-max-width);
   animation: scaleIn 0.15s ease-out;
 }
 
@@ -49,7 +49,7 @@
 }
 
 .title {
-  font-size: 15px;
+  font-size: var(--confirm-title-font-size);
   font-weight: 600;
   color: var(--text-primary);
   flex: 1;
@@ -62,8 +62,8 @@
   justify-content: center;
   line-height: 0;
   flex-shrink: 0;
-  padding: 2px;
-  margin: -2px -4px 0 0;
+  padding: var(--control-tight-padding);
+  margin: calc(-1 * var(--control-tight-padding)) calc(-1 * var(--space-xs)) 0 0;
   border: none;
   border-radius: var(--radius-sm);
   background: transparent;
@@ -80,7 +80,7 @@
 }
 
 .message {
-  font-size: 13px;
+  font-size: var(--confirm-body-font-size);
   color: var(--text-secondary);
   line-height: 1.5;
   margin-bottom: var(--space-lg);
@@ -96,11 +96,11 @@
 .confirmBtn {
   padding: var(--space-sm) var(--space-lg);
   border-radius: var(--radius-md);
-  font-size: 13px;
+  font-size: var(--confirm-btn-font-size);
   font-family: var(--font-sans);
   cursor: pointer;
   transition: all 0.15s;
-  border: 1px solid var(--border-primary);
+  border: var(--border-width-hairline) solid var(--border-primary);
 }
 
 .cancelBtn {

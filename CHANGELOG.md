@@ -28,12 +28,17 @@
 
 #### Changed
 
+- **响应式壳层（前端）**：`index.css` 等约束 **`overflow-x: clip`**、**`minmax(0, 1fr)`**、实验/工作流主栏网格与 **`min-width: 0`**，目标为 **仅纵向滚动**、连续宽度下不整页横向滑动；空态与面板 **`panel-body`** 等配合 **`overflow-wrap` / 省略**。
+- **顶栏 Header**：窄屏 **纵向分区**——模式 Tab **全宽三等分**；**chromeCluster** 为 **2×2**（**语言 + 明暗** | **调色板 + 密度**），**520px–768px** 为 **四列**；明暗由 **`Dropdown`** 选择（**`onThemeChange`**，文案 **`header.themeModeTitle`**）；**trailingCluster** 为 **两列网格**（**MCP / History / New Session** | **连接状态**）；**分割线与 2×2 区间距**、**trailing 区内边距**、**`.connStatus` 全断点 padding** 与读屏属性（**`role="status"`** 等）已对齐 **`frontend/DESIGN.md` §3.1**。
+- **Dropdown / ChatInput**：**`.triggerFluid`**（窄屏触发条 **`width: 100%`**）；菜单 **`max-width`** 相对视口；**ChatInput** 权限下拉复用 **`triggerFluid`**，窄屏 **纵向堆叠**。
+- **RightPanel / StatusBar / ExperimentView**：Tab 文案省略、底栏 **换行** 与 token 条 **可收缩**、实验页窄屏 **侧栏上置** 与 KPI **单列** 等。
+- **i18n**：移除未再引用的 **`header.themeTitle` / `themeToLight` / `themeToDark`**（顶栏明暗改为 **`Dropdown`** + **`header.themeModeTitle`**）。
 - **`.gitignore`**：忽略 Playwright **`test-results/`**、**`playwright-report/`**、**`blob-report/`**、**`playwright/.cache/`**；Vite **`.vite/`**、Vitest **`.vitest/`**；**`.eslintcache`**、**`*.tsbuildinfo`**；构建备份 **`dist.bak/`**；常见 **`*.log`** / 包管理器 debug 日志；**`Thumbs.db`**、**`.idea/`**。
 - **文档**：`README` / `CONTRIBUTING` / `ONBOARDING` 中 Vitest 全仓计数与前后端分项更新为 **858**（637 + 221）；`README` / `CONTRIBUTING` 中 `npm run check` 与 Husky 说明补充 **i18n** 与 **Playwright**。
 - **`scripts/check-i18n.mjs`**：禁止**裸变量** **`t(foo)`** 与 **`t(...+...)`** 拼接 key；扫描范围由单行提升为**整个调用跨度**，跨多行同样命中。属性访问只允许 **`*.labelKey` / `*.titleKey` / `*.descriptionKey` / `*.messageKey`** 这类受支持的间接 key 引用；任一调用跨度内带 `// i18n-exempt` 可豁免。
-- **`frontend/DESIGN.md`**：记载 `document.title`、`dir`、i18n 禁止模式与 ICU 说明。
+- **`frontend/DESIGN.md`**：记载 `document.title`、`dir`、i18n 禁止模式与 ICU 说明；增补 **§3.1 顶栏（Header）**（窄屏 chrome / trailing / 分割线间距、明暗 **Dropdown**、连接状态 a11y）与整页 **横向滚动** 约定。
 - **前端图标（Lucide）**：依赖 **`lucide-react`**；以矢量图标替代 emoji / Unicode 假图标（如文案中的 `+`、`→` 前缀等）；共享 **`frontend/src/components/LucideStatusIcons.jsx`**（`TimelineDotIcon`、`BarStatusIcon`、`ContextSegmentIcon`、`normalizeBarStatus`）统一时间线 gutter、**StatusBar**、**SessionDrawer**、上下文图例等语义。
-- **面板与壳层**：**Header**（主题/历史/新会话/连接 **Wifi**/**WifiOff**、MCP **`Disc`**）、**Dropdown**（**ChevronDown**）、**ChatInput**、**WorkflowEditor** 工具条与配置删除、**ExperimentView**、**RightPanel** Tab、**ContextPanel** / **FileChangesPanel** 标题与空态、**AgentTimeline**、**ConfirmDialog** 关闭钮、**ErrorBoundary** 重试、**SessionDrawer** / **StatusBar** 元信息前缀图标等与 **DESIGN.md §5** 对齐。
+- **面板与壳层**：**Header**（明暗 **Dropdown** / 历史/新会话/连接 **Wifi**/**WifiOff**、MCP **`Disc`**）、**Dropdown**（**ChevronDown**）、**ChatInput**、**WorkflowEditor** 工具条与配置删除、**ExperimentView**、**RightPanel** Tab、**ContextPanel** / **FileChangesPanel** 标题与空态、**AgentTimeline**、**ConfirmDialog** 关闭钮、**ErrorBoundary** 重试、**SessionDrawer** / **StatusBar** 元信息前缀图标等与 **DESIGN.md §5** 对齐。
 - **清理**：移除 **`index.css`** 中已废弃的全局 **`.dot` / `.dot-*`** 及仅服务于色点的 **`@keyframes pulse`**；**WorkflowEditor** 运行中节点角标由原无效全局 **`pulse`** 改为 **`WorkflowEditor.module.css`** 的 **`nodeActiveIndicator`**（`nodeActivePulse` 动画）。**`frontend/DESIGN.md`** 增补图标约定与 **`LucideStatusIcons`** 说明。
 - **文案**：工作流/实验「新建、添加节点」等去掉字面 **`+`**（由 **Plus** 图标表达）；**`workflow.edgeTitle`** 使用 **`—`** 连接；**`filesPanel.opWrite` / `opEdit` / `opRead`** 供文件操作徽标 **title**。
 

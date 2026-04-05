@@ -32,7 +32,7 @@ export default function RightPanel({ events, sessionStats }) {
               onClick={() => setActiveTab(tab.id)}
             >
               <TabIcon size={14} strokeWidth={2} className={styles.tabIcon} aria-hidden />
-              {tab.label}
+              <span className={styles.tabLabel}>{tab.label}</span>
             </button>
           );
         })}

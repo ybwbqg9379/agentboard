@@ -1,5 +1,5 @@
 .panel {
-  padding: var(--space-md);
+  padding: var(--context-panel-padding);
 }
 
 .header {
@@ -7,7 +7,7 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-sm);
-  font-size: 12px;
+  font-size: var(--ui-body-sm);
   font-weight: 600;
   color: var(--text-secondary);
   margin-bottom: var(--space-md);
@@ -16,7 +16,7 @@
 .headerLead {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--sheet-pad-2xs);
   min-width: 0;
 }
 
@@ -26,11 +26,11 @@
 }
 
 .count {
-  font-size: 11px;
+  font-size: var(--ui-caption);
   color: var(--text-tertiary);
   background: var(--bg-tertiary);
-  padding: 1px 6px;
-  border-radius: 8px;
+  padding: var(--chrome-badge-padding-y) var(--chrome-badge-padding-x);
+  border-radius: var(--radius-md);
   font-family: var(--font-mono);
 }
 
@@ -43,24 +43,24 @@
 .group {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--dense-stack-gap);
 }
 
 .groupLabel {
-  font-size: 10px;
+  font-size: var(--ui-micro);
   font-weight: 600;
   color: var(--text-tertiary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  margin-bottom: 2px;
+  margin-bottom: var(--dense-stack-gap);
 }
 
 .file {
   display: flex;
   align-items: center;
   gap: var(--space-xs);
-  padding: 2px 0;
-  font-size: 12px;
+  padding: var(--control-tight-padding) 0;
+  font-size: var(--ui-body-sm);
 }
 
 .fileKindIcon {
@@ -78,7 +78,7 @@
 .name {
   color: var(--text-primary);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--ui-caption);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -88,7 +88,7 @@
 
 .ops {
   display: flex;
-  gap: 4px;
+  gap: var(--space-xs);
   flex-shrink: 0;
 }
 
@@ -97,11 +97,11 @@
 .read {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--dense-stack-gap);
   font-family: var(--font-mono);
-  font-size: 10px;
-  padding: 0 4px;
-  border-radius: 3px;
+  font-size: var(--ui-micro);
+  padding: 0 var(--space-xs);
+  border-radius: var(--radius-micro);
 }
 
 .opsIcon {
@@ -127,9 +127,9 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: var(--dropdown-selected-gap);
   color: var(--text-tertiary);
-  font-size: 12px;
+  font-size: var(--ui-body-sm);
   text-align: center;
   padding: var(--space-xl) 0;
 }

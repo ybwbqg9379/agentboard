@@ -1,15 +1,15 @@
 .terminal {
   background: var(--bg-primary);
-  padding: var(--space-md);
+  padding: var(--panel-body-padding);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--ui-body-sm);
   line-height: 1.6;
 }
 
 .line {
   display: flex;
   gap: var(--space-sm);
-  padding: 2px 0;
+  padding: var(--control-tight-padding) 0;
 }
 
 .prompt {
@@ -46,7 +46,7 @@
   height: 100%;
   gap: var(--space-sm);
   color: var(--text-tertiary);
-  font-size: 12px;
+  font-size: var(--ui-body-sm);
   text-align: center;
-  padding: var(--space-xl);
+  padding: var(--empty-state-padding);
 }

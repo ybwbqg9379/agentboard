@@ -24,6 +24,8 @@
   --radius-sm: 6px;
   --radius-md: 8px;
   --radius-lg: 12px;
+  --radius-2xs: 4px;
+  --radius-micro: 3px;
 
   --header-height: 52px;
   --statusbar-height: 32px;
@@ -51,11 +53,161 @@
   --chat-composer-wrapper-padding-x: var(--space-lg);
   --chat-composer-font-size: 14px;
   --chat-send-font-size: 13px;
+  --chat-send-padding-x: 24px;
 
   --statusbar-font-size: 11px;
+
+  /* Density: app shell + panels (index.css) */
+  --app-font-size: 14px;
+  --scrollbar-size: 6px;
+  --panel-header-height: 36px;
+  --panel-header-font-size: 12px;
+  --panel-header-padding-y: var(--space-sm);
+  --panel-header-padding-x: var(--space-lg);
+  --panel-body-padding: var(--space-md);
+  --right-panel-tab-font-size: 12px;
+
+  --ui-mono-font-size: 13px;
+  --ui-body-sm: 12px;
+  --ui-caption: 11px;
+  --ui-micro: 10px;
+  --ui-nano: 9px;
+
+  --empty-state-font-size: 13px;
+  --empty-state-title-font-size: 15px;
+  --empty-state-padding: var(--space-xl);
+  --empty-state-gap: var(--space-md);
+
+  --markdown-body-font-size: 12px;
+  --markdown-body-padding: var(--space-md);
+  --markdown-body-max-height: 300px;
+  --markdown-h1-font-size: 16px;
+  --markdown-h2-font-size: 14px;
+  --markdown-h3-font-size: 13px;
+  --markdown-code-font-size: 11px;
+  --markdown-table-cell-font-size: 11px;
+  --markdown-table-cell-padding-y: 4px;
+  --markdown-table-cell-padding-x: 8px;
+
+  --timeline-inline-padding: var(--space-lg);
+  --timeline-block-padding-y: var(--space-md);
+  --timeline-gutter-top: 6px;
+  --timeline-event-line-min-height: 12px;
+  --timeline-event-bottom-spacing: var(--space-lg);
+  --timeline-event-body-max-height: 300px;
+  --timeline-running-padding-y: var(--space-md);
+  --timeline-running-padding-x: var(--space-lg);
+  --timeline-json-table-font-size: 11px;
+
+  --dropdown-font-size: 13px;
+  --dropdown-selected-gap: 12px;
+  --dropdown-menu-padding: 4px;
+  --dropdown-menu-offset: 4px;
+  --dropdown-option-padding-y: 6px;
+  --dropdown-option-padding-x: 12px;
+  --dropdown-compact-min-height: 26px;
+  --dropdown-compact-selected-pad-y: 4px;
+  --dropdown-compact-selected-pad-x: 8px;
+  --dropdown-compact-font-size: 11px;
+  --dropdown-compact-menu-font-size: 12px;
+  --dropdown-chevron-size: 12px;
+
+  /* Sheets: Workflow / Experiment / large forms */
+  --sheet-pad-xl: 32px;
+  --sheet-pad-lg: 24px;
+  --sheet-pad-md: 16px;
+  --sheet-pad-sm: 12px;
+  --sheet-pad-xs: 8px;
+  --sheet-pad-2xs: 6px;
+  --sheet-scroll-max-md: 360px;
+  --sheet-scroll-max-sm: 300px;
+  --sheet-cell-padding-y: 14px;
+  --sheet-cell-padding-x: 16px;
+  --sheet-card-pad-y: 20px;
+  --experiment-stack-gap: 20px;
+  --experiment-metric-value-font-size: 22px;
+
+  --confirm-title-font-size: 15px;
+  --confirm-body-font-size: 13px;
+  --confirm-btn-font-size: 13px;
+  --confirm-dialog-padding-y: var(--space-lg);
+  --confirm-dialog-padding-x: var(--space-xl);
+  --confirm-dialog-min-width: 320px;
+  --confirm-dialog-max-width: 420px;
+
+  --context-panel-padding: var(--space-md);
+  --context-bar-height: 12px;
+  --dropdown-compact-mobile-font-size: 10px;
+
+  --session-drawer-title-font-size: 13px;
+  --session-drawer-meta-font-size: 11px;
+  --session-drawer-row-font-size: 12px;
+  --session-drawer-item-title-font-size: 12px;
+  --session-drawer-item-meta-font-size: 11px;
+
+  --swarm-card-padding-y: 12px;
+  --swarm-card-padding-x: 14px;
+  --swarm-card-gap: 8px;
+
+  --workflow-toolbar-font-size: 12px;
+  --workflow-btn-font-size: 13px;
+  --workflow-side-label-font-size: 12px;
+  --workflow-meta-font-size: 10px;
+  --workflow-config-min-height: 80px;
+  --workflow-pill-font-size: 10px;
+  --workflow-input-font-size: 13px;
+  --workflow-hint-font-size: 11px;
+  --workflow-node-stroke: 1.5px;
+  --workflow-node-stroke-hover: 2px;
+  --workflow-node-stroke-selected: 2.5px;
+  --workflow-edge-stroke: 1.5px;
+  --workflow-edge-stroke-active: 2px;
+  --workflow-edge-stroke-selected: 2.5px;
+  --workflow-temp-edge-stroke: 1.5px;
+  --workflow-port-hover-radius: 6px;
+
+  /* Density: micro layout, badges, surfaces */
+  --card-radius-soft: 10px;
+  --experiment-sidebar-width: 280px;
+  --swarm-branch-grid-min: 200px;
+  --dense-stack-gap: 2px;
+  --stack-gap-hairline: 1px;
+  --icon-hit-padding: 4px;
+  --control-tight-padding: 2px;
+  --chrome-badge-padding-y: 1px;
+  --chrome-badge-padding-x: 6px;
+  --status-pill-padding-y: 2px;
+  --status-pill-padding-x: var(--space-sm);
+  --chrome-inline-gap: 5px;
+  --layout-grid-hairline: 1px;
+  --focus-ring-spread: 2px;
+  --motion-enter-translate-y: var(--space-sm);
+  --timeline-gutter-width: 16px;
+  --error-fallback-max-width: 28rem;
+  --error-fallback-margin-block: calc(var(--space-2xl) + var(--space-lg));
+  --statusbar-token-track-width: 48px;
+  --statusbar-token-track-height: 4px;
+  --bar-track-border-radius: 2px;
+  --hover-lift-translate-y: 1px;
+  --border-width-hairline: 1px;
+  --border-width-emphasis: 2px;
+  --accent-stripe-width: 3px;
+  --session-drawer-width: 380px;
+  --workflow-inspector-width: 280px;
+  --form-checkbox-size: 14px;
+  --legend-label-min-width: 48px;
+  --modal-sheet-radius-top: 16px;
+  --radius-pill: 100px;
+  --shadow-menu: 0 4px 12px rgba(0, 0, 0, 0.5);
+  --shadow-dialog: 0 8px 32px rgba(0, 0, 0, 0.5);
+  --shadow-mobile-sheet: 0 -4px 16px rgba(var(--bg-black-rgb), 0.3);
+  --shadow-card-accent-glow: 0 4px 16px rgba(0, 122, 255, 0.15);
 }
 
 html[data-density='compact'] {
+  --radius-2xs: 3px;
+  --radius-micro: 2px;
+
   --header-height: 44px;
   --statusbar-height: 26px;
 
@@ -80,6 +232,133 @@ html[data-density='compact'] {
   --chat-composer-wrapper-padding-x: var(--space-md);
   --chat-composer-font-size: 13px;
   --chat-send-font-size: 12px;
+  --chat-send-padding-x: 18px;
 
   --statusbar-font-size: 10px;
+
+  --app-font-size: 13px;
+  --scrollbar-size: 5px;
+  --panel-header-height: 30px;
+  --panel-header-font-size: 11px;
+  --panel-header-padding-y: 4px;
+  --panel-header-padding-x: var(--space-md);
+  --panel-body-padding: var(--space-sm);
+  --right-panel-tab-font-size: 11px;
+
+  --ui-mono-font-size: 12px;
+  --ui-body-sm: 11px;
+  --ui-caption: 10px;
+  --ui-micro: 9px;
+  --ui-nano: 8px;
+
+  --empty-state-font-size: 12px;
+  --empty-state-title-font-size: 14px;
+  --empty-state-padding: var(--space-lg);
+  --empty-state-gap: var(--space-sm);
+
+  --markdown-body-font-size: 11px;
+  --markdown-body-padding: var(--space-sm);
+  --markdown-body-max-height: 240px;
+  --markdown-h1-font-size: 14px;
+  --markdown-h2-font-size: 13px;
+  --markdown-h3-font-size: 12px;
+  --markdown-code-font-size: 10px;
+  --markdown-table-cell-font-size: 10px;
+  --markdown-table-cell-padding-y: 3px;
+  --markdown-table-cell-padding-x: 6px;
+
+  --timeline-inline-padding: var(--space-md);
+  --timeline-block-padding-y: var(--space-sm);
+  --timeline-gutter-top: 4px;
+  --timeline-event-line-min-height: 10px;
+  --timeline-event-bottom-spacing: var(--space-md);
+  --timeline-event-body-max-height: 240px;
+  --timeline-running-padding-y: var(--space-sm);
+  --timeline-running-padding-x: var(--space-md);
+  --timeline-json-table-font-size: 10px;
+
+  --dropdown-font-size: 12px;
+  --dropdown-selected-gap: 10px;
+  --dropdown-menu-padding: 3px;
+  --dropdown-menu-offset: 3px;
+  --dropdown-option-padding-y: 5px;
+  --dropdown-option-padding-x: 10px;
+  --dropdown-compact-min-height: 22px;
+  --dropdown-compact-selected-pad-y: 3px;
+  --dropdown-compact-selected-pad-x: 6px;
+  --dropdown-compact-font-size: 10px;
+  --dropdown-compact-menu-font-size: 11px;
+  --dropdown-chevron-size: 11px;
+
+  --sheet-pad-xl: 24px;
+  --sheet-pad-lg: 18px;
+  --sheet-pad-md: 12px;
+  --sheet-pad-sm: 10px;
+  --sheet-pad-xs: 6px;
+  --sheet-pad-2xs: 5px;
+  --sheet-scroll-max-md: 280px;
+  --sheet-scroll-max-sm: 240px;
+  --sheet-cell-padding-y: 10px;
+  --sheet-cell-padding-x: 12px;
+  --sheet-card-pad-y: 14px;
+  --experiment-stack-gap: 14px;
+  --experiment-metric-value-font-size: 18px;
+
+  --confirm-title-font-size: 14px;
+  --confirm-body-font-size: 12px;
+  --confirm-btn-font-size: 12px;
+  --confirm-dialog-padding-y: var(--space-md);
+  --confirm-dialog-padding-x: var(--space-lg);
+  --confirm-dialog-min-width: 300px;
+  --confirm-dialog-max-width: 400px;
+
+  --context-panel-padding: var(--space-sm);
+  --context-bar-height: 10px;
+  --dropdown-compact-mobile-font-size: 9px;
+
+  --session-drawer-title-font-size: 12px;
+  --session-drawer-meta-font-size: 10px;
+  --session-drawer-row-font-size: 11px;
+  --session-drawer-item-title-font-size: 11px;
+  --session-drawer-item-meta-font-size: 10px;
+
+  --swarm-card-padding-y: 10px;
+  --swarm-card-padding-x: 12px;
+  --swarm-card-gap: 6px;
+
+  --workflow-toolbar-font-size: 11px;
+  --workflow-btn-font-size: 12px;
+  --workflow-side-label-font-size: 11px;
+  --workflow-meta-font-size: 9px;
+  --workflow-config-min-height: 64px;
+  --workflow-pill-font-size: 9px;
+  --workflow-input-font-size: 12px;
+  --workflow-hint-font-size: 10px;
+  --workflow-node-stroke: 1.25px;
+  --workflow-node-stroke-hover: 1.75px;
+  --workflow-node-stroke-selected: 2px;
+  --workflow-edge-stroke: 1.25px;
+  --workflow-edge-stroke-active: 1.75px;
+  --workflow-edge-stroke-selected: 2px;
+  --workflow-temp-edge-stroke: 1.25px;
+  --workflow-port-hover-radius: 5px;
+
+  --card-radius-soft: 8px;
+  --experiment-sidebar-width: 248px;
+  --swarm-branch-grid-min: 172px;
+  --chrome-badge-padding-x: 5px;
+  --chrome-inline-gap: 4px;
+  --timeline-gutter-width: 14px;
+  --error-fallback-margin-block: calc(var(--space-xl) + var(--space-md));
+  --statusbar-token-track-width: 44px;
+  --accent-stripe-width: 2px;
+  --session-drawer-width: 348px;
+  --workflow-inspector-width: 256px;
+  --form-checkbox-size: 12px;
+  --legend-label-min-width: 44px;
+  --modal-sheet-radius-top: 14px;
+  --shadow-menu: 0 3px 10px rgba(0, 0, 0, 0.45);
+  --shadow-dialog: 0 6px 24px rgba(0, 0, 0, 0.45);
+  --shadow-mobile-sheet: 0 -3px 12px rgba(var(--bg-black-rgb), 0.28);
+  --shadow-card-accent-glow: 0 3px 12px rgba(0, 122, 255, 0.12);
 }

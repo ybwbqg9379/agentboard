@@ -1,11 +1,17 @@
 .bar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  padding: 0 var(--chrome-padding-x);
-  height: var(--statusbar-height);
+  row-gap: var(--space-xs);
+  column-gap: var(--space-sm);
+  padding: var(--space-xs) var(--chrome-padding-x);
+  min-height: var(--statusbar-height);
+  box-sizing: border-box;
+  max-width: 100%;
+  overflow-x: clip;
   background: var(--bg-secondary);
-  border-top: 1px solid var(--border-primary);
+  border-top: var(--border-width-hairline) solid var(--border-primary);
   font-size: var(--statusbar-font-size);
   color: var(--text-tertiary);
   font-family: var(--font-mono);
@@ -14,16 +20,21 @@
 .left,
 .right {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-sm);
+  min-width: 0;
+  max-width: 100%;
 }
 
 .meta {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-xs);
   padding-left: var(--space-md);
-  border-left: 1px solid var(--border-primary);
+  border-left: var(--border-width-hairline) solid var(--border-primary);
+  min-width: 0;
+  max-width: 100%;
 }
 
 .metaGlyph {
@@ -35,30 +46,36 @@
 .subtask {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-xs);
   padding-left: var(--space-md);
-  border-left: 1px solid var(--border-primary);
+  border-left: var(--border-width-hairline) solid var(--border-primary);
   color: var(--accent-primary);
 }
 
 .tokenBar {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: var(--chrome-inline-gap);
   padding-left: var(--space-md);
-  border-left: 1px solid var(--border-primary);
+  border-left: var(--border-width-hairline) solid var(--border-primary);
+  min-width: 0;
+  max-width: 100%;
+  flex: 1 1 auto;
 }
 
 .tokenLabel {
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .tokenTrack {
   display: flex;
-  width: 48px;
-  height: 4px;
+  flex: 1 1 var(--statusbar-token-track-width);
+  min-width: 0;
+  max-width: 100%;
+  height: var(--statusbar-token-track-height);
   background: var(--bg-tertiary);
-  border-radius: 2px;
+  border-radius: var(--bar-track-border-radius);
   overflow: hidden;
 }
 

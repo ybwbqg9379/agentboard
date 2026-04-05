@@ -51,11 +51,29 @@
 
 ## 3. 响应式与交互
 
-- **断点**：主断点为 `max-width: 768px`（与现有布局一致：竖向堆叠、`main-content`、顶栏压缩等）。
+- **断点**：主断点为 `max-width: 768px`（与现有布局一致：竖向堆叠、`main-content`、顶栏压缩等）。顶栏控件区在 **`min-width: 520px` 且 `≤768px`** 时可将 **chromeCluster** 排成 **四列一行**（更吃满横屏手机宽度）。
+- **整页横向滚动**：壳层（`html` / `body` / `#root` / `.app-layout` / 主栏网格）使用 **`overflow-x: clip`**（或等价约束）与 **`minmax(0, 1fr)`**，避免出现「只允许纵向滚动」以外的整页水平滑动；面板内容区可对 **`overflow-x: clip`**，长文案用 **`overflow-wrap`** / 省略号。
 - **触控**：小屏上保留可点区域与现有 `Header` 按钮尺寸；主题包 **不得** 删除 `@media (max-width: 768px)` 下的关键规则。
 - **滚动条**：移动端隐藏 WebKit 滚动条的规则保留，避免与抽屉/面板重叠。
 
 新增页面时沿用 **移动优先或至少 768 补一套** 的策略，避免只在桌面测通。
+
+### 3.1 顶栏（Header）
+
+**信息架构（与 DOM 顺序一致）**
+
+1. **模式**：`Agent` / `Workflow` / `Experiment`（`.modeTabs`）。窄屏下 **独占一行、三等分全宽**（`flex: 1 1 0` + 文案省略），与桌面「Logo + 版本 + 模式」同一 `.left` 容器内顺序不变。
+2. **Chrome 工具区**（`.chromeCluster`）：四个 **`Dropdown` `variant="compact"`**，窄屏 **`triggerFluid`** 使触发条在网格单元内 **拉满宽度**。
+   - **第一组（国际化与外观基底）**：**语言**、**明暗模式**（`light` \| `dark`，`App` 经 **`onThemeChange={setTheme}`** 写 `data-theme`；**不再**使用日月图标按钮）。
+   - **第二组（语义色与版面密度）**：**UI 调色板包**（`data-theme-pack`）、**布局密度**（`data-density`）。  
+     窄屏默认 **2×2 网格**（上排 语言｜明暗，下排 调色板｜密度）；**520px–768px** 为 **四列一行**。
+3. **尾部条**（`.trailingCluster`）：**`trailingLead`**（可选 **MCP** 状态点 + Agent 模式下 **History** / **New Session**）与 **连接状态**（`.connStatus`）并列。窄屏为 **`grid-template-columns: minmax(0, 1fr) auto`**：**左侧**会话相关操作 **左对齐**，**History** 在 `.sessionActions` 内可 **`flex: 1`** 吃满剩余宽；**右侧**连接状态 **`justify-self: end`**。
+   - **分割线**：`.trailingCluster` **上边框**与 2×2 区之间：`.right` 子项 **`gap: var(--space-md)`**；分割线与首行控件之间 **`padding-top: var(--space-md)`**，底部 **`padding-bottom: var(--space-xs)`**。
+   - **连接状态**：全局（含桌面）**`.connStatus`** 使用与顶栏按钮一致的 **`padding`**（`--header-btn-padding-y` / `--header-btn-padding-x`）与圆角；窄屏叠加 **背景 + 边框** 与略大的横向 **`padding`**，与 **History** 芯片视觉对齐。装饰性图标 **`aria-hidden`**；容器设 **`role="status"`、`aria-live="polite"`、`aria-label` / `title`**（窄屏隐藏「已连接」文案时读屏仍可读）。
+
+**桌面**：`.header` 为横向 flex；`.right` 内 **chromeCluster** 与 **trailingCluster** 仍为一行内 **`justify-content: flex-end`** 排列（顺序：四个下拉 → MCP/会话按钮 → 连接状态）。
+
+**实现文件**：`src/components/Header.jsx`、`Header.module.css`；明暗选项文案 **`header.themeLight` / `themeDark` / `themeModeTitle`**；下拉全宽修饰类 **`Dropdown.module.css` 的 `.triggerFluid`**（仅 `≤768px` 生效）。
 
 ## 4. 多语言（i18n）
 
@@ -67,14 +85,14 @@
 
 **RTL**：`i18n.js` 在语言切换时对 `ar` / `he` / `fa` / `ur` 设 `dir="rtl"`，其余为 `ltr`；新增 RTL 语言时把关键布局改为逻辑属性（`margin-inline-*`）。
 
-**设计**：长文案语言下注意顶栏 **语言 + 调色板** 两个下拉的 `max-width`（见 `Header.module.css` 移动端规则）。
+**设计**：长文案语言下注意顶栏多个 **compact** 下拉的 **`max-width` / 省略**（见 `Dropdown.module.css` 与 `Header.module.css`）；窄屏依赖 **`triggerFluid`** 与 **2×2 / 四列** 网格避免截断失控或撑破视口。
 
 本文件随主题包与断点演进更新；新增 `themes/packs/<name>.css` 后在此登记名称与参考来源（如 awesome-design-md 路径）。
 
 ## 5. 图标（Lucide / `lucide-react`）
 
 - **唯一图标体系**：界面中表达「动作 / 状态 / 对象类型」的图形符号，统一使用 **[Lucide](https://lucide.dev/)** 的 React 包 **`lucide-react`**（与社区常说的 “Lucide icons” 同义）。禁止用 **emoji**、禁止把 **Unicode 符号**（如 `×`、`→`、`▶`、`+` 前缀等）当作图标替代；**文案里**仅用文字描述，**图标**由组件渲染。
-- **典型映射**（示例，非穷举）：关闭 `X`、删除 `Trash2`、确认/保存 `Check`、运行 `Play`、停止 `Square`、发送 `Send`、继续 `ArrowRight`、刷新 `RefreshCw`、返回 `ArrowLeft`、新建/添加节点 `Plus`、下载 `FileDown`、主题 `Sun`/`Moon`、历史 `History`、下拉 `ChevronDown`、加载 `Loader2`（可配合 CSS 旋转）、趋势 `TrendingUp` 等。
+- **典型映射**（示例，非穷举）：关闭 `X`、删除 `Trash2`、确认/保存 `Check`、运行 `Play`、停止 `Square`、发送 `Send`、继续 `ArrowRight`、刷新 `RefreshCw`、返回 `ArrowLeft`、新建/添加节点 `Plus`、下载 `FileDown`、**明暗模式**由顶栏 **Dropdown** 切换（不再用 `Sun`/`Moon` 图标按钮）、历史 `History`、下拉 `ChevronDown`、加载 `Loader2`（可配合 CSS 旋转）、趋势 `TrendingUp`、连接 **Wifi** / **WifiOff** 等。
 - **尺寸与描边**：默认 `strokeWidth={2}`；顶栏/工具条常用 **14–16px**；列表内徽标可 **11–13px**。保持 `currentColor` 以继承 `--text-*` / 按钮前景色。
 - **无障碍**：装饰性图标加 **`aria-hidden`**；仅图标的按钮用 **`aria-label` / `title`**（或可见文案足够时仅隐藏图标）。`ConfirmDialog` 标题栏关闭钮使用 `confirmDialog.dismiss` 作为 `aria-label`。
 - **布局**：图标与文案并排时使用 **`display: inline-flex; align-items: center; gap: 6px`**（各模块可在对应 `*.module.css` 中以 `btnWithIcon`、`toolbarIconBtn` 等类实现，命名可局部化，语义一致即可）。

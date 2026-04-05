@@ -10,10 +10,10 @@
   top: 0;
   right: 0;
   bottom: 0;
-  width: 380px;
+  width: var(--session-drawer-width);
   max-width: 90vw;
   background: var(--bg-secondary);
-  border-left: 1px solid var(--border-primary);
+  border-left: var(--border-width-hairline) solid var(--border-primary);
   display: flex;
   flex-direction: column;
   animation: slideIn 0.2s ease-out;
@@ -33,26 +33,26 @@
   align-items: center;
   gap: var(--space-sm);
   padding: var(--space-md) var(--space-lg);
-  font-size: 13px;
+  font-size: var(--session-drawer-title-font-size);
   font-weight: 600;
   color: var(--text-primary);
-  border-bottom: 1px solid var(--border-primary);
+  border-bottom: var(--border-width-hairline) solid var(--border-primary);
   flex-shrink: 0;
 }
 
 .count {
-  font-size: 11px;
+  font-size: var(--session-drawer-meta-font-size);
   color: var(--text-tertiary);
   background: var(--bg-tertiary);
-  padding: 1px 6px;
-  border-radius: 8px;
+  padding: var(--chrome-badge-padding-y) var(--chrome-badge-padding-x);
+  border-radius: var(--radius-md);
 }
 
 .selectAllBtn {
-  font-size: 11px;
-  padding: 2px 8px;
+  font-size: var(--session-drawer-meta-font-size);
+  padding: var(--status-pill-padding-y) var(--space-sm);
   background: var(--bg-tertiary);
-  border: 1px solid var(--border-primary);
+  border: var(--border-width-hairline) solid var(--border-primary);
   border-radius: var(--radius-sm);
   color: var(--text-secondary);
   cursor: pointer;
@@ -65,10 +65,10 @@
 }
 
 .batchDeleteBtn {
-  font-size: 11px;
-  padding: 2px 8px;
+  font-size: var(--session-drawer-meta-font-size);
+  padding: var(--status-pill-padding-y) var(--space-sm);
   background: var(--status-error);
-  border: 1px solid var(--status-error);
+  border: var(--border-width-hairline) solid var(--status-error);
   border-radius: var(--radius-sm);
   color: white;
   cursor: pointer;
@@ -89,7 +89,7 @@
   border: none;
   color: var(--text-tertiary);
   cursor: pointer;
-  padding: 4px;
+  padding: var(--icon-hit-padding);
   border-radius: var(--radius-sm);
 }
 
@@ -107,9 +107,9 @@
 .item {
   display: flex;
   align-items: stretch;
-  border: 1px solid transparent;
+  border: var(--border-width-hairline) solid transparent;
   border-radius: var(--radius-sm);
-  margin-bottom: 2px;
+  margin-bottom: var(--dense-stack-gap);
   transition: border-color 0.15s;
 }
 
@@ -137,8 +137,8 @@
 }
 
 .checkbox input[type='checkbox'] {
-  width: 14px;
-  height: 14px;
+  width: var(--form-checkbox-size);
+  height: var(--form-checkbox-size);
   accent-color: var(--border-accent);
   cursor: pointer;
 }
@@ -183,7 +183,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-xs);
-  margin-bottom: 2px;
+  margin-bottom: var(--dense-stack-gap);
 }
 
 .sessionStatusIcon {
@@ -191,20 +191,20 @@
 }
 
 .itemStatus {
-  font-size: 11px;
+  font-size: var(--session-drawer-item-meta-font-size);
   color: var(--text-tertiary);
   text-transform: uppercase;
 }
 
 .itemTime {
-  font-size: 11px;
+  font-size: var(--session-drawer-item-meta-font-size);
   color: var(--text-tertiary);
   margin-left: auto;
   font-family: var(--font-mono);
 }
 
 .itemPrompt {
-  font-size: 12px;
+  font-size: var(--session-drawer-item-title-font-size);
   color: var(--text-secondary);
   line-height: 1.4;
   overflow: hidden;
@@ -213,17 +213,17 @@
 }
 
 .itemMeta {
-  font-size: 11px;
+  font-size: var(--session-drawer-item-meta-font-size);
   color: var(--text-tertiary);
   font-family: var(--font-mono);
-  margin-top: 2px;
+  margin-top: var(--dense-stack-gap);
 }
 
 .loading,
 .empty {
   text-align: center;
   color: var(--text-tertiary);
-  font-size: 12px;
+  font-size: var(--session-drawer-row-font-size);
   padding: var(--space-xl);
 }
 

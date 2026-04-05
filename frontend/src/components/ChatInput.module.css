@@ -1,29 +1,39 @@
 .wrapper {
   padding: var(--chat-composer-wrapper-padding-y) var(--chat-composer-wrapper-padding-x);
-  border-top: 1px solid var(--border-primary);
+  border-top: var(--border-width-hairline) solid var(--border-primary);
   background: var(--bg-secondary);
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .inputRow {
   display: flex;
   gap: var(--space-sm);
   align-items: center;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .input {
-  flex: 1;
+  flex: 1 1 0;
   background: var(--bg-primary);
-  border: 1px solid var(--border-primary);
+  border: var(--border-width-hairline) solid var(--border-primary);
   border-radius: var(--radius-md);
   padding: var(--chat-composer-padding-y) var(--chat-composer-padding-x);
   height: var(--chat-composer-height);
   color: var(--text-primary);
   font-family: var(--font-sans);
   font-size: var(--chat-composer-font-size);
-  line-height: calc(var(--chat-composer-height) - 2 * var(--chat-composer-padding-y) - 2px);
+  line-height: calc(
+    var(--chat-composer-height) - 2 * var(--chat-composer-padding-y) - 2 *
+      var(--border-width-hairline)
+  );
   resize: none;
   outline: none;
   transition: border-color 0.15s;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .input:focus {
@@ -41,7 +51,9 @@
 
 .modeSelect {
   height: var(--chat-composer-height);
-  flex-shrink: 0;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .modeSelect:focus {
@@ -59,16 +71,18 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: var(--sheet-pad-2xs);
   height: var(--chat-composer-height);
-  padding: 0 24px;
+  padding: 0 var(--chat-send-padding-x);
   border: none;
   border-radius: var(--radius-md);
   font-size: var(--chat-send-font-size);
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s;
-  flex-shrink: 0;
+  flex: 0 0 auto;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .inputActionIcon {
@@ -118,16 +132,30 @@
     padding: var(--space-sm) var(--chat-composer-wrapper-padding-x);
   }
   .inputRow {
-    flex-wrap: wrap;
+    flex-direction: column;
+    align-items: stretch;
+    flex-wrap: nowrap;
   }
   .input {
     order: -1;
-    min-width: 100%;
+    flex: none;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
   }
-  .modeSelect,
+  .modeSelect {
+    flex: none;
+    width: 100%;
+    max-width: 100%;
+    align-self: stretch;
+  }
   .sendBtn,
   .continueBtn,
   .stopBtn {
-    flex-grow: 1;
+    flex: none;
+    width: 100%;
+    max-width: 100%;
+    padding-left: var(--space-md);
+    padding-right: var(--space-md);
   }
 }

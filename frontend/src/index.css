@@ -10,30 +10,41 @@
 @import './styles/themes/packs/warp.css';
 @import './styles/themes/packs/apple.css';
 
+html {
+  overflow-x: clip;
+}
+
 html,
 body,
 #root {
   height: 100%;
+  max-width: 100%;
   background: var(--bg-primary);
   color: var(--text-primary);
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: var(--app-font-size);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
+body,
+#root {
+  overflow-x: clip;
+  min-width: 0;
+}
+
 /* ---- Scrollbar ---- */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: var(--scrollbar-size);
+  height: var(--scrollbar-size);
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
   background: var(--border-secondary);
-  border-radius: 3px;
+  border-radius: var(--radius-micro);
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-tertiary);
@@ -49,28 +60,33 @@ body,
 /* ---- A11y Focus Rings ---- */
 *:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px rgba(var(--status-done-rgb), 0.3);
+  box-shadow: 0 0 0 var(--focus-ring-spread) rgba(var(--status-done-rgb), 0.3);
   border-color: var(--border-accent);
 }
 
 /* ---- Layout ---- */
 .app-layout {
   display: grid;
-  grid-template-rows: var(--header-height) 1fr var(--statusbar-height);
+  grid-template-rows: auto 1fr var(--statusbar-height);
   height: 100%;
+  max-width: 100%;
+  min-width: 0;
   overflow: hidden;
 }
 
 .main-content {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--layout-grid-hairline);
   background: var(--border-primary);
   overflow: hidden;
+  min-width: 0;
+  max-width: 100%;
 }
 
-.main-content.workflow-mode {
-  grid-template-columns: 1fr;
+.main-content.workflow-mode,
+.main-content.experiment-mode {
+  grid-template-columns: minmax(0, 1fr);
   grid-row: 2 / -1;
 }
 
@@ -79,6 +95,8 @@ body,
   flex-direction: column;
   overflow: hidden;
   min-height: 0;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .left-panel > .panel {
@@ -91,15 +109,20 @@ body,
   .main-content {
     display: flex;
     flex-direction: column;
+    overflow-x: clip;
     overflow-y: auto;
+    min-width: 0;
   }
   .left-panel {
     min-height: 65vh;
     flex-shrink: 0;
+    max-width: 100%;
   }
   .main-content > .panel {
     min-height: 50vh;
     flex-shrink: 0;
+    max-width: 100%;
+    min-width: 0;
   }
 }
 
@@ -109,21 +132,26 @@ body,
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .panel-header {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-lg);
-  height: 36px;
-  font-size: 12px;
+  padding: var(--panel-header-padding-y) var(--panel-header-padding-x);
+  height: var(--panel-header-height);
+  font-size: var(--panel-header-font-size);
   font-weight: 500;
   color: var(--text-tertiary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  border-bottom: 1px solid var(--border-primary);
+  border-bottom: var(--border-width-hairline) solid var(--border-primary);
   flex-shrink: 0;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .panel-header-icon {
@@ -134,15 +162,19 @@ body,
 
 .panel-body {
   flex: 1;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: clip;
   overflow-y: auto;
-  padding: var(--space-md);
+  padding: var(--panel-body-padding);
+  box-sizing: border-box;
 }
 
 /* ---- Animations ---- */
 @keyframes fadeInUp {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(var(--motion-enter-translate-y));
   }
   to {
     opacity: 1;
@@ -167,7 +199,7 @@ body,
 /* ---- Utility ---- */
 .mono {
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: var(--ui-mono-font-size);
 }
 
 .empty-state {
@@ -176,34 +208,48 @@ body,
   align-items: center;
   justify-content: center;
   height: 100%;
-  gap: var(--space-md);
+  gap: var(--empty-state-gap);
   color: var(--text-tertiary);
-  font-size: 13px;
+  font-size: var(--empty-state-font-size);
   text-align: center;
-  padding: var(--space-xl);
+  padding: var(--empty-state-padding);
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-x: clip;
 }
 
 .empty-state-icon {
   color: var(--text-tertiary);
   opacity: 0.35;
+  flex-shrink: 0;
 }
 
 .empty-state-title {
-  font-size: 15px;
+  font-size: var(--empty-state-title-font-size);
   font-weight: 500;
   color: var(--text-secondary);
+  max-width: 100%;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+}
+
+.empty-state > *:not(.empty-state-icon):not(.empty-state-title) {
+  max-width: 100%;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
 }
 
 /* ---- Markdown Body ---- */
 .markdown-body {
-  font-size: 12px;
+  font-size: var(--markdown-body-font-size);
   line-height: 1.6;
   color: var(--text-primary);
   background: var(--bg-secondary);
-  border: 1px solid var(--border-primary);
+  border: var(--border-width-hairline) solid var(--border-primary);
   border-radius: var(--radius-sm);
-  padding: var(--space-md);
-  max-height: 300px;
+  padding: var(--markdown-body-padding);
+  max-height: var(--markdown-body-max-height);
   overflow-y: auto;
   word-break: break-word;
 }
@@ -218,13 +264,13 @@ body,
 }
 
 .markdown-body h1 {
-  font-size: 16px;
+  font-size: var(--markdown-h1-font-size);
 }
 .markdown-body h2 {
-  font-size: 14px;
+  font-size: var(--markdown-h2-font-size);
 }
 .markdown-body h3 {
-  font-size: 13px;
+  font-size: var(--markdown-h3-font-size);
 }
 
 .markdown-body h1:first-child,
@@ -263,15 +309,15 @@ body,
 
 .markdown-body code {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--markdown-code-font-size);
   background: var(--bg-tertiary);
-  padding: 1px 4px;
-  border-radius: 3px;
+  padding: var(--chrome-badge-padding-y) var(--space-xs);
+  border-radius: var(--radius-micro);
 }
 
 .markdown-body pre {
   background: var(--bg-tertiary);
-  border: 1px solid var(--border-primary);
+  border: var(--border-width-hairline) solid var(--border-primary);
   border-radius: var(--radius-sm);
   padding: var(--space-sm);
   overflow-x: auto;
@@ -285,12 +331,12 @@ body,
 
 .markdown-body hr {
   border: none;
-  border-top: 1px solid var(--border-primary);
+  border-top: var(--border-width-hairline) solid var(--border-primary);
   margin: 0.6em 0;
 }
 
 .markdown-body blockquote {
-  border-left: 2px solid var(--border-accent);
+  border-left: var(--border-width-emphasis) solid var(--border-accent);
   padding-left: var(--space-md);
   color: var(--text-secondary);
   margin: 0.4em 0;
@@ -304,9 +350,9 @@ body,
 
 .markdown-body th,
 .markdown-body td {
-  border: 1px solid var(--border-primary);
-  padding: 4px 8px;
-  font-size: 11px;
+  border: var(--border-width-hairline) solid var(--border-primary);
+  padding: var(--markdown-table-cell-padding-y) var(--markdown-table-cell-padding-x);
+  font-size: var(--markdown-table-cell-font-size);
 }
 
 .markdown-body th {
@@ -316,35 +362,35 @@ body,
 
 /* Error boundary */
 .error-boundary-fallback {
-  max-width: 28rem;
-  margin: 3rem auto;
-  padding: var(--space-lg, 1.5rem);
+  max-width: var(--error-fallback-max-width);
+  margin: var(--error-fallback-margin-block) auto;
+  padding: var(--space-lg);
   font-family: system-ui, sans-serif;
   color: var(--text-primary);
   background: var(--bg-elevated);
-  border: 1px solid var(--border-primary);
-  border-radius: 8px;
+  border: var(--border-width-hairline) solid var(--border-primary);
+  border-radius: var(--radius-md);
 }
 
 .error-boundary-fallback__title {
-  font-size: 1.125rem;
+  font-size: var(--empty-state-title-font-size);
   font-weight: 600;
-  margin-bottom: 0.5rem;
+  margin-bottom: var(--space-sm);
 }
 
 .error-boundary-fallback__message {
-  font-size: 0.875rem;
+  font-size: var(--ui-body-sm);
   color: var(--text-secondary);
-  margin-bottom: 1rem;
+  margin-bottom: var(--space-md);
   word-break: break-word;
 }
 
 .error-boundary-fallback__retry {
-  padding: 0.5rem 1rem;
-  font-size: 0.875rem;
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--ui-body-sm);
   cursor: pointer;
-  border-radius: 6px;
-  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-sm);
+  border: var(--border-width-hairline) solid var(--border-secondary);
   background: var(--bg-secondary);
   color: var(--text-primary);
 }
@@ -352,7 +398,7 @@ body,
 .error-boundary-fallback__retryInner {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--sheet-pad-2xs);
 }
 
 .error-boundary-fallback__retry:hover {

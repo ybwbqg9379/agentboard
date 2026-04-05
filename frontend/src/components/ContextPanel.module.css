@@ -1,5 +1,5 @@
 .panel {
-  padding: var(--space-md);
+  padding: var(--context-panel-padding);
 }
 
 .header {
@@ -7,7 +7,7 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-sm);
-  font-size: 12px;
+  font-size: var(--ui-body-sm);
   font-weight: 600;
   color: var(--text-secondary);
   margin-bottom: var(--space-md);
@@ -16,7 +16,7 @@
 .headerLead {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--sheet-pad-2xs);
   min-width: 0;
 }
 
@@ -29,39 +29,39 @@
   font-family: var(--font-mono);
   font-weight: 400;
   color: var(--text-tertiary);
-  font-size: 11px;
+  font-size: var(--ui-caption);
 }
 
 .bar {
   display: flex;
-  height: 12px;
-  border-radius: 6px;
+  height: var(--context-bar-height);
+  border-radius: var(--radius-sm);
   overflow: hidden;
   background: var(--bg-tertiary);
   margin-bottom: var(--space-md);
 }
 
 .segment {
-  min-width: 2px;
+  min-width: var(--dense-stack-gap);
   transition: width 0.3s ease;
 }
 
 .legend {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-xs);
 }
 
 .legendItem {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  font-size: 11px;
+  font-size: var(--ui-caption);
 }
 
 .legendLabel {
   color: var(--text-secondary);
-  min-width: 48px;
+  min-width: var(--legend-label-min-width);
 }
 
 .legendValue {
@@ -78,18 +78,18 @@
 .cost {
   display: flex;
   align-items: flex-start;
-  gap: 6px;
+  gap: var(--sheet-pad-2xs);
   margin-top: var(--space-md);
-  font-size: 11px;
+  font-size: var(--ui-caption);
   color: var(--text-tertiary);
   font-family: var(--font-mono);
   padding-top: var(--space-sm);
-  border-top: 1px solid var(--border-primary);
+  border-top: var(--border-width-hairline) solid var(--border-primary);
 }
 
 .costIcon {
   flex-shrink: 0;
-  margin-top: 1px;
+  margin-top: var(--stack-gap-hairline);
   opacity: 0.9;
 }
 
@@ -97,9 +97,9 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: var(--dropdown-selected-gap);
   color: var(--text-tertiary);
-  font-size: 12px;
+  font-size: var(--ui-body-sm);
   text-align: center;
   padding: var(--space-xl) 0;
 }

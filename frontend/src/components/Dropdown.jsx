@@ -10,7 +10,7 @@ export default function Dropdown({
   className = '',
   title = '',
   direction = 'down', // 'up' or 'down'
-  /** Matches header / toolbar selects: smaller, mono, max-width */
+  /** Header / toolbar: smaller mono; trigger width follows label (capped by parent) */
   variant = 'default',
   ariaLabel,
   ariaLabelledBy,

@@ -1,23 +1,28 @@
 .tabBar {
   display: flex;
   gap: 0;
-  border-bottom: 1px solid var(--border-primary);
+  border-bottom: var(--border-width-hairline) solid var(--border-primary);
   flex-shrink: 0;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: clip;
 }
 
 .tab {
   display: inline-flex;
-  flex: 1;
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 100%;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: var(--sheet-pad-2xs);
   padding: var(--space-sm) var(--space-md);
-  font-size: 12px;
+  font-size: var(--right-panel-tab-font-size);
   font-weight: 500;
   color: var(--text-tertiary);
   background: none;
   border: none;
-  border-bottom: 2px solid transparent;
+  border-bottom: var(--border-width-emphasis) solid transparent;
   cursor: pointer;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -38,7 +43,17 @@
   flex-shrink: 0;
 }
 
+.tabLabel {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .content {
   flex: 1;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: clip;
   overflow-y: auto;
 }
