@@ -2,7 +2,10 @@ const KB = 1024;
 const MB = KB * KB;
 const GB = KB * MB;
 
-/** Human-readable size for file listings (B / KB / MB / GB). */
+/**
+ * Human-readable size for file listings. Uses 1024-based steps; labels are `KB`/`MB`/`GB` (common
+ * UI convention) rather than IEC `KiB`/`MiB`/`GiB`.
+ */
 export function formatBytes(n) {
   if (typeof n !== 'number' || !Number.isFinite(n)) return '';
   if (n < KB) return `${n} B`;

@@ -31,7 +31,7 @@ export function extractFileChanges(events) {
 
       const isReportTool =
         block.name === 'ReportTool' ||
-        (typeof block.name === 'string' && /(?:^|__)ReportTool$/i.test(block.name));
+        (typeof block.name === 'string' && /(?:^|__)ReportTool$/.test(block.name));
 
       let filePath = block.input?.file_path || block.input?.path || block.input?.filePath || null;
       if (!filePath && isReportTool && block.input?.fileName) {

@@ -10,7 +10,7 @@
 
 ## 二、测试先行 (Testing Guidelines)
 
-AgentBoard 是一个核心逻辑极其复杂的编排引擎。我们使用 `Vitest`：**全仓约 893** 个用例（后端 **641**、前端 **252**，随仓库演进持续补齐）。
+AgentBoard 是一个核心逻辑极其复杂的编排引擎。我们使用 `Vitest`：**全仓约 895** 个用例（后端 **642**、前端 **253**，随仓库演进持续补齐）。
 
 ### 1. 运行测试
 
@@ -19,6 +19,9 @@ AgentBoard 是一个核心逻辑极其复杂的编排引擎。我们使用 `Vite
 ```bash
 # 推荐：根目录一次跑齐前后端
 npm run test
+
+# 可选：从仓库根跑 Vitest workspace（前后端同一进程，含 frontend setupFiles / jest-dom）
+npx vitest run
 ```
 
 或在子包中单独跑：

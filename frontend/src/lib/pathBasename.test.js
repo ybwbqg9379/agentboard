@@ -10,6 +10,10 @@ describe('fileBasename', () => {
     expect(fileBasename('C:\\ws\\script.py')).toBe('script.py');
   });
 
+  it('strips trailing slashes before taking the last segment', () => {
+    expect(fileBasename('/workspace/dir/')).toBe('dir');
+  });
+
   it('returns empty for empty or non-string', () => {
     expect(fileBasename('')).toBe('');
     expect(fileBasename(null)).toBe('');

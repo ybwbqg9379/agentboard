@@ -1,15 +1,7 @@
-/**
- * Must match backend GET /api/sessions/:id/files/:fileName allowlist.
- */
-export const SESSION_DOWNLOADABLE_EXT = new Set([
-  '.pdf',
-  '.csv',
-  '.json',
-  '.txt',
-  '.png',
-  '.jpg',
-  '.jpeg',
-]);
+import { SESSION_FILE_DOWNLOAD_EXTENSIONS } from '../../../shared/sessionDownloadExtensions.js';
+
+/** Same allowlist as backend `sessions` download route (see `shared/sessionDownloadExtensions.js`). */
+export const SESSION_DOWNLOADABLE_EXT = new Set(SESSION_FILE_DOWNLOAD_EXTENSIONS);
 
 /**
  * @param {string} name File basename

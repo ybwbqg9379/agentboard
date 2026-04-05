@@ -9,6 +9,10 @@ const WorkspaceFilesContext = createContext({
 
 const DEBOUNCE_MS = 350;
 
+/**
+ * Fetches `GET /api/sessions/:id/workspace-files` for the active session. Must wrap the tree that
+ * uses {@link useWorkspaceFiles} (see `App.jsx`).
+ */
 export function WorkspaceFilesProvider({ sessionId, refreshKey, children }) {
   const [workspaceList, setWorkspaceList] = useState([]);
   const [workspaceError, setWorkspaceError] = useState(null);
@@ -53,6 +57,7 @@ export function WorkspaceFilesProvider({ sessionId, refreshKey, children }) {
     return () => {
       cancelled = true;
       clearTimeout(timer);
+      setWorkspaceLoading(false);
     };
   }, [sessionId, refreshKey]);
 
@@ -64,6 +69,7 @@ export function WorkspaceFilesProvider({ sessionId, refreshKey, children }) {
   return <WorkspaceFilesContext.Provider value={value}>{children}</WorkspaceFilesContext.Provider>;
 }
 
+/** Consumes {@link WorkspaceFilesProvider}; default context is empty (silent, for tests / mis-mount debugging). */
 export function useWorkspaceFiles() {
   return useContext(WorkspaceFilesContext);
 }

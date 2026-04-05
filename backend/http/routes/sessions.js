@@ -23,6 +23,7 @@ import {
 import { hasOwnedSession } from '../helpers/access.js';
 import { isPathInside } from '../../hooks.js';
 import config from '../../config.js';
+import { SESSION_FILE_DOWNLOAD_EXTENSIONS } from '../../../shared/sessionDownloadExtensions.js';
 
 const router = Router();
 
@@ -196,8 +197,14 @@ router.get('/sessions/:id/workspace-files', async (req, res) => {
     candidates.sort((a, b) => b.mtimeMs - a.mtimeMs);
     const files = candidates.slice(0, maxEntries);
     res.json({ files });
-  } catch {
-    res.json({ files: [] });
+  } catch (err) {
+    const code = err && typeof err === 'object' && 'code' in err ? err.code : undefined;
+    if (code === 'ENOENT') {
+      res.json({ files: [] });
+      return;
+    }
+    console.error('[sessions] workspace-files listing failed', err);
+    res.status(500).json({ error: 'workspace listing failed' });
   }
 });
 
@@ -206,9 +213,8 @@ router.get('/sessions/:id/files/:fileName', async (req, res) => {
   const { id, fileName } = req.params;
 
   // Reject bad extensions before DB (avoids SQLite contention on parallel tests / junk traffic)
-  const allowedExtensions = ['.pdf', '.csv', '.json', '.txt', '.png', '.jpg', '.jpeg'];
   const ext = path.extname(fileName).toLowerCase();
-  if (!allowedExtensions.includes(ext)) {
+  if (!SESSION_FILE_DOWNLOAD_EXTENSIONS.includes(ext)) {
     return res.status(403).json({ error: 'file type not allowed for download' });
   }
 

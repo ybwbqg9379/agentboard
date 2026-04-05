@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.16.6] - 2026-04-04
+
+### fix: jest-dom 与 Vitest 双实例、下载白名单 SSOT、workspace 列表错误语义
+
+#### Fixed
+
+- **Vitest（根目录 `npx vitest run`）**：`frontend/src/test-setup.js` 改为 `import { expect } from 'vitest'` + `@testing-library/jest-dom/matchers` 的 **`expect.extend`**，避免与嵌套 **`frontend/node_modules/vitest`** 各绑一份 `expect` 导致 **`toBeInTheDocument` / `toHaveAttribute` / `toHaveFocus` 报 Invalid Chai property**；根 **`vitest.config.js`** 的 **`projects`** 使用显式子配置文件路径并附注释。
+- **`WorkspaceFilesProvider`**：effect **cleanup** 时 **`setWorkspaceLoading(false)`**，避免与 **`cancelled`** 竞态时 loading 无法回落。
+- **`GET .../workspace-files`**：**`ENOENT`**（会话目录尚不存在）仍 **`200` + `{ files: [] }`**；其它 **`readdir`/`stat` 错误** 记日志并 **`500`**，前端可按 **`!res.ok`** 区分（不再与「空目录」混同）。
+
+#### Changed
+
+- **下载扩展名白名单**：新增 **`shared/sessionDownloadExtensions.js`**（**`SESSION_FILE_DOWNLOAD_EXTENSIONS`**），**`sessions.js`** 与 **`sessionDownloads.js`** 共用；**`FileChangesPanel`** 的 **ReportTool** 名称匹配去掉 **`i`** 标志，避免误认 **`__reporttool`**。
+- **`fileBasename`**：去掉尾部 **`/`** 再取末段；**`formatBytes`** 文档注明 1024 进制与 **`KB`/`MB`/`GB`** 标签惯例。
+
+#### Documentation
+
+- **`CONTRIBUTING.md`**：补充从仓库根运行 **`npx vitest run`**（workspace 全量）以对齐 jest-dom setup。
+- **`README.md`**、**`CONTRIBUTING.md`**、**`ONBOARDING.md`**：Vitest 计数 **895**（**642** + **253**）。
+
+#### Tests
+
+- **`backend/sessionDownloadConstants.test.js`**：共享白名单形状校验；**`pathBasename.test.js`**：尾部斜杠。
+
+---
+
 ## [0.16.5] - 2026-04-04
 
 ### fix: 工作区列表语义、共享拉取与用户壳提示
