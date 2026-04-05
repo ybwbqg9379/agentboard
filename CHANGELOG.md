@@ -7,6 +7,7 @@
 #### Added
 
 - **UI 调色板包**：在 **`data-theme-pack`** 上新增 **`vercel` / `cursor` / `warp` / `apple`**（`frontend/src/styles/themes/packs/*.css`），色板参考本地 **awesome-design-md** 对应 **`DESIGN.md`**；顶栏 **UI palette** 下拉可选；`DESIGN.md` 登记映射表。
+- **主题包字体**：各 **`packs/*.css`** 覆盖 **`--font-sans` / `--font-mono`**；**Fontsource**（**Geist**、**DM Sans**、**Sora**、**IBM Plex Mono**）经 **`frontend/src/styles/fonts.css`** 在 **`main.jsx`** 引入；**`linear`** 显式 **Inter / JetBrains**；**`apple`** 为 **SF 系统栈**；**`foundation.css`** 默认无衬线栈增加中文回退。
 - **Playwright 冒烟**：根目录 `e2e/smoke.spec.js` + `playwright.config.js`；`npm run test:e2e`（先 `build` 再测）；`npm run check`、Husky **`pre-commit`** 与 **GitHub Actions** 在构建后执行 `playwright test`（CI 中 `npx playwright install chromium --only-shell`）。
 - **Playwright `globalSetup`**：`e2e/global-setup.mjs` 在缺少 **`frontend/dist/index.html`** 时**先于** `vite preview` **报错退出**，提示先执行 **`npm run build`** 或 **`npm run test:e2e`**，避免裸跑 **`npx playwright test`** 时错误信息不明确。
 - **CI**：在 Lint 之后增加 **`npm run i18n:check`**，与本地 `check` 对齐。

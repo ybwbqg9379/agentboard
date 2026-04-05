@@ -3,6 +3,12 @@
  * Loaded after agentboard.css; only color roles that differ are set.
  */
 html[data-theme-pack='linear'] {
+  /* Inter + JetBrains (index.html); aligns with awesome-design-md Linear / Inter */
+  --font-sans:
+    'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Monaco, monospace;
+
   --bg-primary: #f7f8f8;
   --bg-secondary: #f3f4f5;
   --bg-tertiary: #e8eaed;

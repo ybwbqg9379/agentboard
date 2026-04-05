@@ -3,6 +3,12 @@
  * Dark-first warm near-black, parchment #faf9f6 text, restrained grays; light: parchment canvas.
  */
 html[data-theme-pack='warp'] {
+  /* Sora + IBM Plex Mono: geometric sans / mono near Matter + Matter Mono (awesome-design-md) */
+  --font-sans:
+    'Sora', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  --font-mono: 'IBM Plex Mono', 'JetBrains Mono', ui-monospace, Menlo, Monaco, monospace;
+
   --bg-primary: #faf9f6;
   --bg-secondary: #f3f2ee;
   --bg-tertiary: #ebe9e4;

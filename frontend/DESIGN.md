@@ -7,7 +7,7 @@
 | 轴           | HTML                                       | 取值                                                                         | 作用                                                                                          |
 | ------------ | ------------------------------------------ | ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
 | **明暗**     | `document.documentElement` 上 `data-theme` | `light` \| `dark`                                                            | 同一套语义变量在亮/暗下的取值；与系统 `prefers-color-scheme` 的首次默认一致，可本地存储覆盖。 |
-| **调色板包** | `data-theme-pack`（可选）                  | `default` \| `linear` \| `vercel` \| `cursor` \| `warp` \| `apple`（见下表） | 只改 **色与状态色**，不改变布局 Token。                                                       |
+| **调色板包** | `data-theme-pack`（可选）                  | `default` \| `linear` \| `vercel` \| `cursor` \| `warp` \| `apple`（见下表） | 覆盖 **色 / 状态色** 与 **`--font-sans` / `--font-mono`**；**不**改间距、圆角等布局 Token。   |
 
 规则：
 
@@ -23,6 +23,17 @@
 | `cursor`          | `design-md/cursor/DESIGN.md`     |
 | `warp`            | `design-md/warp/DESIGN.md`       |
 | `apple`           | `design-md/apple/DESIGN.md`      |
+
+**主题包字体**（首个 `html[data-theme-pack='…']` 规则内设置；中文统一回退 **`PingFang SC` / `Hiragino Sans GB` / `Microsoft YaHei`**）：
+
+| `data-theme-pack` | `--font-sans` / `--font-mono`（摘要） | 实现说明                                                           |
+| ----------------- | ------------------------------------- | ------------------------------------------------------------------ |
+| `default`         | 继承 `foundation.css`                 | `index.html` 加载 **Inter** + **JetBrains Mono**（Google Fonts）   |
+| `linear`          | **Inter** / **JetBrains Mono**        | 与 Linear 文档一致（Mono 以 JetBrains 代 Berkeley Mono）           |
+| `vercel`          | **Geist Sans** / **Geist Mono**       | **Fontsource**（`src/styles/fonts.css` → `main.jsx`）              |
+| `cursor`          | **DM Sans** / **IBM Plex Mono**       | 开源近似 CursorGothic / berkeleyMono                               |
+| `warp`            | **Sora** / **IBM Plex Mono**          | 几何无衬线近似 Matter；等宽近似 Matter Mono                        |
+| `apple`           | **system SF 栈** / **SF Mono**        | 不引入 webfont，非 Apple 平台回退 **Segoe UI** / 系统 ui-monospace |
 
 ## 2. 语义 Token（组件应只依赖这些）
 

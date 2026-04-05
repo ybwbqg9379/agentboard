@@ -3,6 +3,12 @@
  * Light #f5f5f7 / #1d1d1f, Apple Blue #0071e3; dark pure black + white text + #2997ff accents.
  */
 html[data-theme-pack='apple'] {
+  /* System SF stack only — no webfont; matches awesome-design-md Apple / SF Pro */
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Segoe UI', system-ui,
+    'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  --font-mono: 'SF Mono', ui-monospace, Menlo, Monaco, Consolas, monospace;
+
   --bg-primary: #f5f5f7;
   --bg-secondary: #e8e8ed;
   --bg-tertiary: #d2d2d7;

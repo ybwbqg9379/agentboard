@@ -3,6 +3,12 @@
  * Warm cream surfaces, #26251e text, #f54e00 accent; dark: warm charcoal, parchment text.
  */
 html[data-theme-pack='cursor'] {
+  /* DM Sans + IBM Plex Mono: open substitutes for CursorGothic / berkeleyMono (awesome-design-md) */
+  --font-sans:
+    'DM Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  --font-mono: 'IBM Plex Mono', 'JetBrains Mono', ui-monospace, Menlo, Monaco, monospace;
+
   --bg-primary: #f2f1ed;
   --bg-secondary: #ebeae5;
   --bg-tertiary: #e6e5e0;
