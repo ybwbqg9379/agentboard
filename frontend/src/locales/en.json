@@ -25,7 +25,11 @@
     "themeTitle": "Switch theme (current: {{theme}})",
     "language": "Language",
     "langEnglish": "English",
-    "langZhCN": "简体中文"
+    "langZhCN": "简体中文",
+    "density": "Layout density",
+    "densityTitle": "Layout density (header, status bar, composer)",
+    "densityComfortable": "Comfortable",
+    "densityCompact": "Compact"
   },
   "statusBar": {
     "idle": "Ready",

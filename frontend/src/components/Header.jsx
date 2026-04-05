@@ -24,10 +24,13 @@ export default function Header({
   onToggleTheme,
   themePack,
   onThemePackChange,
+  density,
+  onDensityChange,
 }) {
   const { t, i18n } = useTranslation();
   const langLabelId = useId();
   const paletteLabelId = useId();
+  const densityLabelId = useId();
   const mcpEntries = Object.entries(mcpHealth || {});
   const themeLabel = theme === 'dark' ? t('header.themeDark') : t('header.themeLight');
   const langValue = i18n.language?.startsWith('zh') ? 'zh-CN' : 'en';
@@ -47,6 +50,14 @@ export default function Header({
       { value: 'cursor', label: t('header.paletteCursor') },
       { value: 'warp', label: t('header.paletteWarp') },
       { value: 'apple', label: t('header.paletteApple') },
+    ],
+    [t],
+  );
+
+  const densityOptions = useMemo(
+    () => [
+      { value: 'comfortable', label: t('header.densityComfortable') },
+      { value: 'compact', label: t('header.densityCompact') },
     ],
     [t],
   );
@@ -105,6 +116,19 @@ export default function Header({
             onChange={onThemePackChange}
             title={t('header.uiPaletteTitle')}
             ariaLabelledBy={paletteLabelId}
+          />
+        </div>
+        <div className={styles.themePackWrap}>
+          <span id={densityLabelId} className={styles.visuallyHidden}>
+            {t('header.density')}
+          </span>
+          <Dropdown
+            variant="compact"
+            options={densityOptions}
+            value={density}
+            onChange={onDensityChange}
+            title={t('header.densityTitle')}
+            ariaLabelledBy={densityLabelId}
           />
         </div>
         <button

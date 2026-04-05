@@ -2,11 +2,11 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 var(--space-lg);
+  padding: 0 var(--chrome-padding-x);
   height: var(--statusbar-height);
   background: var(--bg-secondary);
   border-top: 1px solid var(--border-primary);
-  font-size: 11px;
+  font-size: var(--statusbar-font-size);
   color: var(--text-tertiary);
   font-family: var(--font-mono);
 }

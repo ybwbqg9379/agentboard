@@ -1,5 +1,5 @@
 .wrapper {
-  padding: var(--space-md) var(--space-lg);
+  padding: var(--chat-composer-wrapper-padding-y) var(--chat-composer-wrapper-padding-x);
   border-top: 1px solid var(--border-primary);
   background: var(--bg-secondary);
 }
@@ -15,12 +15,12 @@
   background: var(--bg-primary);
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-md);
-  padding: 10px var(--space-lg);
-  height: 44px;
+  padding: var(--chat-composer-padding-y) var(--chat-composer-padding-x);
+  height: var(--chat-composer-height);
   color: var(--text-primary);
   font-family: var(--font-sans);
-  font-size: 14px;
-  line-height: calc(44px - 20px);
+  font-size: var(--chat-composer-font-size);
+  line-height: calc(var(--chat-composer-height) - 2 * var(--chat-composer-padding-y) - 2px);
   resize: none;
   outline: none;
   transition: border-color 0.15s;
@@ -40,7 +40,7 @@
 }
 
 .modeSelect {
-  height: 44px;
+  height: var(--chat-composer-height);
   flex-shrink: 0;
 }
 
@@ -60,11 +60,11 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  height: 44px;
+  height: var(--chat-composer-height);
   padding: 0 24px;
   border: none;
   border-radius: var(--radius-md);
-  font-size: 13px;
+  font-size: var(--chat-send-font-size);
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s;
@@ -115,7 +115,7 @@
 /* Mobile responsive */
 @media (max-width: 768px) {
   .wrapper {
-    padding: var(--space-sm);
+    padding: var(--space-sm) var(--chat-composer-wrapper-padding-x);
   }
   .inputRow {
     flex-wrap: wrap;

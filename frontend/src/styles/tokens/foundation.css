@@ -28,4 +28,58 @@
   --header-height: 52px;
   --statusbar-height: 32px;
   --input-height: 56px;
+
+  /* Shell density (pilot): Header + StatusBar + ChatInput — see data-density="compact" */
+  --chrome-padding-x: var(--space-lg);
+  --header-inner-gap: var(--space-lg);
+  --logo-font-size: 15px;
+  --version-font-size: 11px;
+  --mode-tab-padding-y: 4px;
+  --mode-tab-padding-x: 14px;
+  --mode-tab-font-size: 12px;
+  --header-btn-padding-y: 4px;
+  --header-btn-padding-x: 14px;
+  --header-btn-font-size: 12px;
+  --theme-btn-padding-x: 10px;
+  --conn-text-font-size: 12px;
+  --mcp-label-font-size: 10px;
+
+  --chat-composer-height: 44px;
+  --chat-composer-padding-y: 10px;
+  --chat-composer-padding-x: var(--space-lg);
+  --chat-composer-wrapper-padding-y: var(--space-md);
+  --chat-composer-wrapper-padding-x: var(--space-lg);
+  --chat-composer-font-size: 14px;
+  --chat-send-font-size: 13px;
+
+  --statusbar-font-size: 11px;
+}
+
+html[data-density='compact'] {
+  --header-height: 44px;
+  --statusbar-height: 26px;
+
+  --chrome-padding-x: var(--space-md);
+  --header-inner-gap: var(--space-sm);
+  --logo-font-size: 14px;
+  --version-font-size: 10px;
+  --mode-tab-padding-y: 2px;
+  --mode-tab-padding-x: 10px;
+  --mode-tab-font-size: 11px;
+  --header-btn-padding-y: 3px;
+  --header-btn-padding-x: 10px;
+  --header-btn-font-size: 11px;
+  --theme-btn-padding-x: 8px;
+  --conn-text-font-size: 11px;
+  --mcp-label-font-size: 9px;
+
+  --chat-composer-height: 36px;
+  --chat-composer-padding-y: 7px;
+  --chat-composer-padding-x: var(--space-md);
+  --chat-composer-wrapper-padding-y: var(--space-sm);
+  --chat-composer-wrapper-padding-x: var(--space-md);
+  --chat-composer-font-size: 13px;
+  --chat-send-font-size: 12px;
+
+  --statusbar-font-size: 10px;
 }

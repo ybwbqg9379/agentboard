@@ -2,7 +2,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 var(--space-lg);
+  padding: 0 var(--chrome-padding-x);
   height: var(--header-height);
   border-bottom: 1px solid var(--border-primary);
   background: var(--bg-secondary);
@@ -15,13 +15,13 @@
 }
 
 .logo {
-  font-size: 15px;
+  font-size: var(--logo-font-size);
   font-weight: 700;
   letter-spacing: -0.02em;
 }
 
 .version {
-  font-size: 11px;
+  font-size: var(--version-font-size);
   color: var(--text-tertiary);
   background: var(--bg-tertiary);
   padding: 2px 6px;
@@ -42,8 +42,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 4px 14px;
-  font-size: 12px;
+  padding: var(--mode-tab-padding-y) var(--mode-tab-padding-x);
+  font-size: var(--mode-tab-font-size);
   font-weight: 500;
   font-family: var(--font-sans);
   color: var(--text-tertiary);
@@ -66,7 +66,7 @@
 .right {
   display: flex;
   align-items: center;
-  gap: var(--space-lg);
+  gap: var(--header-inner-gap);
 }
 
 .visuallyHidden {
@@ -96,12 +96,12 @@
   align-items: center;
   justify-content: center;
   gap: 5px;
-  font-size: 12px;
+  font-size: var(--header-btn-font-size);
   font-weight: 500;
   color: var(--text-secondary);
   background: var(--bg-tertiary);
   border: 1px solid var(--border-primary);
-  padding: 4px 14px;
+  padding: var(--header-btn-padding-y) var(--header-btn-padding-x);
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition: all 0.15s;
@@ -116,7 +116,7 @@
 }
 
 .themeBtn {
-  padding: 4px 10px; /* Slightly tighter padding for icon-only button */
+  padding: var(--header-btn-padding-y) var(--theme-btn-padding-x);
 }
 
 .mcpHealth {
@@ -126,7 +126,7 @@
 }
 
 .mcpLabel {
-  font-size: 10px;
+  font-size: var(--mcp-label-font-size);
   font-weight: 600;
   color: var(--text-tertiary);
   font-family: var(--font-mono);
@@ -158,7 +158,7 @@
 }
 
 .connText {
-  font-size: 12px;
+  font-size: var(--conn-text-font-size);
   color: var(--text-tertiary);
   font-family: var(--font-mono);
 }
@@ -187,7 +187,7 @@
   .historyBtn,
   .clearBtn,
   .themeBtn {
-    padding: 4px 8px;
-    font-size: 11px;
+    padding: var(--header-btn-padding-y) 8px;
+    font-size: var(--header-btn-font-size);
   }
 }

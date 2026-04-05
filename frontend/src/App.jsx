@@ -55,6 +55,11 @@ export default function App() {
     return allowed.has(stored) ? stored : 'default';
   });
 
+  const [density, setDensity] = useState(() => {
+    const stored = window.localStorage.getItem('agentboard-density');
+    return stored === 'compact' ? 'compact' : 'comfortable';
+  });
+
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
     window.localStorage.setItem('agentboard-theme', theme);
@@ -68,6 +73,15 @@ export default function App() {
     }
     window.localStorage.setItem('agentboard-theme-pack', themePack);
   }, [themePack]);
+
+  useEffect(() => {
+    if (density === 'compact') {
+      document.documentElement.setAttribute('data-density', 'compact');
+    } else {
+      document.documentElement.removeAttribute('data-density');
+    }
+    window.localStorage.setItem('agentboard-density', density);
+  }, [density]);
 
   const toggleTheme = () => setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
 
@@ -85,6 +99,8 @@ export default function App() {
         onToggleTheme={toggleTheme}
         themePack={themePack}
         onThemePackChange={setThemePack}
+        density={density}
+        onDensityChange={setDensity}
       />
 
       {mode === 'agent' ? (

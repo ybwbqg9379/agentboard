@@ -6,6 +6,7 @@
 
 #### Added
 
+- **布局密度试点**：**`data-density="compact"`**（默认不写属性 = 舒适）；**`tokens/foundation.css`** 中 **`--header-height` / `--statusbar-height` / `--chat-composer-*` / `--chrome-padding-x`** 等；**Header**、**StatusBar**、**ChatInput** 只吃变量；顶栏 **Layout density** 下拉 + **`localStorage`** 键 **`agentboard-density`**。
 - **UI 调色板包**：在 **`data-theme-pack`** 上新增 **`vercel` / `cursor` / `warp` / `apple`**（`frontend/src/styles/themes/packs/*.css`），色板参考本地 **awesome-design-md** 对应 **`DESIGN.md`**；顶栏 **UI palette** 下拉可选；`DESIGN.md` 登记映射表。
 - **主题包字体**：各 **`packs/*.css`** 覆盖 **`--font-sans` / `--font-mono`**；**Fontsource**（**Geist**、**DM Sans**、**Sora**、**IBM Plex Mono**）经 **`frontend/src/styles/fonts.css`** 在 **`main.jsx`** 引入；**`linear`** 显式 **Inter / JetBrains**；**`apple`** 为 **SF 系统栈**；**`foundation.css`** 默认无衬线栈增加中文回退。
 - **Playwright 冒烟**：根目录 `e2e/smoke.spec.js` + `playwright.config.js`；`npm run test:e2e`（先 `build` 再测）；`npm run check`、Husky **`pre-commit`** 与 **GitHub Actions** 在构建后执行 `playwright test`（CI 中 `npx playwright install chromium --only-shell`）。
