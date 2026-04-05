@@ -50,6 +50,8 @@ const ALLOWED_BENCHMARK_EXECUTABLES = new Set([
   'deno',
 ]);
 
+class FatalExperimentError extends Error {}
+
 // Map<runId, { abortController, experimentId }>
 const activeExperiments = new Map();
 
@@ -461,6 +463,20 @@ async function runCommand(command, cwd, timeoutMs = 300000, signal, opts = {}) {
   });
 }
 
+function assertWhitelistScanSucceeded(diffOutput, untrackedOutput) {
+  const failures = [
+    ['git diff --name-only', diffOutput.exitCode],
+    ['git ls-files --others --exclude-standard', untrackedOutput.exitCode],
+  ].filter(([, exitCode]) => exitCode !== 0);
+
+  if (failures.length === 0) return;
+
+  const details = failures.map(([command, exitCode]) => `${command} exited ${exitCode}`).join('; ');
+  throw new FatalExperimentError(
+    `File whitelist scan failed before benchmark execution: ${details}`,
+  );
+}
+
 function ensureWorkspaceGitIdentity(workspaceDir) {
   for (const [key, value] of [
     ['user.email', AUTORESEARCH_GIT_USER_EMAIL],
@@ -772,6 +788,7 @@ export async function runExperimentLoop(experimentId, plan, userId, workspaceDir
             null,
             { shell: true },
           );
+          assertWhitelistScanSucceeded(diffOutput, untrackedOutput);
           const changedFiles = [
             ...diffOutput.output.trim().split('\n').filter(Boolean),
             ...untrackedOutput.output.trim().split('\n').filter(Boolean),
@@ -913,6 +930,9 @@ export async function runExperimentLoop(experimentId, plan, userId, workspaceDir
         await runCommand('git checkout -- . && git clean -fd', workspaceDir, 5000, null, {
           shell: true,
         });
+        if (err instanceof FatalExperimentError) {
+          throw err;
+        }
         trialResult = { accepted: false, reason: `error: ${err.message}`, primaryMetric: null };
         consecutiveFailures++;
         emit('trial_error', { trialNumber: trialCount, trialId, error: err.message });

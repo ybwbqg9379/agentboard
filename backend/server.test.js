@@ -613,10 +613,10 @@ describe('GET /api/sessions/:id/workspace-files', () => {
 });
 
 // ---------------------------------------------------------------------------
-// GET /api/sessions/:id/files/:fileName (download route)
+// GET /api/sessions/:id/files (download route)
 // ---------------------------------------------------------------------------
 
-describe('GET /api/sessions/:id/files/:fileName', () => {
+describe('GET /api/sessions/:id/files', () => {
   it('rejects disallowed file extensions with 403', async () => {
     const res = await request(app).get('/api/sessions/valid-id/files/script.sh');
     expect(res.status).toBe(403);
@@ -659,6 +659,44 @@ describe('GET /api/sessions/:id/files/:fileName', () => {
       expect(res.headers['content-type']).toMatch(/application\/pdf/);
       expect(res.headers['content-disposition']).toContain('attachment');
       expect(res.headers['content-disposition']).toContain('report.pdf');
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it('downloads the requested nested session file instead of a same-name root file', async () => {
+    const { userId, sessionId, sessionDir, cleanup } = isolatedWorkspaceSession();
+    const reportsDir = path.join(sessionDir, 'reports');
+    await fs.mkdir(reportsDir, { recursive: true });
+    await fs.writeFile(path.join(sessionDir, 'report.txt'), 'root copy');
+    await fs.writeFile(path.join(reportsDir, 'report.txt'), 'nested copy');
+
+    try {
+      const res = await request(app)
+        .get(`/api/sessions/${sessionId}/files`)
+        .query({ path: 'reports/report.txt' })
+        .set('x-user-id', userId);
+
+      expect(res.status).toBe(200);
+      expect(res.text).toBe('nested copy');
+      expect(res.headers['content-disposition']).toContain('report.txt');
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it('rejects query-path traversal outside the session workspace', async () => {
+    const { userId, sessionId, sessionDir, cleanup } = isolatedWorkspaceSession();
+    await fs.mkdir(sessionDir, { recursive: true });
+
+    try {
+      const res = await request(app)
+        .get(`/api/sessions/${sessionId}/files`)
+        .query({ path: '../outside.txt' })
+        .set('x-user-id', userId);
+
+      expect(res.status).toBe(403);
+      expect(res.body.error).toMatch(/access denied/);
     } finally {
       await cleanup();
     }

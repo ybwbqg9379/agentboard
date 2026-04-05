@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { apiFetch, API_BASE } from '../lib/apiFetch.js';
 
 const WorkspaceFilesContext = createContext({
@@ -17,19 +17,32 @@ export function WorkspaceFilesProvider({ sessionId, refreshKey, children }) {
   const [workspaceList, setWorkspaceList] = useState([]);
   const [workspaceError, setWorkspaceError] = useState(null);
   const [workspaceLoading, setWorkspaceLoading] = useState(false);
+  const previousSessionIdRef = useRef(null);
 
   useEffect(() => {
     if (!sessionId) {
+      previousSessionIdRef.current = null;
       setWorkspaceList([]);
       setWorkspaceError(null);
       setWorkspaceLoading(false);
       return;
     }
 
+    const sessionChanged = previousSessionIdRef.current !== sessionId;
+    previousSessionIdRef.current = sessionId;
+
+    if (sessionChanged) {
+      setWorkspaceList([]);
+      setWorkspaceError(null);
+      setWorkspaceLoading(true);
+    }
+
     let cancelled = false;
     const timer = setTimeout(async () => {
-      setWorkspaceLoading(true);
-      setWorkspaceError(null);
+      if (!cancelled) {
+        setWorkspaceLoading(true);
+        setWorkspaceError(null);
+      }
       try {
         const res = await apiFetch(`${API_BASE}/api/sessions/${sessionId}/workspace-files`);
         if (cancelled) return;

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { FileDown, Inbox, MessagesSquare } from 'lucide-react';
 import MarkdownBody from './MarkdownBody.jsx';
 import { BarStatusIcon, normalizeBarStatus, TimelineDotIcon } from './LucideStatusIcons.jsx';
+import { sessionFileDownloadHref } from '../lib/sessionDownloads.js';
 import styles from './AgentTimeline.module.css';
 import { buildDisplayItems } from './agentTimelineModel.js';
 
@@ -53,7 +54,7 @@ const JsonTable = ({ data }) => {
  */
 const DownloadButton = ({ fileName, sessionId }) => {
   const { t } = useTranslation();
-  const downloadUrl = `/api/sessions/${sessionId}/files/${encodeURIComponent(fileName)}`;
+  const downloadUrl = sessionFileDownloadHref(sessionId, fileName);
 
   return (
     <a href={downloadUrl} download={fileName} className={styles.downloadBtn}>

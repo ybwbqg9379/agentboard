@@ -418,4 +418,60 @@ process.exit(0);
       expect(updateRunStatus).toHaveBeenCalledWith(runId, 'completed', 'default');
     },
   );
+
+  it('fails closed when the git-based whitelist scan cannot run', async () => {
+    const runId = '88888888-8888-8888-8888-888888888888';
+    const sourceDir = uniqueDir('whitelist-scan-source');
+    const workspaceDir = uniqueDir('whitelist-scan-run');
+    const scoreFile = resolve(sourceDir, 'score.txt');
+    const readScoreFile = resolve(sourceDir, 'read-score.js');
+    const sessionId = 'agent-session-whitelist-scan';
+
+    fs.mkdirSync(sourceDir, { recursive: true });
+    fs.writeFileSync(scoreFile, '1\n');
+    fs.writeFileSync(
+      readScoreFile,
+      `const fs = require('node:fs'); console.log(fs.readFileSync('score.txt', 'utf8').trim());`,
+    );
+
+    startAgent.mockImplementation(async (_prompt, opts) => {
+      fs.rmSync(resolve(opts.cwd, '.git'), { recursive: true, force: true });
+      setTimeout(() => {
+        agentEvents.emit('event', { sessionId, type: 'done' });
+      }, 0);
+      return sessionId;
+    });
+
+    await runExperimentLoop(
+      'exp-whitelist-scan-failure',
+      {
+        name: 'whitelist scan must fail closed',
+        target: {
+          source_dir: sourceDir,
+          files: ['score.txt'],
+        },
+        metrics: {
+          primary: {
+            command: 'node read-score.js',
+            extract: '^(\\d+)$',
+            type: 'regex',
+            direction: 'maximize',
+          },
+        },
+        budget: {
+          max_experiments: 1,
+        },
+      },
+      'default',
+      workspaceDir,
+      runId,
+    );
+
+    expect(updateRunStatus).toHaveBeenCalledWith(runId, 'failed', 'default');
+    expect(updateRunError).toHaveBeenCalledWith(
+      runId,
+      expect.stringContaining('File whitelist scan failed before benchmark execution'),
+      'default',
+    );
+  });
 });

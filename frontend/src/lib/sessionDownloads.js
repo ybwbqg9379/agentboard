@@ -4,7 +4,7 @@ import { SESSION_FILE_DOWNLOAD_EXTENSIONS } from '@shared/sessionDownloadExtensi
 export const SESSION_DOWNLOADABLE_EXT = new Set(SESSION_FILE_DOWNLOAD_EXTENSIONS);
 
 /**
- * @param {string} name File basename
+ * @param {string} name File basename or path
  */
 export function isSessionDownloadableFileName(name) {
   if (!name || typeof name !== 'string') return false;
@@ -15,8 +15,8 @@ export function isSessionDownloadableFileName(name) {
 
 /**
  * @param {string} sessionId
- * @param {string} fileName Basename only (API resolves with path.basename)
+ * @param {string} filePath Session-relative path or workspace path captured in tool events
  */
-export function sessionFileDownloadHref(sessionId, fileName) {
-  return `/api/sessions/${sessionId}/files/${encodeURIComponent(fileName)}`;
+export function sessionFileDownloadHref(sessionId, filePath) {
+  return `/api/sessions/${sessionId}/files?path=${encodeURIComponent(filePath)}`;
 }

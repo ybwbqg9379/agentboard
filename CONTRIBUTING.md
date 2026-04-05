@@ -10,7 +10,7 @@
 
 ## 二、测试先行 (Testing Guidelines)
 
-AgentBoard 是一个核心逻辑极其复杂的编排引擎。我们使用 `Vitest`：**全仓约 895** 个用例（后端 **642**、前端 **253**，随仓库演进持续补齐）。
+AgentBoard 是一个核心逻辑极其复杂的编排引擎。我们使用 `Vitest`：**全仓约 900** 个用例（后端 **645**、前端 **255**，随仓库演进持续补齐）。
 
 ### 1. 运行测试
 
@@ -90,6 +90,6 @@ npm run check
 ## 五、后端提交原则
 
 1. **Zod 强制校验**：进入 `Express` 层的 Rest API 和 `WebSocket` 的 Query 或 Socket Message 层，**必须要有 Zod Object Schema 定义并参与过滤**，不允许产生不安全的 Payload 解除引用漏洞。
-2. **文件防护**：如果是操作了类似于 Terminal bash 脚本下发相关的代码，必须通过安全审查评估白名单是否可以越权访问主机关键敏感分区。
+2. **文件防护**：如果是操作了类似于 Terminal bash 脚本下发相关的代码，必须通过安全审查评估白名单是否可以越权访问主机关键敏感分区。会话文件下载若需要支持子目录，优先走 **`/api/sessions/:id/files?path=...`** 并在服务端做 `isPathInside(sessionDir, resolvedPath)` 检查；不要把嵌套路径在前端压成 basename 后再下载。
 
 再次感谢！有了您的完善，AgentBoard 的 Agent 宇宙定能生生不息。

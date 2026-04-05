@@ -152,7 +152,12 @@ export default function FileChangesPanel({ events, sessionId }) {
                       {f.reads}
                     </span>
                   )}
-                  <FileRowDownload sessionId={sessionId} baseName={fileBasename(f.path)} t={t} />
+                  <FileRowDownload
+                    sessionId={sessionId}
+                    filePath={f.path}
+                    downloadName={fileBasename(f.path)}
+                    t={t}
+                  />
                 </span>
               </div>
             ))}
@@ -174,7 +179,12 @@ export default function FileChangesPanel({ events, sessionId }) {
                     <BookOpen size={11} strokeWidth={2} className={styles.opsIcon} aria-hidden />
                     {f.reads}
                   </span>
-                  <FileRowDownload sessionId={sessionId} baseName={fileBasename(f.path)} t={t} />
+                  <FileRowDownload
+                    sessionId={sessionId}
+                    filePath={f.path}
+                    downloadName={fileBasename(f.path)}
+                    t={t}
+                  />
                 </span>
               </div>
             ))}
@@ -200,7 +210,12 @@ export default function FileChangesPanel({ events, sessionId }) {
                   <span className={styles.workspaceMeta} title={t('filesPanel.workspaceHint')}>
                     {f.bytes != null ? `${formatBytes(f.bytes)}` : ''}
                   </span>
-                  <FileRowDownload sessionId={sessionId} baseName={f.name} t={t} />
+                  <FileRowDownload
+                    sessionId={sessionId}
+                    filePath={f.name}
+                    downloadName={f.name}
+                    t={t}
+                  />
                 </span>
               </div>
             ))}
@@ -211,14 +226,14 @@ export default function FileChangesPanel({ events, sessionId }) {
   );
 }
 
-function FileRowDownload({ sessionId, baseName, t }) {
-  if (!sessionId || !isSessionDownloadableFileName(baseName)) return null;
+function FileRowDownload({ sessionId, filePath, downloadName, t }) {
+  if (!sessionId || !isSessionDownloadableFileName(filePath)) return null;
   return (
     <a
-      href={sessionFileDownloadHref(sessionId, baseName)}
-      download={baseName}
+      href={sessionFileDownloadHref(sessionId, filePath)}
+      download={downloadName}
       className={styles.fileDownload}
-      title={t('timeline.download', { fileName: baseName })}
+      title={t('timeline.download', { fileName: downloadName })}
     >
       <FileDown size={14} strokeWidth={2} aria-hidden />
     </a>

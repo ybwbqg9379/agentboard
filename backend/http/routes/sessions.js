@@ -36,6 +36,48 @@ function resolveSessionWorkspaceDir(userId, sessionId) {
   return path.resolve(path.join(userRoot, 'sessions', sessionId));
 }
 
+function coerceSessionDownloadPath(value) {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+async function downloadSessionFile(req, res, rawRequestedPath) {
+  const { id } = req.params;
+  const requestedPath = coerceSessionDownloadPath(rawRequestedPath);
+  if (!requestedPath) {
+    return res.status(400).json({ error: 'file path required' });
+  }
+
+  // Reject bad extensions before DB (avoids SQLite contention on parallel tests / junk traffic)
+  const ext = path.extname(requestedPath).toLowerCase();
+  if (!SESSION_FILE_DOWNLOAD_EXTENSIONS.includes(ext)) {
+    return res.status(403).json({ error: 'file type not allowed for download' });
+  }
+
+  if (!(await hasOwnedSession(req.user.id, id))) {
+    return res.status(404).json({ error: 'session not found' });
+  }
+
+  try {
+    const sessionDir = resolveSessionWorkspaceDir(req.user.id, id);
+    const normalizedRequestedPath = requestedPath.replace(/\\/g, path.sep);
+    const filePath = path.resolve(sessionDir, normalizedRequestedPath);
+
+    // Security: Ensure the resolved path is strictly inside the session directory.
+    // `requestedPath` may be nested (e.g. `reports/out.pdf`) or an absolute workspace path.
+    if (!isPathInside(sessionDir, filePath)) {
+      return res.status(403).json({ error: 'access denied' });
+    }
+
+    await fs.access(filePath);
+
+    res.download(filePath, path.basename(filePath));
+  } catch {
+    res.status(404).json({ error: 'file not found' });
+  }
+}
+
 router.get('/sessions', validateQuery(sessionsQuerySchema), async (req, res) => {
   const { limit, offset } = req.query;
   const sessions = await listSessionsPaged(req.user.id, limit, offset);
@@ -213,37 +255,15 @@ router.get('/sessions/:id/workspace-files', async (req, res) => {
   }
 });
 
-// Download a file from the session's workspace (e.g., PDF reports)
-router.get('/sessions/:id/files/:fileName', async (req, res) => {
-  const { id, fileName } = req.params;
-
-  // Reject bad extensions before DB (avoids SQLite contention on parallel tests / junk traffic)
-  const ext = path.extname(fileName).toLowerCase();
-  if (!SESSION_FILE_DOWNLOAD_EXTENSIONS.includes(ext)) {
-    return res.status(403).json({ error: 'file type not allowed for download' });
-  }
-
-  if (!(await hasOwnedSession(req.user.id, id))) {
-    return res.status(404).json({ error: 'session not found' });
-  }
-
-  try {
-    const safeFileName = path.basename(fileName);
-    const sessionDir = resolveSessionWorkspaceDir(req.user.id, id);
-    const filePath = path.resolve(path.join(sessionDir, safeFileName));
-
-    // Security: Ensure the resolved path is strictly inside the session directory
-    if (!isPathInside(sessionDir, filePath)) {
-      return res.status(403).json({ error: 'access denied' });
-    }
-
-    // Verify file exists
-    await fs.access(filePath);
-
-    res.download(filePath, safeFileName);
-  } catch {
-    res.status(404).json({ error: 'file not found' });
-  }
+// Download a file from the session workspace (e.g., `report.pdf` or `reports/out/report.pdf`).
+router.get('/sessions/:id/files', async (req, res) => {
+  const queryPath = Array.isArray(req.query.path) ? req.query.path[0] : req.query.path;
+  return downloadSessionFile(req, res, queryPath);
 });
+
+// Legacy basename route kept for existing links.
+router.get('/sessions/:id/files/:fileName', async (req, res) =>
+  downloadSessionFile(req, res, req.params.fileName),
+);
 
 export default router;

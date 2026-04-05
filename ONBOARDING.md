@@ -117,7 +117,7 @@ npm run dev
 
 1. 在系统左上角的 Header 选项卡中，选中 **Agent** 模式；若当前停留在 **智能同事 / Agent** 壳，可通过同一行的 **Console / Agent** 分段按钮切回 **Console** 以进入 Workflow / Experiment。
 2. 在底部的输入栏中输入指令（例：_“帮我写一段能收集当地天气的 Python 脚本并执行”_）。
-3. 观察进展：**Console 壳**下左侧时间线展示完整工具调用与结果；**智能同事壳**下主区域以助手可见内容为主，逐步工具与终端输出请打开 **技术详情** 抽屉查看。**智能同事壳**若产生 PDF 等可交付文件，会在**输入框正上方**出现 **可下载文件** 条；亦可在技术详情 → **文件** 中下载（白名单扩展名与后端一致）。
+3. 观察进展：**Console 壳**下左侧时间线展示完整工具调用与结果；**智能同事壳**下主区域以助手可见内容为主，逐步工具与终端输出请打开 **技术详情** 抽屉查看。**智能同事壳**若产生 PDF 等可交付文件，会在**输入框正上方**出现 **可下载文件** 条；亦可在技术详情 → **文件** 中下载（白名单扩展名与后端一致，嵌套路径产物同样可通过下载 API 寻址）。
 4. **Console 壳**：使用右侧 **Right Panel**；**智能同事壳**：使用顶栏 **详情** 打开同一套 **终端 / 上下文 / 文件** 面板。
 
 ### 模式 B: DAG 工作流引擎 (Workflow Engine)
@@ -137,6 +137,6 @@ npm run dev
 大功告成，您现在已经完全掌握了项目结构！如果您打算在底层做修改或提交 PR，我们为您准备了以下路标文档：
 
 - **内部架构透视**: 好奇 `workflowEngine.js` 如何调度工作流？WebSocket 的 5 种状态机是如何流转的？搜索/爬取 MCP 是如何分层激活的？请参阅位于根目录的 [`ARCHITECTURE.md`](ARCHITECTURE.md)。
-- **代码规范与自动化测试**: 我们对于入库的代码执行极严标准；当前全仓约 **895** 个 Vitest 用例（后端 642 + 前端 253）。提交代码或发起 PR 之前可在根目录运行 `npm run test`；需要覆盖率时可运行 `npm run test:coverage`。与根目录 `npx vitest run`（workspace 全量）说明见 [`CONTRIBUTING.md`](CONTRIBUTING.md)。`npm run check`、Husky `pre-commit` 与更细说明亦见该文档。
+- **代码规范与自动化测试**: 我们对于入库的代码执行极严标准；当前全仓约 **900** 个 Vitest 用例（后端 645 + 前端 255）。提交代码或发起 PR 之前可在根目录运行 `npm run test`；需要覆盖率时可运行 `npm run test:coverage`。与根目录 `npx vitest run`（workspace 全量）说明见 [`CONTRIBUTING.md`](CONTRIBUTING.md)。`npm run check`、Husky `pre-commit` 与更细说明亦见该文档。
 
 开心编程，尽情打造您的超级 Agent 平台！
