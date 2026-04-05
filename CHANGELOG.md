@@ -16,6 +16,8 @@
 
 #### Fixed
 
+- **前端启动**：新增 **`themePreferences.js`** / **`bootstrapApp.js`**；主题、调色板、布局密度在 React 挂载前即同步到 `document.documentElement`，避免刷新时从默认样式闪到用户偏好；主题字体预载改为**不阻塞挂载**，Font chunk 失败也不会把首屏卡白。
+- **`Dropdown` 可访问性**：触发器改为真实 `button`，补齐 **`listbox/option`** 语义、方向键/Home/End 导航、`Enter` / `Space` 选择、`Escape` 关闭与焦点回退，顶栏语言/明暗/调色板/密度四个下拉现在可完整键盘操作。
 - **`StatusBar`**：`subtaskEntries.filter` 回调参数由 **`t`** 改为 **`sub`**，避免遮蔽 **`useTranslation()`** 的翻译函数 **`t`**（与 `MetricChart` 刻度变量遮蔽同类）。
 - **`ConfirmDialog`**：关闭按钮 **`aria-label`** 由跨模块 **`experiment.close`** 改为 **`confirmDialog.dismiss`**，与对话框命名空间一致。
 - **`StatusBar`**：补齐 **`interrupted`** 为已知会话状态；恢复后的会话在底栏走 `statusBar.interrupted` 本地化，不再误报未知状态 dev warning。
@@ -28,6 +30,7 @@
 
 #### Changed
 
+- **偏好持久化**：`agentboard-theme-pack` 在默认调色板下不再写入 `localStorage`；`App` 通过共享偏好工具统一读取/持久化主题、调色板和 density，避免启动路径与交互路径分叉。
 - **响应式壳层（前端）**：`index.css` 等约束 **`overflow-x: clip`**、**`minmax(0, 1fr)`**、实验/工作流主栏网格与 **`min-width: 0`**，目标为 **仅纵向滚动**、连续宽度下不整页横向滑动；空态与面板 **`panel-body`** 等配合 **`overflow-wrap` / 省略**。
 - **顶栏 Header**：窄屏 **纵向分区**——模式 Tab **全宽三等分**；**chromeCluster** 为 **2×2**（**语言 + 明暗** | **调色板 + 密度**），**520px–768px** 为 **四列**；明暗由 **`Dropdown`** 选择（**`onThemeChange`**，文案 **`header.themeModeTitle`**）；**trailingCluster** 为 **两列网格**（**MCP / History / New Session** | **连接状态**）；**分割线与 2×2 区间距**、**trailing 区内边距**、**`.connStatus` 全断点 padding** 与读屏属性（**`role="status"`** 等）已对齐 **`frontend/DESIGN.md` §3.1**。
 - **Dropdown / ChatInput**：**`.triggerFluid`**（窄屏触发条 **`width: 100%`**）；菜单 **`max-width`** 相对视口；**ChatInput** 权限下拉复用 **`triggerFluid`**，窄屏 **纵向堆叠**。
@@ -45,6 +48,7 @@
 
 #### Tests
 
+- 新增 **`frontend/src/bootstrapApp.test.js`**、**`frontend/src/themePreferences.test.js`**、**`frontend/src/components/Dropdown.test.jsx`**，覆盖启动时偏好同步、字体预载不阻塞挂载，以及 `Dropdown` 键盘导航/选择/焦点回退。
 - 新增 **`backend/check-i18n.test.js`**，覆盖多行 `t(variable)`、多行 key 拼接、受支持/不受支持的属性访问，以及跨多行 `// i18n-exempt` 豁免。
 - 新增 **`frontend/src/components/StatusBar.test.jsx`**，覆盖 `interrupted` 的本地化显示与未知状态 dev warning 回退。
 - 与 **GitHub Actions CI** 及 Husky **`pre-commit`** 对齐：`prettier --check`、`eslint --max-warnings 0`、`i18n:check`、**`npm test`**、**`npm run build`**、**`playwright test`**（`CI=true` 下不复用本地 preview 进程）均已验证通过。

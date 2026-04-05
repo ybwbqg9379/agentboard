@@ -1,7 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 import { useWebSocket } from './hooks/useWebSocket.js';
-import { THEME_PACK_ALLOWLIST } from './themePackConstants.js';
 import { ensureThemePackFontsLoaded } from './themeFontLoader.js';
+import {
+  applyDocumentAppearance,
+  persistAppearance,
+  readStoredDensity,
+  readStoredTheme,
+  readStoredThemePack,
+} from './themePreferences.js';
 import Header from './components/Header.jsx';
 import ChatInput from './components/ChatInput.jsx';
 import AgentTimeline from './components/AgentTimeline.jsx';
@@ -44,50 +50,19 @@ export default function App() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [mode, setMode] = useState('agent'); // 'agent' | 'workflow'
 
-  const [theme, setTheme] = useState(() => {
-    return (
-      window.localStorage.getItem('agentboard-theme') ||
-      (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-    );
-  });
+  const [theme, setTheme] = useState(() => readStoredTheme());
+  const [themePack, setThemePack] = useState(() => readStoredThemePack());
+  const [density, setDensity] = useState(() => readStoredDensity());
 
-  const [themePack, setThemePack] = useState(() => {
-    const stored = window.localStorage.getItem('agentboard-theme-pack');
-    return THEME_PACK_ALLOWLIST.has(stored) ? stored : 'default';
-  });
-
-  const [density, setDensity] = useState(() => {
-    const stored = window.localStorage.getItem('agentboard-density');
-    return stored === 'compact' ? 'compact' : 'comfortable';
-  });
-
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-    window.localStorage.setItem('agentboard-theme', theme);
-  }, [theme]);
-
-  useEffect(() => {
-    if (themePack === 'default') {
-      document.documentElement.removeAttribute('data-theme-pack');
-    } else {
-      document.documentElement.setAttribute('data-theme-pack', themePack);
-    }
-    window.localStorage.setItem('agentboard-theme-pack', themePack);
-  }, [themePack]);
+  useLayoutEffect(() => {
+    const appearance = { theme, themePack, density };
+    applyDocumentAppearance(appearance);
+    persistAppearance(appearance);
+  }, [theme, themePack, density]);
 
   useEffect(() => {
     void ensureThemePackFontsLoaded(themePack);
   }, [themePack]);
-
-  useEffect(() => {
-    if (density === 'compact') {
-      document.documentElement.setAttribute('data-density', 'compact');
-      window.localStorage.setItem('agentboard-density', 'compact');
-    } else {
-      document.documentElement.removeAttribute('data-density');
-      window.localStorage.removeItem('agentboard-density');
-    }
-  }, [density]);
 
   return (
     <div className="app-layout">

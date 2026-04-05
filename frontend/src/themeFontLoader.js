@@ -1,9 +1,5 @@
-import { THEME_PACK_ALLOWLIST, THEME_PACK_WEBFONT_IMPORTERS } from './themePackConstants.js';
-
-export function readStoredThemePackId() {
-  const stored = window.localStorage.getItem('agentboard-theme-pack');
-  return THEME_PACK_ALLOWLIST.has(stored) ? stored : 'default';
-}
+import { THEME_PACK_WEBFONT_IMPORTERS } from './themePackConstants.js';
+import { readStoredThemePack } from './themePreferences.js';
 
 /**
  * Loads Fontsource CSS for the given pack if needed. Safe to call multiple times (Vite dedupes the chunk).
@@ -17,5 +13,5 @@ export function ensureThemePackFontsLoaded(pack) {
 
 /** Preload fonts for the pack already in localStorage before first paint (reduces FOUT on cold load). */
 export function preloadStoredThemePackFonts() {
-  return ensureThemePackFontsLoaded(readStoredThemePackId());
+  return ensureThemePackFontsLoaded(readStoredThemePack());
 }

@@ -2,7 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.jsx';
 import { ErrorBoundary } from './components/ErrorBoundary.jsx';
-import { preloadStoredThemePackFonts } from './themeFontLoader.js';
+import { bootstrapApp } from './bootstrapApp.js';
 import './i18n.js';
 import './index.css';
 
@@ -16,8 +16,4 @@ function mountRoot() {
   );
 }
 
-void preloadStoredThemePackFonts()
-  .catch(() => {
-    /* Font chunk failure should not block the app */
-  })
-  .finally(mountRoot);
+bootstrapApp({ mountRoot });
