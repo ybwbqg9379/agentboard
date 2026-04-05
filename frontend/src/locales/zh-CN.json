@@ -18,6 +18,11 @@
     "paletteCursor": "Cursor",
     "paletteWarp": "Warp",
     "paletteApple": "Apple",
+    "paletteClaude": "Claude",
+    "shellPro": "控制台",
+    "shellAgent": "智能同事",
+    "shellGroupLabel": "界面模式",
+    "userDetails": "详情",
     "themeLight": "浅色",
     "themeDark": "深色",
     "themeModeTitle": "明暗模式",
@@ -50,7 +55,6 @@
     "run": "运行",
     "continue": "继续",
     "stop": "停止",
-    "permissionTitle": "权限模式",
     "permissionBypass": "绕过",
     "permissionAcceptEdits": "接受编辑",
     "permissionDefault": "默认",
@@ -319,6 +323,19 @@
       "failed": "失败",
       "pending": "等待中"
     }
+  },
+  "userShell": {
+    "feedTitle": "进展",
+    "emptyTitle": "可以开始交办任务",
+    "emptyHint": "用自然语言说明要办的事。智能体以完整能力执行，并在此展示关键进展。",
+    "runningHint": "正在推进任务…",
+    "placeholderTask": "请描述要交给智能体的任务…",
+    "placeholderFollowUp": "补充说明或后续指令…",
+    "placeholderWait": "等待连接…",
+    "runAgent": "运行智能体",
+    "continueTask": "继续",
+    "detailsTitle": "技术详情",
+    "closeDetails": "关闭详情面板"
   },
   "confirmDialog": {
     "defaultTitle": "确认",

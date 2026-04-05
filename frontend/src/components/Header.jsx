@@ -1,6 +1,6 @@
 import { useId, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Disc, History, Plus, Wifi, WifiOff } from 'lucide-react';
+import { Disc, History, PanelRight, Plus, Wifi, WifiOff } from 'lucide-react';
 import Dropdown from './Dropdown';
 import dropdownStyles from './Dropdown.module.css';
 import styles from './Header.module.css';
@@ -27,6 +27,9 @@ export default function Header({
   onThemePackChange,
   density,
   onDensityChange,
+  uiShell,
+  onUiShellChange,
+  onOpenUserDetails,
 }) {
   const { t, i18n } = useTranslation();
   const langLabelId = useId();
@@ -52,6 +55,7 @@ export default function Header({
       { value: 'cursor', label: t('header.paletteCursor') },
       { value: 'warp', label: t('header.paletteWarp') },
       { value: 'apple', label: t('header.paletteApple') },
+      { value: 'claude', label: t('header.paletteClaude') },
     ],
     [t],
   );
@@ -77,26 +81,49 @@ export default function Header({
       <div className={styles.left}>
         <span className={styles.logo}>{t('header.logo')}</span>
         <span className={styles.version}>v{__APP_VERSION__}</span>
-        <div className={styles.modeTabs}>
-          <button
-            className={`${styles.modeTab} ${mode === 'agent' ? styles.modeActive : ''}`}
-            onClick={() => onModeChange('agent')}
-          >
-            {t('header.modeAgent')}
-          </button>
-          <button
-            className={`${styles.modeTab} ${mode === 'workflow' ? styles.modeActive : ''}`}
-            onClick={() => onModeChange('workflow')}
-          >
-            {t('header.modeWorkflow')}
-          </button>
-          <button
-            className={`${styles.modeTab} ${mode === 'experiment' ? styles.modeActive : ''}`}
-            onClick={() => onModeChange('experiment')}
-          >
-            {t('header.modeExperiment')}
-          </button>
-        </div>
+        {mode === 'agent' && (
+          <div className={styles.shellTabs} role="group" aria-label={t('header.shellGroupLabel')}>
+            <button
+              type="button"
+              className={`${styles.shellTab} ${uiShell === 'pro' ? styles.shellTabActive : ''}`}
+              onClick={() => onUiShellChange('pro')}
+            >
+              {t('header.shellPro')}
+            </button>
+            <button
+              type="button"
+              className={`${styles.shellTab} ${uiShell === 'agent' ? styles.shellTabActive : ''}`}
+              onClick={() => onUiShellChange('agent')}
+            >
+              {t('header.shellAgent')}
+            </button>
+          </div>
+        )}
+        {!(mode === 'agent' && uiShell === 'agent') && (
+          <div className={styles.modeTabs}>
+            <button
+              type="button"
+              className={`${styles.modeTab} ${mode === 'agent' ? styles.modeActive : ''}`}
+              onClick={() => onModeChange('agent')}
+            >
+              {t('header.modeAgent')}
+            </button>
+            <button
+              type="button"
+              className={`${styles.modeTab} ${mode === 'workflow' ? styles.modeActive : ''}`}
+              onClick={() => onModeChange('workflow')}
+            >
+              {t('header.modeWorkflow')}
+            </button>
+            <button
+              type="button"
+              className={`${styles.modeTab} ${mode === 'experiment' ? styles.modeActive : ''}`}
+              onClick={() => onModeChange('experiment')}
+            >
+              {t('header.modeExperiment')}
+            </button>
+          </div>
+        )}
       </div>
 
       <div className={styles.right}>
@@ -185,6 +212,17 @@ export default function Header({
             )}
             {mode === 'agent' && (
               <div className={styles.sessionActions}>
+                {uiShell === 'agent' && (
+                  <button type="button" className={styles.historyBtn} onClick={onOpenUserDetails}>
+                    <PanelRight
+                      size={14}
+                      strokeWidth={2}
+                      className={styles.headerBtnIcon}
+                      aria-hidden
+                    />
+                    {t('header.userDetails')}
+                  </button>
+                )}
                 <button type="button" className={styles.historyBtn} onClick={onOpenHistory}>
                   <History size={14} strokeWidth={2} className={styles.headerBtnIcon} aria-hidden />
                   {t('header.history')}

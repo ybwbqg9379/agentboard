@@ -2,11 +2,15 @@ import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { getAppVersionDefine } from './vite.version-define.js';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
 export default defineConfig({
   plugins: [react()],
+  define: {
+    ...getAppVersionDefine(),
+  },
   test: {
     name: 'agentboard-frontend',
     root: __dirname,

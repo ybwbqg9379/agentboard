@@ -1,0 +1,91 @@
+/*
+ * Theme pack: Claude-inspired blueprint (awesome-design-md / design-md/claude/DESIGN.md).
+ * Maps Anthropic public marketing/product palette to AgentBoard semantic tokens.
+ * AgentBoard customizations: same spacing/radius scale as foundation; Inter + JetBrains Mono
+ * (DESIGN.md §Anthropic Sans/Mono substitutes); status-running/tool kept readable on warm canvas.
+ */
+html[data-theme-pack='claude'] {
+  /* Blueprint: Body/UI sans ≈ Anthropic Sans → Inter stack (Claude DESIGN.md §3) */
+  --font-sans:
+    'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Monaco, monospace;
+  /* Blueprint: display serif → Georgia substitute (headlines in user shell only) */
+  --font-display: Georgia, 'Liberation Serif', 'Times New Roman', serif;
+
+  /* Surfaces — Parchment / Ivory / Warm Sand (DESIGN.md §2) */
+  --bg-primary: #f5f4ed;
+  --bg-secondary: #faf9f5;
+  --bg-tertiary: #e8e6dc;
+  --bg-elevated: #ffffff;
+  --bg-hover: #e8e6dc;
+  --bg-black-rgb: 20, 20, 19;
+
+  /* Borders — Border Cream / Border Warm */
+  --border-primary: #f0eee6;
+  --border-secondary: #e8e6dc;
+  --border-accent: #c96442;
+  --border-color: var(--border-primary);
+
+  /* Text — Charcoal / Olive / Stone (warm neutrals) */
+  --text-primary: #141413;
+  --text-secondary: #5e5d59;
+  --text-tertiary: #87867f;
+  --text-accent: #c96442;
+  --bg-accent: #c96442;
+  /* Blueprint: Ivory on terracotta CTA (DESIGN.md §4 Brand Terracotta) */
+  --on-accent: #faf9f5;
+
+  /* Status: blueprint error crimson; running/tool tuned for parchment contrast */
+  --status-running: #2d6a4f;
+  --status-running-rgb: 45, 106, 79;
+  --status-thinking: #c27803;
+  --status-thinking-rgb: 194, 120, 3;
+  --status-error: #b53333;
+  --status-error-rgb: 181, 51, 51;
+  --status-done: #c96442;
+  --status-done-rgb: 201, 100, 66;
+  --status-tool: #5c7cfa;
+  --status-tool-rgb: 92, 124, 250;
+}
+
+html[data-theme-pack='claude'][data-theme='dark'] {
+  /* Deep Dark / Dark Surface (DESIGN.md §2) */
+  --bg-primary: #141413;
+  --bg-secondary: #1a1a18;
+  --bg-tertiary: #252523;
+  --bg-elevated: #30302e;
+  --bg-hover: #3a3a37;
+  --bg-black-rgb: 20, 20, 19;
+
+  --border-primary: #30302e;
+  --border-secondary: #3d3d3a;
+  --border-accent: #d97757;
+  --border-color: var(--border-primary);
+
+  --text-primary: #faf9f5;
+  --text-secondary: #b0aea5;
+  --text-tertiary: #87867f;
+  --text-accent: #d97757;
+  --bg-accent: #c96442;
+  --on-accent: #faf9f5;
+
+  --status-running: #34d399;
+  --status-running-rgb: 52, 211, 153;
+  --status-thinking: #fbbf24;
+  --status-thinking-rgb: 251, 191, 36;
+  --status-error: #f87171;
+  --status-error-rgb: 248, 113, 113;
+  --status-done: #d97757;
+  --status-done-rgb: 217, 119, 87;
+  --status-tool: #7dd3fc;
+  --status-tool-rgb: 125, 211, 252;
+}
+
+/*
+ * Blueprint: focus ring uses Focus Blue #3898ec — «the only cool color» for a11y (DESIGN.md §4 Inputs).
+ */
+html[data-theme-pack='claude'] *:focus-visible {
+  box-shadow: 0 0 0 var(--focus-ring-spread) rgba(56, 152, 236, 0.35);
+  border-color: #3898ec;
+}

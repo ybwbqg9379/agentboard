@@ -37,6 +37,51 @@
   font-family: var(--font-mono);
 }
 
+.shellTabs {
+  display: flex;
+  flex-wrap: nowrap;
+  margin-left: var(--space-sm);
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  padding: var(--control-tight-padding);
+  border: var(--border-width-hairline) solid var(--border-secondary);
+  min-width: 0;
+  max-width: 100%;
+}
+
+.shellTab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--mode-tab-padding-y) 10px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--font-sans);
+  color: var(--text-tertiary);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-2xs);
+  cursor: pointer;
+  transition:
+    background var(--motion-duration-sm) ease,
+    color var(--motion-duration-sm) ease;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shellTab:hover {
+  color: var(--text-secondary);
+}
+
+.shellTabActive {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  box-shadow: 0 0 0 var(--border-width-hairline) var(--border-primary);
+}
+
 .modeTabs {
   display: flex;
   flex-wrap: nowrap;
@@ -240,15 +285,34 @@
     gap: var(--space-sm);
   }
 
+  /* 两行：① Console | Agent  ② 控制台壳或 Workflow/Experiment 下为 .modeTabs；用户壳+Agent 无第二行 */
   .left {
     flex: none;
     width: 100%;
     max-width: none;
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-xs);
+  }
+
+  .shellTabs {
+    flex: none;
+    margin-left: 0;
+    width: 100%;
+    max-width: none;
+    box-sizing: border-box;
+  }
+
+  .shellTab {
+    flex: 1 1 0;
+    padding-inline: var(--space-xs);
   }
 
   .modeTabs {
+    flex: none;
     margin-left: 0;
     width: 100%;
+    max-width: none;
     box-sizing: border-box;
   }
 

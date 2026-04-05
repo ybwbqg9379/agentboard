@@ -4,6 +4,8 @@ export const STORAGE_KEYS = {
   theme: 'agentboard-theme',
   themePack: 'agentboard-theme-pack',
   density: 'agentboard-density',
+  /** Pro console vs Agent-focused user shell (Agent mode only). */
+  uiShell: 'agentboard-ui-shell',
 };
 
 function getStorage(storage) {
@@ -60,16 +62,22 @@ export function readStoredDensity({ storage } = {}) {
   return readStorageValue(STORAGE_KEYS.density, storage) === 'compact' ? 'compact' : 'comfortable';
 }
 
+/** @returns {'pro' | 'agent'} */
+export function readStoredUiShell({ storage } = {}) {
+  return readStorageValue(STORAGE_KEYS.uiShell, storage) === 'agent' ? 'agent' : 'pro';
+}
+
 export function readStoredAppearance(options = {}) {
   return {
     theme: readStoredTheme(options),
     themePack: readStoredThemePack(options),
     density: readStoredDensity(options),
+    uiShell: readStoredUiShell(options),
   };
 }
 
 export function applyDocumentAppearance(
-  { theme, themePack, density },
+  { theme, themePack, density, uiShell },
   root = typeof document !== 'undefined' ? document.documentElement : null,
 ) {
   if (!root) return;
@@ -86,9 +94,15 @@ export function applyDocumentAppearance(
   } else {
     root.removeAttribute('data-density');
   }
+
+  if ((uiShell ?? 'pro') === 'agent') {
+    root.setAttribute('data-ui-shell', 'agent');
+  } else {
+    root.removeAttribute('data-ui-shell');
+  }
 }
 
-export function persistAppearance({ theme, themePack, density }, { storage } = {}) {
+export function persistAppearance({ theme, themePack, density, uiShell }, { storage } = {}) {
   writeStorageValue(STORAGE_KEYS.theme, theme === 'dark' ? 'dark' : 'light', storage);
   writeStorageValue(
     STORAGE_KEYS.themePack,
@@ -96,6 +110,7 @@ export function persistAppearance({ theme, themePack, density }, { storage } = {
     storage,
   );
   writeStorageValue(STORAGE_KEYS.density, density === 'compact' ? 'compact' : null, storage);
+  writeStorageValue(STORAGE_KEYS.uiShell, (uiShell ?? 'pro') === 'agent' ? 'agent' : null, storage);
 }
 
 export function applyStoredDocumentAppearance(options = {}) {

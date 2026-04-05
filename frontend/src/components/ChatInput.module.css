@@ -7,6 +7,13 @@
   box-sizing: border-box;
 }
 
+/* Agent user shell: Claude blueprint — elevated composer on parchment stack */
+.wrapperUser {
+  background: var(--bg-tertiary);
+  border-top-color: var(--border-secondary);
+  box-shadow: 0 -4px 24px rgba(var(--bg-black-rgb), 0.06);
+}
+
 .inputRow {
   display: flex;
   gap: var(--space-sm);
@@ -49,22 +56,6 @@
   color: var(--text-tertiary);
 }
 
-.modeSelect {
-  height: var(--chat-composer-height);
-  flex: 0 1 auto;
-  min-width: 0;
-  max-width: 100%;
-}
-
-.modeSelect:focus {
-  border-color: var(--border-accent);
-}
-
-.modeSelect:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
 .sendBtn,
 .continueBtn,
 .stopBtn {
@@ -92,6 +83,15 @@
 .sendBtn {
   background: var(--text-primary);
   color: var(--bg-primary);
+}
+
+.wrapperUser .sendBtn {
+  background: var(--bg-accent);
+  color: var(--on-accent);
+}
+
+.wrapperUser .sendBtn:hover:not(:disabled) {
+  opacity: 0.92;
 }
 
 .sendBtn:hover:not(:disabled) {
@@ -142,12 +142,6 @@
     width: 100%;
     min-width: 0;
     max-width: 100%;
-  }
-  .modeSelect {
-    flex: none;
-    width: 100%;
-    max-width: 100%;
-    align-self: stretch;
   }
   .sendBtn,
   .continueBtn,

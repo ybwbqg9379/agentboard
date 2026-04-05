@@ -28,6 +28,7 @@ describe('themePreferences', () => {
     document.documentElement.removeAttribute('data-theme');
     document.documentElement.removeAttribute('data-theme-pack');
     document.documentElement.removeAttribute('data-density');
+    document.documentElement.removeAttribute('data-ui-shell');
   });
 
   afterEach(() => {
@@ -45,10 +46,30 @@ describe('themePreferences', () => {
       theme: 'dark',
       themePack: 'cursor',
       density: 'compact',
+      uiShell: 'pro',
     });
     expect(document.documentElement.dataset.theme).toBe('dark');
     expect(document.documentElement.dataset.themePack).toBe('cursor');
     expect(document.documentElement.dataset.density).toBe('compact');
+    expect(document.documentElement.hasAttribute('data-ui-shell')).toBe(false);
+  });
+
+  it('applies and persists agent UI shell', () => {
+    storage.setItem(STORAGE_KEYS.uiShell, 'agent');
+    const matchMedia = vi.fn(() => ({ matches: false }));
+    applyStoredDocumentAppearance({ storage, matchMedia });
+    expect(document.documentElement.dataset.uiShell).toBe('agent');
+
+    persistAppearance(
+      {
+        theme: 'light',
+        themePack: 'default',
+        density: 'comfortable',
+        uiShell: 'agent',
+      },
+      { storage },
+    );
+    expect(storage.getItem(STORAGE_KEYS.uiShell)).toBe('agent');
   });
 
   it('falls back to safe defaults when stored values are invalid', () => {
@@ -65,6 +86,7 @@ describe('themePreferences', () => {
       theme: 'dark',
       themePack: 'default',
       density: 'comfortable',
+      uiShell: 'pro',
     });
     expect(document.documentElement.dataset.theme).toBe('dark');
     expect(document.documentElement.hasAttribute('data-theme-pack')).toBe(false);
@@ -77,6 +99,7 @@ describe('themePreferences', () => {
         theme: 'light',
         themePack: 'default',
         density: 'comfortable',
+        uiShell: 'pro',
       },
       { storage },
     );
@@ -84,12 +107,14 @@ describe('themePreferences', () => {
     expect(storage.getItem(STORAGE_KEYS.theme)).toBe('light');
     expect(storage.getItem(STORAGE_KEYS.themePack)).toBeNull();
     expect(storage.getItem(STORAGE_KEYS.density)).toBeNull();
+    expect(storage.getItem(STORAGE_KEYS.uiShell)).toBeNull();
 
     persistAppearance(
       {
         theme: 'dark',
         themePack: 'warp',
         density: 'compact',
+        uiShell: 'pro',
       },
       { storage },
     );
@@ -97,5 +122,6 @@ describe('themePreferences', () => {
     expect(storage.getItem(STORAGE_KEYS.theme)).toBe('dark');
     expect(storage.getItem(STORAGE_KEYS.themePack)).toBe('warp');
     expect(storage.getItem(STORAGE_KEYS.density)).toBe('compact');
+    expect(storage.getItem(STORAGE_KEYS.uiShell)).toBeNull();
   });
 });

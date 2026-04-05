@@ -1,5 +1,39 @@
 # Changelog
 
+## [0.16.3] - 2026-04-04
+
+### feat(frontend): 用户壳、Claude 主题包与 Agent 顶栏/输入简化
+
+#### Added
+
+- **界面壳层**：**`data-ui-shell`**（`agent` = 智能同事壳 / 缺省 = 控制台壳），**`localStorage`** 键 **`agentboard-ui-shell`**；**`themePreferences.js`** 读写并与 **`applyDocumentAppearance`** 同步。
+- **用户壳 UI**：**`UserAgentTimeline.jsx`**（与 **`AgentTimeline`** 共用 **`buildDisplayItems`** / 同一 `events`）、**`UserAgentDetailsDrawer.jsx`**（内嵌 **`RightPanel`**）、**`ChatInput`** **`variant="user"`** 与 **`userShell.*`** 文案；**`App.jsx`** 按壳层切换主布局。
+- **Claude 调色板包**：**`styles/themes/packs/claude.css`**（参考 awesome-design-md Claude 文档映射语义 Token）、**`THEME_PACK_ALLOWLIST`** 登记 **`claude`**；顶栏可选；切至用户壳且当前为 **`default`** 包时自动选 **`claude`**。
+- **动效 Token**：**`foundation.css`** 中 **`--motion-duration-*`**、**`--motion-ease-out-soft`**；用户时间线卡片与详情抽屉动画，**`prefers-reduced-motion: reduce`** 时关闭。
+- **语义色**：**`--on-accent`**（主 CTA 前景）、**`--font-display`**（Claude 包下 Georgia 栈，用户壳标题）。
+
+#### Changed
+
+- **顶栏（Header）**：**Console | 智能同事** 分段；**窄屏** **`.left`** 纵向：**第一行**壳、**第二行**模式 Tab（有 Tab 时）；**用户壳 + `mode=agent`** 时**不展示** **Agent / Workflow / Experiment** Tab（改工作流/实验须先切回 **控制台**）。
+- **ChatInput（Agent 主界面）**：移除权限模式下拉；固定 **`permissionMode: bypassPermissions`** 调用 **`onSend` / `onFollowUp`**（工作流节点配置仍可选权限）。
+- **i18n**：**`header.*`**（壳、Claude 包名、详情按钮等）、**`userShell.*`**；移除未再使用的 **`chatInput.permissionTitle`**、**`userShell.permissionTitle`** 等。
+
+#### Fixed
+
+- **`__APP_VERSION__`**：根目录 **`vitest` projects** 仅加载 **`frontend/vitest.config.js`** 时未注入 Vite **`define`**，单测或工具链下 Header 可出现 **`vundefined`**。新增 **`frontend/vite.version-define.js`** 的 **`getAppVersionDefine()`**，由 **`vite.config.js`** 与 **`vitest.config.js`** 共用，版本始终来自**仓库根** **`package.json`**，与 **`npm run build` / `dev`** 一致。
+
+#### Documentation
+
+- **`frontend/DESIGN.md`**：补充 **`data-ui-shell`**、**Claude 蓝图与自定义**、顶栏窄屏两行、用户壳无模式 Tab 等。
+- **`ARCHITECTURE.md`**：Agent 双壳数据流、模块表（**`UserAgentTimeline`**、抽屉、Header、固定 bypass）。
+
+#### Tests
+
+- **`themePreferences.test.js`**：`uiShell` 读写与 **`data-ui-shell`**。
+- **`ChatInput.test.jsx`**：断言 **`bypassPermissions`**；移除对已删除下拉的 mock。
+
+---
+
 ## [0.16.2] - 2026-04-04
 
 ### chore: 文档测试计数、i18n 边界门禁、E2E 与 document title / RTL

@@ -7,6 +7,7 @@ import {
   readStoredDensity,
   readStoredTheme,
   readStoredThemePack,
+  readStoredUiShell,
 } from './themePreferences.js';
 import Header from './components/Header.jsx';
 import ChatInput from './components/ChatInput.jsx';
@@ -16,6 +17,8 @@ import StatusBar from './components/StatusBar.jsx';
 import SessionDrawer from './components/SessionDrawer.jsx';
 import WorkflowEditor from './components/WorkflowEditor.jsx';
 import ExperimentView from './components/ExperimentView.jsx';
+import UserAgentTimeline from './components/UserAgentTimeline.jsx';
+import UserAgentDetailsDrawer from './components/UserAgentDetailsDrawer.jsx';
 
 export default function App() {
   const {
@@ -37,7 +40,6 @@ export default function App() {
     subscribeExperiment,
     unsubscribeExperiment,
     loadExperimentRunsEvents,
-    // P3 swarm
     swarmBranches,
     swarmHypotheses,
     swarmStatus,
@@ -48,21 +50,33 @@ export default function App() {
   } = useWebSocket();
 
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [mode, setMode] = useState('agent'); // 'agent' | 'workflow'
+  const [userDetailsOpen, setUserDetailsOpen] = useState(false);
+  const [mode, setMode] = useState('agent');
 
   const [theme, setTheme] = useState(() => readStoredTheme());
   const [themePack, setThemePack] = useState(() => readStoredThemePack());
   const [density, setDensity] = useState(() => readStoredDensity());
+  const [uiShell, setUiShell] = useState(() => readStoredUiShell());
 
   useLayoutEffect(() => {
-    const appearance = { theme, themePack, density };
+    const appearance = { theme, themePack, density, uiShell };
     applyDocumentAppearance(appearance);
     persistAppearance(appearance);
-  }, [theme, themePack, density]);
+  }, [theme, themePack, density, uiShell]);
 
   useEffect(() => {
     void ensureThemePackFontsLoaded(themePack);
   }, [themePack]);
+
+  function handleUiShellChange(next) {
+    setUiShell(next);
+    if (next === 'agent') {
+      setThemePack((p) => (p === 'default' ? 'claude' : p));
+    }
+    setUserDetailsOpen(false);
+  }
+
+  const agentUserMode = mode === 'agent' && uiShell === 'agent';
 
   return (
     <div className="app-layout">
@@ -80,9 +94,39 @@ export default function App() {
         onThemePackChange={setThemePack}
         density={density}
         onDensityChange={setDensity}
+        uiShell={uiShell}
+        onUiShellChange={handleUiShellChange}
+        onOpenUserDetails={() => setUserDetailsOpen(true)}
       />
 
-      {mode === 'agent' ? (
+      {mode === 'agent' && agentUserMode ? (
+        <>
+          <div className="main-content agent-user-shell">
+            <div className="left-panel agent-user-column">
+              <UserAgentTimeline events={events} status={status} sessionId={sessionId} />
+              <ChatInput
+                variant="user"
+                onSend={startAgent}
+                onFollowUp={followUp}
+                onStop={stopAgent}
+                status={status}
+                sessionId={sessionId}
+                connected={connected}
+              />
+            </div>
+          </div>
+          <UserAgentDetailsDrawer open={userDetailsOpen} onClose={() => setUserDetailsOpen(false)}>
+            <RightPanel events={events} sessionStats={sessionStats} />
+          </UserAgentDetailsDrawer>
+          <StatusBar
+            status={status}
+            sessionId={sessionId}
+            eventCount={events.length}
+            sessionStats={sessionStats}
+            subtasks={subtasks}
+          />
+        </>
+      ) : mode === 'agent' ? (
         <>
           <div className="main-content">
             <div className="left-panel">

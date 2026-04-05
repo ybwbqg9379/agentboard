@@ -6,7 +6,14 @@
  * `THEME_PACK_WEBFONT_IMPORTERS` on purpose: Linear uses **Inter + JetBrains Mono** from
  * `index.html`, not a Fontsource chunk.
  */
-export const THEME_PACK_ALLOWLIST = new Set(['linear', 'vercel', 'cursor', 'warp', 'apple']);
+export const THEME_PACK_ALLOWLIST = new Set([
+  'linear',
+  'vercel',
+  'cursor',
+  'warp',
+  'apple',
+  'claude',
+]);
 
 /**
  * Packs that load bundled Fontsource CSS via dynamic `import` (see `styles/fonts-pack-*.css`).

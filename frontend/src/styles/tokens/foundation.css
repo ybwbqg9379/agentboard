@@ -184,6 +184,9 @@
   --layout-grid-hairline: 1px;
   --focus-ring-spread: 2px;
   --motion-enter-translate-y: var(--space-sm);
+  --motion-duration-sm: 0.2s;
+  --motion-duration-md: 0.28s;
+  --motion-ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
   --timeline-gutter-width: 16px;
   --error-fallback-max-width: 28rem;
   --error-fallback-margin-block: calc(var(--space-2xl) + var(--space-lg));

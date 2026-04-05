@@ -444,7 +444,7 @@ function TimelineItem({ item, index, sessionId }) {
   );
 }
 
-function buildDisplayItems(events) {
+export function buildDisplayItems(events) {
   const items = [];
   for (let ei = 0; ei < events.length; ei++) {
     const flat = flattenEvent(events[ei]);

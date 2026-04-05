@@ -18,6 +18,11 @@
     "paletteCursor": "Cursor",
     "paletteWarp": "Warp",
     "paletteApple": "Apple",
+    "paletteClaude": "Claude",
+    "shellPro": "Console",
+    "shellAgent": "Agent",
+    "shellGroupLabel": "Interface mode",
+    "userDetails": "Details",
     "themeLight": "Light",
     "themeDark": "Dark",
     "themeModeTitle": "Light or dark mode",
@@ -50,7 +55,6 @@
     "run": "Run",
     "continue": "Continue",
     "stop": "Stop",
-    "permissionTitle": "Permission mode",
     "permissionBypass": "Bypass",
     "permissionAcceptEdits": "Accept Edits",
     "permissionDefault": "Default",
@@ -319,6 +323,19 @@
       "failed": "failed",
       "pending": "pending"
     }
+  },
+  "userShell": {
+    "feedTitle": "Activity",
+    "emptyTitle": "Ready for a task",
+    "emptyHint": "Describe what you want done. The agent runs with full capabilities and shows progress here.",
+    "runningHint": "Working through your task…",
+    "placeholderTask": "Describe the task for the agent…",
+    "placeholderFollowUp": "Add instructions or a follow-up…",
+    "placeholderWait": "Waiting for connection…",
+    "runAgent": "Run agent",
+    "continueTask": "Continue",
+    "detailsTitle": "Technical details",
+    "closeDetails": "Close details panel"
   },
   "confirmDialog": {
     "defaultTitle": "Confirm",

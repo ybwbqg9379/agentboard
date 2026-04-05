@@ -3,10 +3,6 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import ChatInput from './ChatInput.jsx';
 
-vi.mock('./Dropdown.jsx', () => ({
-  default: ({ disabled }) => <div data-testid="mode-select" data-disabled={String(disabled)} />,
-}));
-
 describe('ChatInput', () => {
   it('disables submit when disconnected', () => {
     render(
@@ -40,5 +36,26 @@ describe('ChatInput', () => {
     );
 
     expect(screen.getByRole('button', { name: 'Stop' }).disabled).toBe(true);
+  });
+
+  it('sends start with bypassPermissions when connected', () => {
+    const onSend = vi.fn();
+    render(
+      <ChatInput
+        connected
+        onSend={onSend}
+        onFollowUp={vi.fn()}
+        onStop={vi.fn()}
+        status="idle"
+        sessionId={null}
+      />,
+    );
+
+    fireEvent.change(screen.getByPlaceholderText('Enter a task for the agent...'), {
+      target: { value: 'hello' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }));
+
+    expect(onSend).toHaveBeenCalledWith('hello', { permissionMode: 'bypassPermissions' });
   });
 });

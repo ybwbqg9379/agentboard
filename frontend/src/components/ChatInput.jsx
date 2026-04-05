@@ -1,40 +1,38 @@
-import { useMemo, useState, useRef } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ArrowRight, Send, Square } from 'lucide-react';
 import styles from './ChatInput.module.css';
-import dropdownStyles from './Dropdown.module.css';
-import Dropdown from './Dropdown';
+
+/** Agent 主界面固定为完全绕过权限提示（与后端 `permissionMode` 约定一致）。 */
+const PERMISSION_MODE = 'bypassPermissions';
 
 // Statuses that allow sending a follow-up message
 const CONTINUABLE = new Set(['completed', 'failed', 'stopped']);
 
-export default function ChatInput({ onSend, onFollowUp, onStop, status, sessionId, connected }) {
+export default function ChatInput({
+  onSend,
+  onFollowUp,
+  onStop,
+  status,
+  sessionId,
+  connected,
+  variant = 'pro',
+}) {
   const { t } = useTranslation();
   const [value, setValue] = useState('');
-  const [permissionMode, setPermissionMode] = useState('bypassPermissions');
-  const inputRef = useRef(null);
   const isRunning = status === 'running';
   const canFollowUp = sessionId && CONTINUABLE.has(status);
   const canSubmit = connected && !isRunning && Boolean(value.trim());
-
-  const permissionModes = useMemo(
-    () => [
-      { value: 'bypassPermissions', label: t('chatInput.permissionBypass') },
-      { value: 'acceptEdits', label: t('chatInput.permissionAcceptEdits') },
-      { value: 'default', label: t('chatInput.permissionDefault') },
-      { value: 'plan', label: t('chatInput.permissionPlan') },
-    ],
-    [t],
-  );
 
   function handleSubmit(e) {
     e.preventDefault();
     const text = value.trim();
     if (!text || isRunning || !connected) return;
+    const opts = { permissionMode: PERMISSION_MODE };
     if (canFollowUp) {
-      onFollowUp(text, { permissionMode });
+      onFollowUp(text, opts);
     } else {
-      onSend(text, { permissionMode });
+      onSend(text, opts);
     }
     setValue('');
   }
@@ -47,28 +45,34 @@ export default function ChatInput({ onSend, onFollowUp, onStop, status, sessionI
     }
   }
 
+  const isUser = variant === 'user';
   const placeholder = connected
     ? canFollowUp
-      ? t('chatInput.placeholderFollowUp')
-      : t('chatInput.placeholderTask')
-    : t('chatInput.placeholderWait');
+      ? isUser
+        ? t('userShell.placeholderFollowUp')
+        : t('chatInput.placeholderFollowUp')
+      : isUser
+        ? t('userShell.placeholderTask')
+        : t('chatInput.placeholderTask')
+    : isUser
+      ? t('userShell.placeholderWait')
+      : t('chatInput.placeholderWait');
 
-  const buttonLabel = canFollowUp ? t('chatInput.continue') : t('chatInput.run');
+  const buttonLabel = canFollowUp
+    ? isUser
+      ? t('userShell.continueTask')
+      : t('chatInput.continue')
+    : isUser
+      ? t('userShell.runAgent')
+      : t('chatInput.run');
 
   return (
-    <form className={styles.wrapper} onSubmit={handleSubmit}>
+    <form
+      className={`${styles.wrapper} ${isUser ? styles.wrapperUser : ''}`}
+      onSubmit={handleSubmit}
+    >
       <div className={styles.inputRow}>
-        <Dropdown
-          className={`${styles.modeSelect} ${dropdownStyles.triggerFluid}`}
-          options={permissionModes}
-          value={permissionMode}
-          onChange={setPermissionMode}
-          disabled={isRunning || !connected}
-          title={t('chatInput.permissionTitle')}
-          direction="up"
-        />
         <textarea
-          ref={inputRef}
           className={styles.input}
           value={value}
           onChange={(e) => setValue(e.target.value)}
