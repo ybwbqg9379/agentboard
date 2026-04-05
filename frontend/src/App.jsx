@@ -51,7 +51,8 @@ export default function App() {
 
   const [themePack, setThemePack] = useState(() => {
     const stored = window.localStorage.getItem('agentboard-theme-pack');
-    return stored === 'linear' ? 'linear' : 'default';
+    const allowed = new Set(['linear', 'vercel', 'cursor', 'warp', 'apple']);
+    return allowed.has(stored) ? stored : 'default';
   });
 
   useEffect(() => {

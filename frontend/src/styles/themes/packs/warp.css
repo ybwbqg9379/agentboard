@@ -1,0 +1,65 @@
+/*
+ * Theme pack: Warp-inspired (awesome-design-md/design-md/warp/DESIGN.md).
+ * Dark-first warm near-black, parchment #faf9f6 text, restrained grays; light: parchment canvas.
+ */
+html[data-theme-pack='warp'] {
+  --bg-primary: #faf9f6;
+  --bg-secondary: #f3f2ee;
+  --bg-tertiary: #ebe9e4;
+  --bg-elevated: #ffffff;
+  --bg-hover: #ebe9e4;
+  --bg-black-rgb: 44, 44, 42;
+
+  --border-primary: #e0ddd6;
+  --border-secondary: #d4d0c8;
+  --border-accent: #666469;
+  --border-color: var(--border-primary);
+
+  --text-primary: #2c2c2a;
+  --text-secondary: #5c5b58;
+  --text-tertiary: #868584;
+  --text-accent: #454545;
+  --bg-accent: #454545;
+
+  --status-running: #5a7a5c;
+  --status-running-rgb: 90, 122, 92;
+  --status-thinking: #9a8b7a;
+  --status-thinking-rgb: 154, 139, 122;
+  --status-error: #a86056;
+  --status-error-rgb: 168, 96, 86;
+  --status-done: #666469;
+  --status-done-rgb: 102, 100, 105;
+  --status-tool: #6f6e78;
+  --status-tool-rgb: 111, 110, 120;
+}
+
+html[data-theme-pack='warp'][data-theme='dark'] {
+  --bg-primary: #1a1a19;
+  --bg-secondary: #222221;
+  --bg-tertiary: #2a2a29;
+  --bg-elevated: #2a2a29;
+  --bg-hover: #353534;
+  --bg-black-rgb: 26, 26, 25;
+
+  --border-primary: #454545;
+  --border-secondary: #525250;
+  --border-accent: #afaeac;
+  --border-color: rgba(226, 226, 226, 0.22);
+
+  --text-primary: #faf9f6;
+  --text-secondary: #afaeac;
+  --text-tertiary: #868584;
+  --text-accent: #faf9f6;
+  --bg-accent: #454545;
+
+  --status-running: #8faa90;
+  --status-running-rgb: 143, 170, 144;
+  --status-thinking: #c4b8a8;
+  --status-thinking-rgb: 196, 184, 168;
+  --status-error: #d49086;
+  --status-error-rgb: 212, 144, 134;
+  --status-done: #b5b0a8;
+  --status-done-rgb: 181, 176, 168;
+  --status-tool: #a3a0ae;
+  --status-tool-rgb: 163, 160, 174;
+}

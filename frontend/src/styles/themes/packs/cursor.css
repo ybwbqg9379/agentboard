@@ -1,0 +1,65 @@
+/*
+ * Theme pack: Cursor-inspired (awesome-design-md/design-md/cursor/DESIGN.md).
+ * Warm cream surfaces, #26251e text, #f54e00 accent; dark: warm charcoal, parchment text.
+ */
+html[data-theme-pack='cursor'] {
+  --bg-primary: #f2f1ed;
+  --bg-secondary: #ebeae5;
+  --bg-tertiary: #e6e5e0;
+  --bg-elevated: #ffffff;
+  --bg-hover: #e6e5e0;
+  --bg-black-rgb: 38, 37, 30;
+
+  --border-primary: #d8d6cf;
+  --border-secondary: #ccc9c0;
+  --border-accent: #f54e00;
+  --border-color: var(--border-primary);
+
+  --text-primary: #26251e;
+  --text-secondary: #5c5b52;
+  --text-tertiary: #8a887c;
+  --text-accent: #f54e00;
+  --bg-accent: #f54e00;
+
+  --status-running: #1f8a65;
+  --status-running-rgb: 31, 138, 101;
+  --status-thinking: #c97d4a;
+  --status-thinking-rgb: 201, 125, 74;
+  --status-error: #cf2d56;
+  --status-error-rgb: 207, 45, 86;
+  --status-done: #c08532;
+  --status-done-rgb: 192, 133, 50;
+  --status-tool: #6b8cbc;
+  --status-tool-rgb: 107, 140, 188;
+}
+
+html[data-theme-pack='cursor'][data-theme='dark'] {
+  --bg-primary: #1c1b17;
+  --bg-secondary: #24231d;
+  --bg-tertiary: #2e2c25;
+  --bg-elevated: #2e2c25;
+  --bg-hover: #3a3830;
+  --bg-black-rgb: 28, 27, 23;
+
+  --border-primary: #3d3a33;
+  --border-secondary: #4a4740;
+  --border-accent: #f54e00;
+  --border-color: rgba(242, 241, 237, 0.12);
+
+  --text-primary: #f2f1ed;
+  --text-secondary: #c9c7be;
+  --text-tertiary: #9e9c91;
+  --text-accent: #ff8a50;
+  --bg-accent: #f54e00;
+
+  --status-running: #3db892;
+  --status-running-rgb: 61, 184, 146;
+  --status-thinking: #e8a882;
+  --status-thinking-rgb: 232, 168, 130;
+  --status-error: #e85a7a;
+  --status-error-rgb: 232, 90, 122;
+  --status-done: #d4a853;
+  --status-done-rgb: 212, 168, 83;
+  --status-tool: #8fb4e0;
+  --status-tool-rgb: 143, 180, 224;
+}

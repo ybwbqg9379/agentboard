@@ -5,6 +5,10 @@
 @import './styles/tokens/foundation.css';
 @import './styles/themes/agentboard.css';
 @import './styles/themes/packs/linear.css';
+@import './styles/themes/packs/vercel.css';
+@import './styles/themes/packs/cursor.css';
+@import './styles/themes/packs/warp.css';
+@import './styles/themes/packs/apple.css';
 
 html,
 body,

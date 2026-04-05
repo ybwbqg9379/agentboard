@@ -43,6 +43,10 @@ export default function Header({
     () => [
       { value: 'default', label: t('header.paletteDefault') },
       { value: 'linear', label: t('header.paletteLinear') },
+      { value: 'vercel', label: t('header.paletteVercel') },
+      { value: 'cursor', label: t('header.paletteCursor') },
+      { value: 'warp', label: t('header.paletteWarp') },
+      { value: 'apple', label: t('header.paletteApple') },
     ],
     [t],
   );

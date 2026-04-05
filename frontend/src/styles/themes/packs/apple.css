@@ -1,0 +1,65 @@
+/*
+ * Theme pack: Apple marketing-inspired (awesome-design-md/design-md/apple/DESIGN.md).
+ * Light #f5f5f7 / #1d1d1f, Apple Blue #0071e3; dark pure black + white text + #2997ff accents.
+ */
+html[data-theme-pack='apple'] {
+  --bg-primary: #f5f5f7;
+  --bg-secondary: #e8e8ed;
+  --bg-tertiary: #d2d2d7;
+  --bg-elevated: #ffffff;
+  --bg-hover: #e8e8ed;
+  --bg-black-rgb: 29, 29, 31;
+
+  --border-primary: #d2d2d7;
+  --border-secondary: #c4c4c9;
+  --border-accent: #0071e3;
+  --border-color: var(--border-primary);
+
+  --text-primary: #1d1d1f;
+  --text-secondary: #424245;
+  --text-tertiary: #86868b;
+  --text-accent: #0071e3;
+  --bg-accent: #0071e3;
+
+  --status-running: #34c759;
+  --status-running-rgb: 52, 199, 89;
+  --status-thinking: #ff9500;
+  --status-thinking-rgb: 255, 149, 0;
+  --status-error: #ff3b30;
+  --status-error-rgb: 255, 59, 48;
+  --status-done: #0071e3;
+  --status-done-rgb: 0, 113, 227;
+  --status-tool: #5ac8fa;
+  --status-tool-rgb: 90, 200, 250;
+}
+
+html[data-theme-pack='apple'][data-theme='dark'] {
+  --bg-primary: #000000;
+  --bg-secondary: #1d1d1f;
+  --bg-tertiary: #272729;
+  --bg-elevated: #272729;
+  --bg-hover: #2d2d2f;
+  --bg-black-rgb: 0, 0, 0;
+
+  --border-primary: #424245;
+  --border-secondary: #48484a;
+  --border-accent: #2997ff;
+  --border-color: rgba(255, 255, 255, 0.15);
+
+  --text-primary: #ffffff;
+  --text-secondary: #a1a1a6;
+  --text-tertiary: #6e6e73;
+  --text-accent: #2997ff;
+  --bg-accent: #0071e3;
+
+  --status-running: #32d74b;
+  --status-running-rgb: 50, 215, 75;
+  --status-thinking: #ff9f0a;
+  --status-thinking-rgb: 255, 159, 10;
+  --status-error: #ff453a;
+  --status-error-rgb: 255, 69, 58;
+  --status-done: #2997ff;
+  --status-done-rgb: 41, 151, 255;
+  --status-tool: #64d2ff;
+  --status-tool-rgb: 100, 210, 255;
+}

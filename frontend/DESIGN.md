@@ -4,15 +4,25 @@
 
 ## 1. 双轴主题（必守）
 
-| 轴           | HTML                                       | 取值                                                    | 作用                                                                                          |
-| ------------ | ------------------------------------------ | ------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| **明暗**     | `document.documentElement` 上 `data-theme` | `light` \| `dark`                                       | 同一套语义变量在亮/暗下的取值；与系统 `prefers-color-scheme` 的首次默认一致，可本地存储覆盖。 |
-| **调色板包** | `data-theme-pack`（可选）                  | 缺省或 `default` = AgentBoard；`linear` = Linear 风格包 | 只改 **色与状态色**，不改变布局 Token。                                                       |
+| 轴           | HTML                                       | 取值                                                                         | 作用                                                                                          |
+| ------------ | ------------------------------------------ | ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| **明暗**     | `document.documentElement` 上 `data-theme` | `light` \| `dark`                                                            | 同一套语义变量在亮/暗下的取值；与系统 `prefers-color-scheme` 的首次默认一致，可本地存储覆盖。 |
+| **调色板包** | `data-theme-pack`（可选）                  | `default` \| `linear` \| `vercel` \| `cursor` \| `warp` \| `apple`（见下表） | 只改 **色与状态色**，不改变布局 Token。                                                       |
 
 规则：
 
 - **任意 `theme-pack` 都必须同时提供 `light` 与 `dark` 下的变量覆盖**（见 `themes/packs/*.css`）。
 - 新增主题包时，选择器形如：`html[data-theme-pack='name']` 与 `html[data-theme-pack='name'][data-theme='dark']`，避免只覆盖一侧。
+
+**已登记主题包**（实现：`src/styles/themes/packs/<name>.css`；参考 awesome-design-md）：
+
+| `data-theme-pack` | 参考文档                         |
+| ----------------- | -------------------------------- |
+| `linear`          | `design-md/linear.app/DESIGN.md` |
+| `vercel`          | `design-md/vercel/DESIGN.md`     |
+| `cursor`          | `design-md/cursor/DESIGN.md`     |
+| `warp`            | `design-md/warp/DESIGN.md`       |
+| `apple`           | `design-md/apple/DESIGN.md`      |
 
 ## 2. 语义 Token（组件应只依赖这些）
 
