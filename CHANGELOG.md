@@ -28,6 +28,8 @@
 
 #### Fixed
 
+- **时间线 i18n 刷新**：**`AgentTimeline`** / **`UserAgentTimeline`** 在运行时语言切换后会基于 **`i18n.language`** 重新投影既有 `events`，不再等到新事件到来才更新文案；**`agentTimelineModel.js`** 的行对象新增稳定 **`kind`**，JSON 表格 / PDF 下载增强不再依赖翻译后的 **`label`** 文本匹配。
+- **Header 壳切换可访问性**：**Console / Agent** 壳按钮补充 **`aria-pressed`**，屏幕阅读器与键盘用户可感知当前激活壳层。
 - **`__APP_VERSION__`**：根目录 **`vitest` projects** 仅加载 **`frontend/vitest.config.js`** 时未注入 Vite **`define`**，单测或工具链下 Header 可出现 **`vundefined`**。新增 **`frontend/vite.version-define.js`** 的 **`getAppVersionDefine()`**，由 **`vite.config.js`** 与 **`vitest.config.js`** 共用，版本始终来自**仓库根** **`package.json`**，与 **`npm run build` / `dev`** 一致。
 - **`UserAgentDetailsDrawer` 可访问性**：与 **`aria-modal="true"`** 对齐的 **焦点陷阱**（`document` capture 上拦截 **Tab**、焦点留在 portal 根内、关闭后恢复先前焦点）；遮罩按钮 **`tabIndex={-1}`** 不参与 Tab 序；**`onCloseRef`** 稳定 Escape 监听。遮罩与工具栏关闭钮拆分 **`aria-label`**（新增 **`userShell.dismissDetailsOverlay`**），避免屏幕阅读器重复同名控件。打开时仅在 **`activeElement`** 位于抽屉外时记录回焦目标，避免边界情况误存抽屉内节点。
 - **`vite.version-define.js` 健壮性**：读取或解析根 **`package.json`** 失败时 **try/catch**、**`console.warn`**，回退版本 **`0.0.0`**，避免构建/测试阶段晦涩异常。
@@ -35,16 +37,20 @@
 
 #### Documentation
 
+- **`ARCHITECTURE.md`**：补充共享时间线模型的稳定 **`kind`** 语义、语言切换重投影，以及 Header shell 按钮的 **`aria-pressed`** 约定。
+- **`ONBOARDING.md`**：Agent 快速上手补充 **Console / Agent** 壳切换说明，避免首次进入用户壳时误以为 Workflow / Experiment 被移除。
 - **`frontend/DESIGN.md`**：补充 **`data-ui-shell`**、**Claude 蓝图与自定义**、顶栏窄屏两行、用户壳无模式 Tab 等。
 - **`ARCHITECTURE.md`**：Agent 双壳数据流、模块表（**`UserAgentTimeline`**、**`agentTimelineModel.js`**、抽屉、Header、固定 bypass）。
-- **`README.md`**、**`CONTRIBUTING.md`**、**`ONBOARDING.md`**：Vitest 全仓计数更新为 **872**（637 + 235）。
+- **`README.md`**、**`CONTRIBUTING.md`**、**`ONBOARDING.md`**：Vitest 全仓计数更新为 **875**（637 + 238）。
 
 #### Tests
 
 - **`themePreferences.test.js`**：`uiShell` 读写与 **`data-ui-shell`**。
 - **`ChatInput.test.jsx`**：断言 **`bypassPermissions`**；移除对已删除下拉的 mock。
 - **`UserAgentDetailsDrawer.test.jsx`**：对话框语义、Escape、打开时焦点落在关闭控件。
-- **`UserAgentTimeline.test.jsx`**：空态与含 **`assistant`** 事件时的 feed 展示。
+- **`UserAgentTimeline.test.jsx`**：空态、含 **`assistant`** 事件时的 feed 展示，以及**运行时切语言后既有时间线行即时翻译**。
+- **`Header.test.jsx`**：**Console / Agent** 壳按钮的 **`aria-pressed`** 状态与切换回调。
+- **`AgentTimeline.test.jsx`**：共享时间线模型新增 **`kind`** 语义的断言。
 
 ---
 

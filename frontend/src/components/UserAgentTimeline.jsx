@@ -50,12 +50,10 @@ function truncate(text, max = 5000) {
 }
 
 function UserMilestoneRow({ item, index, sessionId }) {
-  const { t } = useTranslation();
   const useMarkdown = item.renderMarkdown === true;
-  const toolResultLabel = t('timeline.event.toolResult');
 
   let tableData = null;
-  if (item.label === toolResultLabel && item.dot !== 'error') {
+  if (item.kind === 'tool_result') {
     try {
       const parsed = JSON.parse(item.body);
       if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === 'object') {
@@ -67,7 +65,7 @@ function UserMilestoneRow({ item, index, sessionId }) {
   }
 
   let pdfFile = null;
-  if (item.label === toolResultLabel && item.dot !== 'error') {
+  if (item.kind === 'tool_result') {
     const pdfMatch = item.body.match(/File: (.*\.pdf)/i);
     if (pdfMatch) pdfFile = pdfMatch[1];
   }
@@ -109,9 +107,9 @@ function UserMilestoneRow({ item, index, sessionId }) {
 }
 
 export default function UserAgentTimeline({ events, status, sessionId }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const bottomRef = useRef(null);
-  const displayItems = useMemo(() => buildDisplayItems(events), [events]);
+  const displayItems = useMemo(() => buildDisplayItems(events), [events, i18n.language]);
 
   useEffect(() => {
     const id = requestAnimationFrame(() => {

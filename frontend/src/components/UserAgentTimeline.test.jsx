@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { afterEach, describe, it, expect, vi } from 'vitest';
+import { act, cleanup, render, screen } from '@testing-library/react';
+import i18n from '../i18n.js';
 import UserAgentTimeline from './UserAgentTimeline.jsx';
 
 vi.mock('./UserAgentTimeline.module.css', () => ({
@@ -34,6 +35,11 @@ vi.mock('./UserAgentTimeline.module.css', () => ({
 }));
 
 describe('UserAgentTimeline', () => {
+  afterEach(async () => {
+    cleanup();
+    await i18n.changeLanguage('en');
+  });
+
   it('shows empty state when idle and there are no events', () => {
     render(<UserAgentTimeline events={[]} status="idle" sessionId={null} />);
     expect(screen.getByRole('heading', { name: /ready for a task/i })).toBeTruthy();
@@ -52,5 +58,26 @@ describe('UserAgentTimeline', () => {
     expect(screen.getByRole('heading', { name: /activity/i })).toBeTruthy();
     expect(screen.getByText('1 event')).toBeTruthy();
     expect(screen.getByRole('heading', { name: /assistant/i })).toBeTruthy();
+  });
+
+  it('recomputes translated timeline rows when the language changes', async () => {
+    const events = [
+      {
+        type: 'assistant',
+        timestamp: '2026-04-04T12:00:00.000Z',
+        content: { text: 'Hello' },
+      },
+    ];
+
+    render(<UserAgentTimeline events={events} status="idle" sessionId="s1" />);
+    expect(screen.getByRole('heading', { name: /assistant/i })).toBeTruthy();
+    expect(screen.getByText('1 event')).toBeTruthy();
+
+    await act(async () => {
+      await i18n.changeLanguage('zh-CN');
+    });
+
+    expect(screen.getByRole('heading', { name: '助手' })).toBeTruthy();
+    expect(screen.getByText('1 条事件')).toBeTruthy();
   });
 });

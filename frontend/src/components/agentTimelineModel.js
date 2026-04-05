@@ -220,6 +220,7 @@ export const TYPE_HANDLERS = {
 // --- Content block dispatch map ---
 export const BLOCK_HANDLERS = {
   thinking: (b, ts) => ({
+    kind: 'thinking',
     label: i18n.t('timeline.event.thinking'),
     dot: 'thinking',
     body: b.thinking || b.text || '',
@@ -229,6 +230,7 @@ export const BLOCK_HANDLERS = {
   text: (b, ts) =>
     b.text
       ? {
+          kind: 'assistant',
           label: i18n.t('timeline.event.assistant'),
           dot: 'done',
           body: b.text,
@@ -237,6 +239,7 @@ export const BLOCK_HANDLERS = {
         }
       : null,
   tool_use: (b, ts) => ({
+    kind: 'tool_use',
     label: i18n.t('timeline.event.toolColon', { name: b.name || i18n.t('common.unknown') }),
     dot: 'tool',
     body: typeof b.input === 'string' ? b.input : JSON.stringify(b.input, null, 2),
@@ -244,6 +247,7 @@ export const BLOCK_HANDLERS = {
     renderMarkdown: false,
   }),
   tool_result: (b, ts) => ({
+    kind: b.is_error ? 'tool_error' : 'tool_result',
     label: b.is_error ? i18n.t('timeline.event.toolError') : i18n.t('timeline.event.toolResult'),
     dot: b.is_error ? 'error' : 'done',
     body:
@@ -260,6 +264,7 @@ export function parseBlock(block, ts) {
   const handler = BLOCK_HANDLERS[block.type];
   if (handler) return handler(block, ts);
   return {
+    kind: block.type || 'block',
     label: block.type || i18n.t('timeline.event.block'),
     dot: 'done',
     body: JSON.stringify(block, null, 2),
@@ -275,15 +280,26 @@ export function flattenEvent(event) {
 
   if (type === 'system') {
     const handler = SYSTEM_HANDLERS[subtype];
-    if (handler) return handler(content, ts);
+    if (handler) {
+      return handler(content, ts).map((item) => ({ kind: subtype || 'system', ...item }));
+    }
     const body = content?.message || content?.text || subtype || '';
     return body
-      ? [{ label: i18n.t('timeline.event.system'), dot: 'done', body, ts, renderMarkdown: false }]
+      ? [
+          {
+            kind: subtype || 'system',
+            label: i18n.t('timeline.event.system'),
+            dot: 'done',
+            body,
+            ts,
+            renderMarkdown: false,
+          },
+        ]
       : [];
   }
 
   const typeHandler = TYPE_HANDLERS[type];
-  if (typeHandler) return typeHandler(content, ts);
+  if (typeHandler) return typeHandler(content, ts).map((item) => ({ kind: type, ...item }));
 
   const blocks = content?.content || content?.message?.content;
   if (Array.isArray(blocks)) return blocks.map((b) => parseBlock(b, ts)).filter(Boolean);
@@ -292,6 +308,7 @@ export function flattenEvent(event) {
     return content.text
       ? [
           {
+            kind: 'assistant',
             label: i18n.t('timeline.event.assistant'),
             dot: 'done',
             body: content.text,
@@ -306,6 +323,7 @@ export function flattenEvent(event) {
     const err = Boolean(content?.is_error);
     return [
       {
+        kind: err ? 'tool_error' : 'tool_result',
         label: err ? i18n.t('timeline.event.toolError') : i18n.t('timeline.event.toolResult'),
         dot: err ? 'error' : 'done',
         body: content.tool_result,
@@ -319,6 +337,7 @@ export function flattenEvent(event) {
   return raw && raw !== '{}'
     ? [
         {
+          kind: type || 'event',
           label: i18n.t('timeline.event.eventFallback', { type: type || 'event' }),
           dot: 'done',
           body: raw,

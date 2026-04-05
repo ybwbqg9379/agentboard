@@ -87,6 +87,7 @@ export default function Header({
               type="button"
               className={`${styles.shellTab} ${uiShell === 'pro' ? styles.shellTabActive : ''}`}
               title={t('header.shellTabProHint')}
+              aria-pressed={uiShell === 'pro'}
               onClick={() => onUiShellChange('pro')}
             >
               {t('header.shellPro')}
@@ -95,6 +96,7 @@ export default function Header({
               type="button"
               className={`${styles.shellTab} ${uiShell === 'agent' ? styles.shellTabActive : ''}`}
               title={t('header.shellTabAgentHint')}
+              aria-pressed={uiShell === 'agent'}
               onClick={() => onUiShellChange('agent')}
             >
               {t('header.shellAgent')}

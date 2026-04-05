@@ -67,13 +67,11 @@ function truncate(text, max = 5000) {
 }
 
 function TimelineItem({ item, index, sessionId }) {
-  const { t } = useTranslation();
   const useMarkdown = item.renderMarkdown === true;
-  const toolResultLabel = t('timeline.event.toolResult');
 
   // UX Enhancement: Detect if body is a JSON array (for DataAnalystTool)
   let tableData = null;
-  if (item.label === toolResultLabel && item.dot !== 'error') {
+  if (item.kind === 'tool_result') {
     try {
       const parsed = JSON.parse(item.body);
       if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === 'object') {
@@ -86,7 +84,7 @@ function TimelineItem({ item, index, sessionId }) {
 
   // UX Enhancement: Detect if body mentions a generated PDF (for ReportTool)
   let pdfFile = null;
-  if (item.label === toolResultLabel && item.dot !== 'error') {
+  if (item.kind === 'tool_result') {
     const pdfMatch = item.body.match(/File: (.*\.pdf)/i);
     if (pdfMatch) pdfFile = pdfMatch[1];
   }
@@ -128,9 +126,9 @@ function TimelineItem({ item, index, sessionId }) {
 }
 
 export default function AgentTimeline({ events, status, sessionId }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const bottomRef = useRef(null);
-  const displayItems = useMemo(() => buildDisplayItems(events), [events]);
+  const displayItems = useMemo(() => buildDisplayItems(events), [events, i18n.language]);
 
   useEffect(() => {
     const id = requestAnimationFrame(() => {

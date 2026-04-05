@@ -358,7 +358,7 @@ describe('BLOCK_HANDLERS', () => {
       { type: 'tool_result', content: 'file contents here' },
       ts,
     );
-    expect(result).toMatchObject({ label: 'Tool Result', dot: 'done' });
+    expect(result).toMatchObject({ kind: 'tool_result', label: 'Tool Result', dot: 'done' });
     expect(result.body).toBe('file contents here');
   });
 
@@ -367,7 +367,7 @@ describe('BLOCK_HANDLERS', () => {
       { type: 'tool_result', is_error: true, content: 'ENOENT' },
       ts,
     );
-    expect(result).toMatchObject({ label: 'Tool Error', dot: 'error' });
+    expect(result).toMatchObject({ kind: 'tool_error', label: 'Tool Error', dot: 'error' });
   });
 
   it('tool_result with output field', () => {
@@ -400,6 +400,7 @@ describe('parseBlock', () => {
 
   it('parses tool_use block', () => {
     const result = parseBlock({ type: 'tool_use', name: 'Bash', input: 'ls' }, ts);
+    expect(result.kind).toBe('tool_use');
     expect(result.label).toBe('Tool: Bash');
   });
 
@@ -434,6 +435,7 @@ describe('flattenEvent', () => {
       };
       const result = flattenEvent(event);
       expect(result).toHaveLength(1);
+      expect(result[0].kind).toBe('init');
       expect(result[0].label).toBe('Session Init');
       expect(result[0].body).toContain('Model: opus');
     });
