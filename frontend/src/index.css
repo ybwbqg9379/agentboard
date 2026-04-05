@@ -110,6 +110,25 @@ body,
   min-height: 0;
 }
 
+/* User shell: downloads dock sits flush above the composer */
+.user-shell-composer-footer {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.user-shell-composer-footer:has(.session-downloadables-dock) {
+  background: var(--bg-tertiary);
+  box-shadow: 0 -4px 24px rgba(var(--bg-black-rgb), 0.06);
+}
+
+.user-shell-composer-footer .session-downloadables-dock + form {
+  border-top: none;
+  box-shadow: none;
+}
+
 /* Shell preference (see themePreferences): subtle scroll affordance in user agent feed */
 html[data-ui-shell='agent'] .user-agent-feed {
   scroll-padding-top: var(--space-sm);

@@ -6,7 +6,7 @@ import ContextPanel from './ContextPanel.jsx';
 import FileChangesPanel from './FileChangesPanel.jsx';
 import styles from './RightPanel.module.css';
 
-export default function RightPanel({ events, sessionStats }) {
+export default function RightPanel({ events, sessionStats, sessionId }) {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('terminal');
 
@@ -40,7 +40,7 @@ export default function RightPanel({ events, sessionStats }) {
       <div className={styles.content}>
         {activeTab === 'terminal' && <TerminalView events={events} />}
         {activeTab === 'context' && <ContextPanel sessionStats={sessionStats} />}
-        {activeTab === 'files' && <FileChangesPanel events={events} />}
+        {activeTab === 'files' && <FileChangesPanel events={events} sessionId={sessionId} />}
       </div>
     </div>
   );

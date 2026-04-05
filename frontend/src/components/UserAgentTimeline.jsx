@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FileDown, Sparkles } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import MarkdownBody from './MarkdownBody.jsx';
 import { TimelineDotIcon } from './LucideStatusIcons.jsx';
-import { buildDisplayItems } from './agentTimelineModel.js';
+import { buildUserShellDisplayItems } from './agentTimelineModel.js';
 import styles from './UserAgentTimeline.module.css';
 
 function JsonTable({ data }) {
@@ -33,23 +33,12 @@ function JsonTable({ data }) {
   );
 }
 
-function DownloadRow({ fileName, sessionId }) {
-  const { t } = useTranslation();
-  const downloadUrl = `/api/sessions/${sessionId}/files/${encodeURIComponent(fileName)}`;
-  return (
-    <a href={downloadUrl} download={fileName} className={styles.downloadBtn}>
-      <FileDown size={14} strokeWidth={2} className={styles.downloadIcon} aria-hidden />
-      {t('timeline.download', { fileName })}
-    </a>
-  );
-}
-
 function truncate(text, max = 5000) {
   if (typeof text !== 'string') text = String(text);
   return text.length > max ? text.slice(0, max) + '...' : text;
 }
 
-function UserMilestoneRow({ item, index, sessionId }) {
+function UserMilestoneRow({ item, index }) {
   const useMarkdown = item.renderMarkdown === true;
 
   let tableData = null;
@@ -62,12 +51,6 @@ function UserMilestoneRow({ item, index, sessionId }) {
     } catch {
       /* ignore */
     }
-  }
-
-  let pdfFile = null;
-  if (item.kind === 'tool_result') {
-    const pdfMatch = item.body.match(/File: (.*\.pdf)/i);
-    if (pdfMatch) pdfFile = pdfMatch[1];
   }
 
   return (
@@ -88,7 +71,6 @@ function UserMilestoneRow({ item, index, sessionId }) {
             {item.ts ? new Date(item.ts).toLocaleTimeString() : '--:--:--'}
           </time>
         </header>
-        {pdfFile && <DownloadRow fileName={pdfFile} sessionId={sessionId} />}
         {tableData ? (
           <JsonTable data={tableData} />
         ) : (
@@ -106,10 +88,10 @@ function UserMilestoneRow({ item, index, sessionId }) {
   );
 }
 
-export default function UserAgentTimeline({ events, status, sessionId }) {
+export default function UserAgentTimeline({ events, status }) {
   const { t, i18n } = useTranslation();
   const bottomRef = useRef(null);
-  const displayItems = useMemo(() => buildDisplayItems(events), [events, i18n.language]);
+  const displayItems = useMemo(() => buildUserShellDisplayItems(events), [events, i18n.language]);
 
   useEffect(() => {
     const id = requestAnimationFrame(() => {
@@ -118,7 +100,7 @@ export default function UserAgentTimeline({ events, status, sessionId }) {
     return () => cancelAnimationFrame(id);
   }, [displayItems.length]);
 
-  if (displayItems.length === 0 && status === 'idle') {
+  if (events.length === 0 && status === 'idle') {
     return (
       <div className={`${styles.emptyWrap} user-agent-feed`}>
         <div className={styles.emptyInner}>
@@ -140,8 +122,11 @@ export default function UserAgentTimeline({ events, status, sessionId }) {
       </div>
       <div className={styles.feedList}>
         {displayItems.map((item, i) => (
-          <UserMilestoneRow key={item.key} item={item} index={i} sessionId={sessionId} />
+          <UserMilestoneRow key={item.key} item={item} index={i} />
         ))}
+        {displayItems.length === 0 && status === 'idle' && events.length > 0 && (
+          <p className={styles.toolsOnlyNote}>{t('userShell.toolsOnlyHidden')}</p>
+        )}
         {status === 'running' && (
           <div className={styles.runningRow}>
             <TimelineDotIcon variant="running" />

@@ -109,7 +109,7 @@ export function convertTools(anthropicTools) {
  */
 function compressSystemPrompt(fullPrompt) {
   // Markers added by AgentBoard's getSystemPromptAppend()
-  const markers = ['[SECURITY]', '[WEB ACCESS]', '[EFFICIENCY]'];
+  const markers = ['[SECURITY]', '[WEB ACCESS]', '[EFFICIENCY]', '[PDF REPORTS]'];
 
   // Extract the AgentBoard-appended section
   let agentBoardSection = '';

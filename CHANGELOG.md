@@ -1,5 +1,44 @@
 # Changelog
 
+## [0.16.4] - 2026-04-04
+
+### feat: 智能同事产物下载、时间线降噪、PDF 字体与 Report 策略
+
+#### Added
+
+- **后端**：`GET /api/sessions/:id/workspace-files` 列出会话工作区根目录文件（体量上限、隐藏点文件）；列表**排除**由会话初始化复制的 **`CLAUDE.md`**（非 Agent 产物）。
+- **前端**：**`lib/sessionDownloads.js`** — 与下载 API 白名单一致的扩展名判断与 URL 拼装。
+- **前端**：**`SessionDownloadablesStrip.jsx`** — 智能同事主界面**底部**（**`user-shell-composer-footer`**，紧贴 **`ChatInput`** 上方）展示可下载产物链接；与输入区共用 `bg-tertiary` 与上阴影，有下载条时去掉输入框顶部分割线避免双线。
+- **前端**：**`buildUserShellDisplayItems`** / **`isUserShellTimelineItem`**（**`agentTimelineModel.js`**）— 用户壳时间线**隐藏** `tool_use` / `tool_result` / `tool_error` / `thinking` / `tool_progress` / `stderr` / `raw`，仅保留助手可见内容、系统行与结束统计等；无可见行时提示前往「技术详情」查看完整终端。
+- **前端**：**`FileChangesPanel`** 传入 **`sessionId`**，合并工具记录与工作区列表；对 **pdf/csv/json/txt/png/jpg/jpeg** 行显示**下载**入口。
+- **后端**：依赖 **`@fontsource/noto-sans-sc`**，**`ReportTool`** 在有效 **`AGENTBOARD_PDF_FONT`** 之后优先嵌入**捆绑 Noto Sans SC（WOFF2）**，再探测系统 Unicode 字体；支持 **`AGENTBOARD_DISABLE_BUNDLED_PDF_FONT=1`**（测试/排障）。
+
+#### Changed
+
+- **`agentManager.js`**：系统提示追加 **`[PDF REPORTS]`** — 面向用户的正式 PDF **必须**使用原生 **ReportTool**，禁止用 reportlab / wkhtmltopdf / pandoc 等 Bash 链路生成交付物。
+- **`proxy.js`**：System Prompt 压缩保留 **`[PDF REPORTS]`** 标记段。
+- **`ReportTool`**：工具描述强调交付型 PDF 的唯一路径；注释说明捆绑字体同时覆盖拉丁与 CJK。
+- **`App.jsx`** / **`index.css`**：智能同事列布局为「可滚动进展 + 底部 composer 页脚（下载条 + 输入）」。
+
+#### Documentation
+
+- **`ARCHITECTURE.md`**、**`README.md`**、**`frontend/DESIGN.md`**、**`ONBOARDING.md`**：同步会话文件列表 API、用户壳时间线/下载、**`ReportTool`/字体**与双壳差异说明。
+- **`.env.example`**：补充 **`AGENTBOARD_PDF_FONT`** / **`AGENTBOARD_DISABLE_BUNDLED_PDF_FONT`** 注释说明。
+- **`README.md`**、**`CONTRIBUTING.md`**、**`ONBOARDING.md`**：Vitest 全仓计数更新为 **885**（641 + 244）。
+
+#### Fixed
+
+- **`GET .../files/:fileName`**：先校验**扩展名白名单**再 **`hasOwnedSession`**，非法扩展立即 **403**，避免并行单测下 SQLite 争用导致 **`rejects disallowed file extensions`** 超时。
+
+#### Tests
+
+- **`server.test.js`**：`workspace-files` 路由与 **CLAUDE.md** 过滤。
+- **`ReportTool.test.js`**：捆绑字体与禁用捆绑回退。
+- **`FileChangesPanel.test.jsx`**：**ReportTool** 写入统计、工作区去重。
+- **`agentTimelineModel.test.js`**、**`sessionDownloads.test.js`**：用户壳投影与下载 URL。
+
+---
+
 ## [0.16.3] - 2026-04-04
 
 ### feat(frontend): 用户壳、Claude 主题包与 Agent 顶栏/输入简化

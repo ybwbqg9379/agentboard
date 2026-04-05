@@ -26,6 +26,14 @@ import config from '../../config.js';
 
 const router = Router();
 
+function resolveSessionWorkspaceDir(userId, sessionId) {
+  const userRoot =
+    !userId || userId === 'default'
+      ? path.resolve(config.workspaceDir)
+      : path.resolve(config.workspaceDir, userId);
+  return path.resolve(path.join(userRoot, 'sessions', sessionId));
+}
+
 router.get('/sessions', validateQuery(sessionsQuerySchema), async (req, res) => {
   const { limit, offset } = req.query;
   const sessions = await listSessionsPaged(req.user.id, limit, offset);
@@ -145,32 +153,72 @@ router.post('/sessions/:id/control', validate(controlActionSchema), async (req, 
   }
 });
 
-// Download a file from the session's workspace (e.g., PDF reports)
-router.get('/sessions/:id/files/:fileName', async (req, res) => {
-  const { id, fileName } = req.params;
+// Session bootstrap copies CLAUDE.md from user root — not an agent artifact; hide from "workspace files" UI.
+function isSessionInfrastructureFile(name) {
+  return name.toLowerCase() === 'claude.md';
+}
+
+// List non-hidden files in the session workspace root (Bash / subprocess outputs are not in Write/Edit events)
+router.get('/sessions/:id/workspace-files', async (req, res) => {
+  const { id } = req.params;
   if (!(await hasOwnedSession(req.user.id, id))) {
     return res.status(404).json({ error: 'session not found' });
   }
 
-  // Security: Only allow specific extensions to prevent downloading sensitive workspace data
+  const sessionDir = resolveSessionWorkspaceDir(req.user.id, id);
+  const maxEntries = 500;
+
+  try {
+    const dirents = await fs.readdir(sessionDir, { withFileTypes: true });
+    const files = [];
+
+    for (const d of dirents) {
+      if (!d.isFile()) continue;
+      if (d.name.startsWith('.')) continue;
+      if (isSessionInfrastructureFile(d.name)) continue;
+      if (files.length >= maxEntries) break;
+
+      const filePath = path.join(sessionDir, d.name);
+      if (!isPathInside(sessionDir, path.resolve(filePath))) continue;
+
+      try {
+        const st = await fs.stat(filePath);
+        if (!st.isFile()) continue;
+        files.push({
+          name: d.name,
+          bytes: st.size,
+          mtimeMs: st.mtimeMs,
+        });
+      } catch {
+        /* race: file removed */
+      }
+    }
+
+    files.sort((a, b) => b.mtimeMs - a.mtimeMs);
+    res.json({ files });
+  } catch {
+    res.json({ files: [] });
+  }
+});
+
+// Download a file from the session's workspace (e.g., PDF reports)
+router.get('/sessions/:id/files/:fileName', async (req, res) => {
+  const { id, fileName } = req.params;
+
+  // Reject bad extensions before DB (avoids SQLite contention on parallel tests / junk traffic)
   const allowedExtensions = ['.pdf', '.csv', '.json', '.txt', '.png', '.jpg', '.jpeg'];
   const ext = path.extname(fileName).toLowerCase();
   if (!allowedExtensions.includes(ext)) {
     return res.status(403).json({ error: 'file type not allowed for download' });
   }
 
+  if (!(await hasOwnedSession(req.user.id, id))) {
+    return res.status(404).json({ error: 'session not found' });
+  }
+
   try {
     const safeFileName = path.basename(fileName);
-
-    // Build session workspace path matching agentManager.getSessionWorkspace():
-    //   default user  → config.workspaceDir/sessions/:id
-    //   named  user   → config.workspaceDir/:userId/sessions/:id
-    const userId = req.user.id;
-    const userRoot =
-      !userId || userId === 'default'
-        ? path.resolve(config.workspaceDir)
-        : path.resolve(config.workspaceDir, userId);
-    const sessionDir = path.resolve(path.join(userRoot, 'sessions', id));
+    const sessionDir = resolveSessionWorkspaceDir(req.user.id, id);
     const filePath = path.resolve(path.join(sessionDir, safeFileName));
 
     // Security: Ensure the resolved path is strictly inside the session directory

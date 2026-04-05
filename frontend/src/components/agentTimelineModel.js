@@ -348,6 +348,37 @@ export function flattenEvent(event) {
     : [];
 }
 
+/** Kinds hidden in 智能同事 feed (assistant-facing); full log stays in Console shell + 技术详情终端 */
+const USER_SHELL_HIDDEN_KINDS = new Set([
+  'tool_use',
+  'tool_result',
+  'tool_error',
+  'thinking',
+  'tool_progress',
+  'stderr',
+  'raw',
+]);
+
+export function isUserShellTimelineItem(item) {
+  return item && typeof item.kind === 'string' && !USER_SHELL_HIDDEN_KINDS.has(item.kind);
+}
+
+/**
+ * Same as {@link buildDisplayItems} but omits tool I/O and model thinking for end-user UX.
+ */
+export function buildUserShellDisplayItems(events) {
+  const items = [];
+  for (let ei = 0; ei < events.length; ei++) {
+    const flat = flattenEvent(events[ei]);
+    for (let bi = 0; bi < flat.length; bi++) {
+      const row = flat[bi];
+      if (!isUserShellTimelineItem(row)) continue;
+      items.push({ ...row, key: `${ei}-${bi}` });
+    }
+  }
+  return items;
+}
+
 export function buildDisplayItems(events) {
   const items = [];
   for (let ei = 0; ei < events.length; ei++) {

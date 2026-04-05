@@ -13,6 +13,8 @@ export {
   parseBlock,
   flattenEvent,
   buildDisplayItems,
+  buildUserShellDisplayItems,
+  isUserShellTimelineItem,
 } from './agentTimelineModel.js';
 
 /**

@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 
 vi.mock('./FileChangesPanel.module.css', () => ({ default: {} }));
 
-import { extractFileChanges } from './FileChangesPanel.jsx';
+import { extractFileChanges, workspaceFilesNotInToolList } from './FileChangesPanel.jsx';
 
 describe('extractFileChanges', () => {
   it('returns empty array for empty events', () => {
@@ -268,5 +268,32 @@ describe('extractFileChanges', () => {
     const result = extractFileChanges(events);
     expect(result).toHaveLength(1);
     expect(result[0].path).toBe('/preferred.js');
+  });
+
+  it('counts native MCP ReportTool fileName as a write', () => {
+    const events = [
+      {
+        timestamp: '2026-03-31T12:00:00Z',
+        content: {
+          content: [
+            {
+              type: 'tool_use',
+              name: 'mcp__agentboard_native__ReportTool',
+              input: { fileName: 'out.pdf', title: 'T', content: 'x' },
+            },
+          ],
+        },
+      },
+    ];
+    const result = extractFileChanges(events);
+    expect(result).toHaveLength(1);
+    expect(result[0].path).toBe('out.pdf');
+    expect(result[0].writes).toBe(1);
+  });
+
+  it('workspaceFilesNotInToolList excludes basenames already in tool paths', () => {
+    const toolFiles = [{ path: '/ws/script.py' }];
+    const ws = [{ name: 'script.py' }, { name: 'out.pdf' }];
+    expect(workspaceFilesNotInToolList(toolFiles, ws)).toEqual([{ name: 'out.pdf' }]);
   });
 });

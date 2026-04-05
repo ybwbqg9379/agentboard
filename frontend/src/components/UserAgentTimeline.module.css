@@ -37,6 +37,17 @@
   flex-shrink: 0;
 }
 
+.toolsOnlyNote {
+  margin: 0 auto;
+  padding: var(--space-md) var(--space-lg);
+  font-size: var(--ui-body-sm);
+  color: var(--text-secondary);
+  line-height: 1.5;
+  max-width: 52rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
 .feedList {
   display: flex;
   flex-direction: column;

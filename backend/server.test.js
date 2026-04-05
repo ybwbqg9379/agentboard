@@ -529,6 +529,68 @@ describe('WebSocket heartbeat handling', () => {
 });
 
 // ---------------------------------------------------------------------------
+// GET /api/sessions/:id/workspace-files
+// ---------------------------------------------------------------------------
+
+describe('GET /api/sessions/:id/workspace-files', () => {
+  it('returns 404 for non-owned session', async () => {
+    const res = await request(app).get('/api/sessions/unknown-id/workspace-files');
+    expect(res.status).toBe(404);
+  });
+
+  it('lists files in the tenant session workspace sorted by mtime', async () => {
+    const sessionDir = '/tmp/agentboard-test/tenant-a/sessions/tenant-a-session';
+    await fs.mkdir(sessionDir, { recursive: true });
+    const older = new Date('2020-01-01T00:00:00Z');
+    const newer = new Date('2025-06-01T00:00:00Z');
+    const aPath = path.join(sessionDir, 'a.pdf');
+    const bPath = path.join(sessionDir, 'b.py');
+    await fs.writeFile(aPath, 'pdf-a');
+    await fs.utimes(aPath, older, older);
+    await fs.writeFile(bPath, 'print(1)');
+    await fs.utimes(bPath, newer, newer);
+
+    try {
+      const res = await request(app)
+        .get('/api/sessions/tenant-a-session/workspace-files')
+        .set('x-user-id', 'tenant-a');
+
+      expect(res.status).toBe(200);
+      expect(Array.isArray(res.body.files)).toBe(true);
+      expect(res.body.files.length).toBeGreaterThanOrEqual(2);
+      const names = res.body.files.map((f) => f.name);
+      expect(names).toContain('a.pdf');
+      expect(names).toContain('b.py');
+      expect(res.body.files[0].name).toBe('b.py');
+      expect(typeof res.body.files[0].bytes).toBe('number');
+      expect(typeof res.body.files[0].mtimeMs).toBe('number');
+    } finally {
+      await fs.rm('/tmp/agentboard-test/tenant-a', { recursive: true, force: true });
+    }
+  });
+
+  it('omits CLAUDE.md (session bootstrap copy, not an agent artifact)', async () => {
+    const sessionDir = '/tmp/agentboard-test/tenant-a/sessions/tenant-a-session';
+    await fs.mkdir(sessionDir, { recursive: true });
+    await fs.writeFile(path.join(sessionDir, 'CLAUDE.md'), '# rules');
+    await fs.writeFile(path.join(sessionDir, 'out.pdf'), '%PDF');
+
+    try {
+      const res = await request(app)
+        .get('/api/sessions/tenant-a-session/workspace-files')
+        .set('x-user-id', 'tenant-a');
+
+      expect(res.status).toBe(200);
+      const names = res.body.files.map((f) => f.name);
+      expect(names).toContain('out.pdf');
+      expect(names).not.toContain('CLAUDE.md');
+    } finally {
+      await fs.rm('/tmp/agentboard-test/tenant-a', { recursive: true, force: true });
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
 // GET /api/sessions/:id/files/:fileName (download route)
 // ---------------------------------------------------------------------------
 

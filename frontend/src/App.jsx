@@ -18,6 +18,7 @@ import SessionDrawer from './components/SessionDrawer.jsx';
 import WorkflowEditor from './components/WorkflowEditor.jsx';
 import ExperimentView from './components/ExperimentView.jsx';
 import UserAgentTimeline from './components/UserAgentTimeline.jsx';
+import SessionDownloadablesStrip from './components/SessionDownloadablesStrip.jsx';
 import UserAgentDetailsDrawer from './components/UserAgentDetailsDrawer.jsx';
 
 export default function App() {
@@ -106,20 +107,23 @@ export default function App() {
         <>
           <div className="main-content agent-user-shell">
             <div className="left-panel agent-user-column">
-              <UserAgentTimeline events={events} status={status} sessionId={sessionId} />
-              <ChatInput
-                variant="user"
-                onSend={startAgent}
-                onFollowUp={followUp}
-                onStop={stopAgent}
-                status={status}
-                sessionId={sessionId}
-                connected={connected}
-              />
+              <UserAgentTimeline events={events} status={status} />
+              <div className="user-shell-composer-footer">
+                <SessionDownloadablesStrip sessionId={sessionId} refreshKey={events.length} />
+                <ChatInput
+                  variant="user"
+                  onSend={startAgent}
+                  onFollowUp={followUp}
+                  onStop={stopAgent}
+                  status={status}
+                  sessionId={sessionId}
+                  connected={connected}
+                />
+              </div>
             </div>
           </div>
           <UserAgentDetailsDrawer open={userDetailsOpen} onClose={closeUserDetails}>
-            <RightPanel events={events} sessionStats={sessionStats} />
+            <RightPanel events={events} sessionStats={sessionStats} sessionId={sessionId} />
           </UserAgentDetailsDrawer>
           <StatusBar
             status={status}
@@ -143,7 +147,7 @@ export default function App() {
                 connected={connected}
               />
             </div>
-            <RightPanel events={events} sessionStats={sessionStats} />
+            <RightPanel events={events} sessionStats={sessionStats} sessionId={sessionId} />
           </div>
 
           <StatusBar

@@ -159,6 +159,8 @@
     "empty": "尚无文件操作",
     "modified": "已修改（{{count}}）",
     "readOnly": "只读（{{count}}）",
+    "workspaceExtra": "工作区文件（{{count}}）",
+    "workspaceHint": "由 Bash 等命令写入、未走 Write/Edit 工具的文件",
     "opWrite": "写入次数",
     "opEdit": "编辑次数",
     "opRead": "读取次数"
@@ -330,6 +332,9 @@
   },
   "userShell": {
     "feedTitle": "进展",
+    "downloadsTitle": "可下载文件",
+    "downloadsRegion": "本会话可下载的产物",
+    "toolsOnlyHidden": "本轮仅包含工具执行步骤，已在界面中收起。完整终端与逐步工具记录请打开「技术详情」。",
     "emptyTitle": "可以开始交办任务",
     "emptyHint": "用自然语言说明要办的事。智能体以完整能力执行，并在此展示关键进展。",
     "runningHint": "正在推进任务…",

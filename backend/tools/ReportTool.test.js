@@ -30,10 +30,12 @@ describe('ReportTool', () => {
   const tool = new ReportTool();
   let tempDir;
   let originalPdfFont;
+  let originalDisableBundled;
 
   beforeEach(async () => {
     tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agentboard-report-test-'));
     originalPdfFont = process.env.AGENTBOARD_PDF_FONT;
+    originalDisableBundled = process.env.AGENTBOARD_DISABLE_BUNDLED_PDF_FONT;
   });
 
   afterEach(async () => {
@@ -41,6 +43,11 @@ describe('ReportTool', () => {
       delete process.env.AGENTBOARD_PDF_FONT;
     } else {
       process.env.AGENTBOARD_PDF_FONT = originalPdfFont;
+    }
+    if (originalDisableBundled === undefined) {
+      delete process.env.AGENTBOARD_DISABLE_BUNDLED_PDF_FONT;
+    } else {
+      process.env.AGENTBOARD_DISABLE_BUNDLED_PDF_FONT = originalDisableBundled;
     }
     await fs.rm(tempDir, { recursive: true, force: true });
   });
@@ -98,7 +105,7 @@ describe('ReportTool', () => {
     await expect(tool.call(input, context)).rejects.toThrow('Only .pdf extension is allowed');
   });
 
-  it('falls back safely when no Unicode PDF font is configured', async () => {
+  it('uses bundled Noto WOFF2 for CJK when AGENTBOARD_PDF_FONT is invalid', async () => {
     process.env.AGENTBOARD_PDF_FONT = path.join(tempDir, 'missing-unicode-font.ttf');
 
     const input = {
@@ -113,11 +120,35 @@ describe('ReportTool', () => {
 
     expect(result.isError).toBe(false);
     expect(result.content[0].text).toContain('cjk_report.pdf');
-    expect(result.content[0].text).toContain('non-Latin');
-    expect(result.content[0].text).toContain('Font: TimesRoman');
+    expect(result.content[0].text).not.toContain('non-Latin');
+    expect(result.content[0].text).toMatch(/Font:.*noto-sans-sc.*\.woff2/i);
 
     const stats = await fs.stat(path.join(tempDir, 'cjk_report.pdf'));
     expect(stats.size).toBeGreaterThan(100);
+  });
+
+  it('falls back to TimesRoman when bundled font is disabled and no OS Unicode font exists', async () => {
+    process.env.AGENTBOARD_DISABLE_BUNDLED_PDF_FONT = '1';
+    process.env.AGENTBOARD_PDF_FONT = path.join(tempDir, 'missing-unicode-font.ttf');
+
+    const unicodeFontPath = await findExistingUnicodeFont();
+    if (unicodeFontPath) {
+      return;
+    }
+
+    const input = {
+      title: '中文报告',
+      content: '# 摘要\n短。',
+      fileName: 'cjk_fallback.pdf',
+      author: '测试',
+    };
+    const context = { userWorkspace: tempDir };
+
+    const result = await tool.call(input, context);
+
+    expect(result.isError).toBe(false);
+    expect(result.content[0].text).toContain('non-Latin');
+    expect(result.content[0].text).toContain('Font: TimesRoman');
   });
 
   it('uses a Unicode font to preserve CJK text when one is configured', async () => {

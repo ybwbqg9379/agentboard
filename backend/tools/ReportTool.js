@@ -3,6 +3,9 @@ import fontkit from '@pdf-lib/fontkit';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import path from 'path';
 import fs from 'fs/promises';
+import { createRequire } from 'module';
+
+const require = createRequire(import.meta.url);
 
 /**
  * Sanitize text for WinAnsi-compatible StandardFonts.
@@ -34,11 +37,39 @@ const UNICODE_FONT_CANDIDATES = [
   '/usr/share/fonts/truetype/arphic/ukai.ttc',
 ];
 
+function getBundledNotoSansScWoff2Path() {
+  if (process.env.AGENTBOARD_DISABLE_BUNDLED_PDF_FONT === '1') {
+    return null;
+  }
+  try {
+    return require.resolve('@fontsource/noto-sans-sc/files/noto-sans-sc-chinese-simplified-400-normal.woff2');
+  } catch {
+    return null;
+  }
+}
+
 async function findUnicodeFontPath() {
   const explicitFontPath = process.env.AGENTBOARD_PDF_FONT?.trim();
-  const candidates = explicitFontPath ? [explicitFontPath] : UNICODE_FONT_CANDIDATES;
+  if (explicitFontPath) {
+    try {
+      await fs.access(explicitFontPath);
+      return explicitFontPath;
+    } catch {
+      // Invalid explicit path — fall through to bundled / system fonts.
+    }
+  }
 
-  for (const candidate of candidates) {
+  const bundled = getBundledNotoSansScWoff2Path();
+  if (bundled) {
+    try {
+      await fs.access(bundled);
+      return bundled;
+    } catch {
+      // Continue with OS candidates.
+    }
+  }
+
+  for (const candidate of UNICODE_FONT_CANDIDATES) {
     try {
       await fs.access(candidate);
       return candidate;
@@ -127,16 +158,16 @@ async function createTextRuntime(pdfDoc) {
  * ReportTool: Independent document engineer.
  * Generates professional PDF reports from Markdown and structured data in the workspace.
  *
- * Note: Prefers embedding a configured or auto-detected Unicode font for full CJK output.
- * If no usable Unicode font is available, it falls back to pdf-lib StandardFonts (WinAnsi)
- * and replaces unsupported characters with '?' placeholders while surfacing a warning.
+ * Font resolution: AGENTBOARD_PDF_FONT (if valid), then bundled Noto Sans SC WOFF2 (Latin + CJK),
+ * then common OS Unicode fonts. The bundled font is used for both English-only and mixed EN/ZH reports.
+ * If nothing embeds, falls back to StandardFonts (WinAnsi) with '?' for non-Latin.
  */
 export class ReportTool extends Tool {
   constructor() {
     super({
       name: 'ReportTool',
       description:
-        'Generate a professional PDF report from Markdown content and structured data. Automatically formats text, headers, and metadata. Prefers a Unicode font for full CJK output and falls back to StandardFonts with an explicit warning when no Unicode font is available.',
+        'REQUIRED for any formal PDF report to the user (English or Chinese). Creates a PDF from Markdown (#/## headings, body lines); embeds Unicode fonts (Latin+CJK). Do not use reportlab/wkhtmltopdf/pandoc for deliverable PDFs. Args: content, title, fileName (.pdf), optional author.',
       inputSchema: {
         type: 'object',
         properties: {

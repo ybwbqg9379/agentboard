@@ -75,6 +75,18 @@
   opacity: 0.85;
 }
 
+.fileKindIconWorkspace {
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+  opacity: 0.9;
+}
+
+.workspaceMeta {
+  font-family: var(--font-mono);
+  font-size: var(--ui-micro);
+  color: var(--text-tertiary);
+}
+
 .name {
   color: var(--text-primary);
   font-family: var(--font-mono);
@@ -88,8 +100,24 @@
 
 .ops {
   display: flex;
+  align-items: center;
   gap: var(--space-xs);
   flex-shrink: 0;
+}
+
+.fileDownload {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  margin-left: 2px;
+  border-radius: var(--radius-sm);
+  color: var(--text-accent);
+  transition: background var(--motion-duration-sm) ease;
+}
+
+.fileDownload:hover {
+  background: var(--bg-hover);
 }
 
 .write,

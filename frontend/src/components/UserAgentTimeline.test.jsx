@@ -41,7 +41,7 @@ describe('UserAgentTimeline', () => {
   });
 
   it('shows empty state when idle and there are no events', () => {
-    render(<UserAgentTimeline events={[]} status="idle" sessionId={null} />);
+    render(<UserAgentTimeline events={[]} status="idle" />);
     expect(screen.getByRole('heading', { name: /ready for a task/i })).toBeTruthy();
     expect(screen.getByText(/describe what you want done/i)).toBeTruthy();
   });
@@ -54,7 +54,7 @@ describe('UserAgentTimeline', () => {
         content: { text: 'Hello' },
       },
     ];
-    render(<UserAgentTimeline events={events} status="idle" sessionId="s1" />);
+    render(<UserAgentTimeline events={events} status="idle" />);
     expect(screen.getByRole('heading', { name: /activity/i })).toBeTruthy();
     expect(screen.getByText('1 event')).toBeTruthy();
     expect(screen.getByRole('heading', { name: /assistant/i })).toBeTruthy();
@@ -69,7 +69,7 @@ describe('UserAgentTimeline', () => {
       },
     ];
 
-    render(<UserAgentTimeline events={events} status="idle" sessionId="s1" />);
+    render(<UserAgentTimeline events={events} status="idle" />);
     expect(screen.getByRole('heading', { name: /assistant/i })).toBeTruthy();
     expect(screen.getByText('1 event')).toBeTruthy();
 

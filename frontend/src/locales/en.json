@@ -159,6 +159,8 @@
     "empty": "No file operations yet",
     "modified": "Modified ({{count}})",
     "readOnly": "Read Only ({{count}})",
+    "workspaceExtra": "Workspace files ({{count}})",
+    "workspaceHint": "Files created via Bash or other tools (not Write/Edit)",
     "opWrite": "Write operations",
     "opEdit": "Edit operations",
     "opRead": "Read operations"
@@ -330,6 +332,9 @@
   },
   "userShell": {
     "feedTitle": "Activity",
+    "downloadsTitle": "Downloads",
+    "downloadsRegion": "Downloadable files from this session",
+    "toolsOnlyHidden": "This turn only ran tools; those steps are hidden here. Open Technical details for the full terminal and per-tool log.",
     "emptyTitle": "Ready for a task",
     "emptyHint": "Describe what you want done. The agent runs with full capabilities and shows progress here.",
     "runningHint": "Working through your task…",

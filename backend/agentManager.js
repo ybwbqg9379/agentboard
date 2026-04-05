@@ -90,6 +90,12 @@ const getSystemPromptAppend = (userWorkspace, needsOnboarding = false, pinnedCon
     `  - Avoid redundant searches: do not look up the same information with different tools or rephrased queries.`,
     `  - Most tasks should complete within 20 tool calls. If you have used 30+ tools without a clear result, summarize what you have and deliver it.`,
     `  - When presenting results, be structured and direct. Use tables or bullet points for data-heavy answers.`,
+    ``,
+    `[PDF REPORTS] Formal PDF deliverables (research summaries, executive briefs, any report meant for the user to download or share):`,
+    `  - You MUST use the AgentBoard native ReportTool (tool name: ReportTool on the agentboard-native-mcp server, often exposed as mcp__agentboard_native__ReportTool).`,
+    `  - Pass title, fileName (must end in .pdf), and Markdown content (use # / ## for headings; plain lines for body). English and Chinese are both supported; fonts are embedded automatically.`,
+    `  - Do NOT produce user-facing PDFs via Python reportlab/fpdf, wkhtmltopdf, pandoc, LaTeX, or other Bash pipelines. Those are wrong for this product and break CJK rendering.`,
+    `  - Bash/Write remain fine for non-PDF artifacts (e.g. .md, .csv, source code).`,
   ];
 
   if (needsOnboarding) {
